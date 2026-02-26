@@ -40,8 +40,9 @@ SENHA_GERENCIA = "vi2026"
 STATE_DIR = "vi_producao_state"
 os.makedirs(STATE_DIR, exist_ok=True)
 
-FILE_PEDIDOS = os.path.join(STATE_DIR, "pedidos.json")
+FILE_PEDIDOS    = os.path.join(STATE_DIR, "pedidos.json")
 FILE_CONCLUIDOS = os.path.join(STATE_DIR, "concluidos.json")
+FILE_HISTORICO  = os.path.join(STATE_DIR, "historico.json")   # todas as operações registradas
 
 
 def _carregar(path):
@@ -71,6 +72,26 @@ def carregar_concluidos():
 
 def salvar_concluidos(data):
     _salvar(FILE_CONCLUIDOS, data)
+
+
+def carregar_historico():
+    """Retorna lista de todas as operações já registradas (nunca apagadas)."""
+    d = _carregar(FILE_HISTORICO)
+    return d if isinstance(d, list) else []
+
+
+def registrar_historico(pedido_num, operador, etapa_nome, data_hora, status_pedido="em_andamento"):
+    """Adiciona uma linha ao histórico permanente."""
+    hist = carregar_historico()
+    hist.append({
+        "data_hora":     data_hora,
+        "data":          data_hora.split(" ")[0] if " " in data_hora else data_hora,  # dd/mm/yyyy
+        "pedido":        pedido_num,
+        "operador":      operador,
+        "etapa":         etapa_nome,
+        "status_pedido": status_pedido,
+    })
+    _salvar(FILE_HISTORICO, hist)
 
 
 # =============================================================================
@@ -423,174 +444,238 @@ def tela_login_gerencia():
 # TELA DE EXTRATO GERENCIAL
 # =============================================================================
 def tela_extrato():
-    concluidos = carregar_concluidos()
-    pedidos_em_andamento = carregar_pedidos()
+    concluidos        = carregar_concluidos()
+    pedidos_andamento = carregar_pedidos()
+    historico         = carregar_historico()
 
     st.markdown(f"""
-    <div style="text-align:center;margin-bottom:24px">
+    <div style="text-align:center;margin-bottom:20px">
         {logo_tag}
         <div style="font-size:1.1rem;font-weight:700;color:#fff;margin-top:4px">Extrato de Produção</div>
-        <div style="font-size:.75rem;color:#9ca3af;margin-top:2px">Visão geral por funcionário e etapa</div>
+        <div style="font-size:.75rem;color:#9ca3af;margin-top:2px">Consulta, filtros e download por data e funcionário</div>
     </div>
     """, unsafe_allow_html=True)
 
     # ── Cards de resumo ──────────────────────────────────────────────────────
-    total_sep  = len([p for p in pedidos_em_andamento.values() if p.get("etapa", 0) >= 1])
-    total_emb  = len([p for p in pedidos_em_andamento.values() if p.get("etapa", 0) >= 2])
-    total_conf = len(concluidos)
-    total_and  = len(pedidos_em_andamento)
+    total_op_sep  = len([h for h in historico if h.get("etapa") == "Separação do Pedido"])
+    total_op_emb  = len([h for h in historico if h.get("etapa") == "Mesa de Embalagem"])
+    total_op_conf = len([h for h in historico if h.get("etapa") == "Conferência do Pedido"])
+    total_conc    = len(concluidos)
 
-    col_a, col_b, col_c, col_d = st.columns(4)
-    cards = [
-        (col_a, "📦 Separações", total_sep + total_conf, "#1565C0", "rgba(21,101,192,.2)", "rgba(66,165,245,.25)"),
-        (col_b, "📬 Embalagens", total_emb + total_conf, "#6A0DAD", "rgba(106,13,173,.2)", "rgba(171,71,188,.25)"),
-        (col_c, "✅ Concluídos", total_conf, "#1B5E20", "rgba(27,94,32,.2)", "rgba(76,175,80,.25)"),
-        (col_d, "⏳ Em Andamento", total_and, "#7f1d1d", "rgba(127,29,29,.2)", "rgba(239,68,68,.25)"),
-    ]
-    for col, label, val, cor, bg, border in cards:
+    c1, c2, c3, c4 = st.columns(4)
+    for col, label, val, cor, bg, border in [
+        (c1, "📦 Separações",   total_op_sep,  "#64b5f6", "rgba(21,101,192,.2)",  "rgba(66,165,245,.25)"),
+        (c2, "📬 Embalagens",   total_op_emb,  "#ce93d8", "rgba(106,13,173,.2)",  "rgba(171,71,188,.25)"),
+        (c3, "✅ Conferências", total_op_conf, "#a5d6a7", "rgba(27,94,32,.2)",    "rgba(76,175,80,.25)"),
+        (c4, "🎯 Concluídos",   total_conc,    "#f87171", "rgba(127,29,29,.2)",   "rgba(239,68,68,.25)"),
+    ]:
         with col:
             st.markdown(f"""
-            <div style="background:{bg};border:1px solid {border};
-                border-radius:12px;padding:14px 10px;text-align:center;">
-                <div style="font-size:.6rem;color:#9ca3af;text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:4px">{label}</div>
-                <div style="font-size:1.8rem;font-weight:700;color:{cor}">{val}</div>
+            <div style="background:{bg};border:1px solid {border};border-radius:12px;
+                padding:12px 8px;text-align:center;">
+                <div style="font-size:.58rem;color:#9ca3af;text-transform:uppercase;
+                    letter-spacing:.07em;font-weight:700;margin-bottom:3px">{label}</div>
+                <div style="font-size:1.7rem;font-weight:700;color:{cor}">{val}</div>
             </div>""", unsafe_allow_html=True)
 
     st.markdown('<div class="vi-div"></div>', unsafe_allow_html=True)
 
-    if not concluidos and not pedidos_em_andamento:
-        st.markdown('<div class="vi-alert vi-alert-inf">ℹ️ Nenhum pedido registrado até o momento.</div>', unsafe_allow_html=True)
-    else:
-        # ── Abas: Por Funcionário | Por Pedido ──────────────────────────────
-        aba1, aba2, aba3 = st.tabs(["👤 Por Funcionário", "📋 Pedidos Concluídos", "⏳ Em Andamento"])
+    # ── Abas ─────────────────────────────────────────────────────────────────
+    aba1, aba2, aba3 = st.tabs(["📅 Histórico Completo", "📋 Pedidos Concluídos", "⏳ Em Andamento"])
 
-        # ── ABA 1: Por Funcionário ───────────────────────────────────────────
-        with aba1:
-            st.markdown('<div class="vi-section-title" style="margin-top:16px">Produção por Funcionário</div>', unsafe_allow_html=True)
+    # ══════════════════════════════════════════════════════════════════════════
+    # ABA 1 — HISTÓRICO COMPLETO (por data + operador)
+    # ══════════════════════════════════════════════════════════════════════════
+    with aba1:
+        st.markdown('<div class="vi-section-title" style="margin-top:16px">🔍 Filtros de Consulta</div>', unsafe_allow_html=True)
 
-            # Monta lista de registros por funcionário
-            registros = []
-            # Dos concluídos
-            for p in concluidos:
-                for etapa_key, etapa_nome, dt_key in [
-                    ("op_sep", "📦 Separação", "dt_sep"),
-                    ("op_emb", "📬 Mesa de Embalagem", "dt_emb"),
-                    ("op_conf", "✅ Conferência", "dt_conf"),
-                ]:
-                    if etapa_key in p:
-                        registros.append({
-                            "Funcionário": p[etapa_key],
-                            "Pedido": f"#{p['pedido']}",
-                            "Etapa": etapa_nome,
-                            "Data / Hora": p.get(dt_key, "—"),
-                            "Status": "✅ Concluído",
-                        })
+        if not historico:
+            st.markdown('<div class="vi-alert vi-alert-inf">ℹ️ Nenhuma operação registrada ainda.</div>', unsafe_allow_html=True)
+        else:
+            df_hist = pd.DataFrame(historico)
 
-            # Dos em andamento
-            for p in pedidos_em_andamento.values():
-                for etapa_key, etapa_nome, dt_key in [
-                    ("op_sep", "📦 Separação", "dt_sep"),
-                    ("op_emb", "📬 Mesa de Embalagem", "dt_emb"),
-                ]:
-                    if etapa_key in p:
-                        registros.append({
-                            "Funcionário": p[etapa_key],
-                            "Pedido": f"#{p['pedido']}",
-                            "Etapa": etapa_nome,
-                            "Data / Hora": p.get(dt_key, "—"),
-                            "Status": "⏳ Em andamento",
-                        })
+            # Converte datas para comparação
+            def parse_data(s):
+                try:
+                    return pd.to_datetime(s, format="%d/%m/%Y", errors="coerce")
+                except Exception:
+                    return pd.NaT
 
-            if registros:
-                df_func = pd.DataFrame(registros).sort_values(["Funcionário", "Data / Hora"], ascending=[True, False])
+            df_hist["_data_dt"] = df_hist["data"].apply(parse_data)
 
-                # Filtro por funcionário
-                funcionarios_lista = ["Todos"] + sorted(df_func["Funcionário"].unique().tolist())
-                filtro = st.selectbox("Filtrar por funcionário", options=funcionarios_lista, key="filtro_func")
-                if filtro != "Todos":
-                    df_func = df_func[df_func["Funcionário"] == filtro]
+            # ── Filtros ──
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                from datetime import date, timedelta as td
+                hoje = date.today()
+                data_ini = st.date_input("📅 Data inicial", value=hoje - td(days=7), key="dt_ini", format="DD/MM/YYYY")
+            with col_f2:
+                data_fim = st.date_input("📅 Data final", value=hoje, key="dt_fim", format="DD/MM/YYYY")
 
-                # Resumo do funcionário selecionado
-                if filtro != "Todos":
-                    n_sep  = len(df_func[df_func["Etapa"].str.contains("Separação")])
-                    n_emb  = len(df_func[df_func["Etapa"].str.contains("Embalagem")])
-                    n_conf = len(df_func[df_func["Etapa"].str.contains("Conferência")])
-                    st.markdown(f"""
-                    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);
-                        border-radius:12px;padding:14px 18px;margin:12px 0;
-                        display:flex;gap:24px;align-items:center;flex-wrap:wrap;">
-                        <div style="font-size:.88rem;font-weight:700;color:#fff">👤 {filtro}</div>
-                        <div style="font-size:.75rem;color:#90caf9">📦 {n_sep} separações</div>
-                        <div style="font-size:.75rem;color:#ce93d8">📬 {n_emb} embalagens</div>
-                        <div style="font-size:.75rem;color:#a5d6a7">✅ {n_conf} conferências</div>
-                        <div style="font-size:.75rem;color:#fff;font-weight:700">Total: {n_sep+n_emb+n_conf} operações</div>
-                    </div>
-                    """, unsafe_allow_html=True)
+            col_f3, col_f4 = st.columns(2)
+            with col_f3:
+                ops_lista = ["Todos"] + sorted(df_hist["operador"].dropna().unique().tolist())
+                op_filtro = st.selectbox("👤 Funcionário", options=ops_lista, key="hist_op")
+            with col_f4:
+                etapas_lista = ["Todas"] + ETAPAS
+                etapa_filtro = st.selectbox("⚙️ Etapa", options=etapas_lista, key="hist_etapa")
 
-                st.dataframe(df_func.reset_index(drop=True), use_container_width=True, hide_index=True)
+            # ── Aplica filtros ──
+            mask = (
+                (df_hist["_data_dt"] >= pd.Timestamp(data_ini)) &
+                (df_hist["_data_dt"] <= pd.Timestamp(data_fim))
+            )
+            df_filtrado = df_hist[mask].copy()
+
+            if op_filtro != "Todos":
+                df_filtrado = df_filtrado[df_filtrado["operador"] == op_filtro]
+            if etapa_filtro != "Todas":
+                df_filtrado = df_filtrado[df_filtrado["etapa"] == etapa_filtro]
+
+            df_filtrado = df_filtrado.sort_values("data_hora", ascending=False)
+
+            st.markdown('<div class="vi-div"></div>', unsafe_allow_html=True)
+
+            # ── Resumo do filtro ──
+            n_res = len(df_filtrado)
+            periodo_txt = f"{data_ini.strftime('%d/%m/%Y')} até {data_fim.strftime('%d/%m/%Y')}"
+            op_txt = op_filtro if op_filtro != "Todos" else "todos os funcionários"
+            etapa_txt = etapa_filtro if etapa_filtro != "Todas" else "todas as etapas"
+
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);
+                border-radius:12px;padding:14px 18px;margin-bottom:16px;">
+                <div style="font-size:.7rem;color:#9ca3af;margin-bottom:6px;text-transform:uppercase;letter-spacing:.08em;font-weight:700">Resultado da consulta</div>
+                <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;">
+                    <div style="font-size:.82rem;color:#fff">📅 <b>{periodo_txt}</b></div>
+                    <div style="font-size:.82rem;color:#f87171">👤 <b>{op_txt}</b></div>
+                    <div style="font-size:.82rem;color:#90caf9">⚙️ <b>{etapa_txt}</b></div>
+                    <div style="font-size:.82rem;color:#a5d6a7;margin-left:auto;font-weight:700">{n_res} operação(ões)</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            if n_res == 0:
+                st.markdown('<div class="vi-alert vi-alert-inf">ℹ️ Nenhuma operação encontrada para os filtros selecionados.</div>', unsafe_allow_html=True)
             else:
-                st.markdown('<div class="vi-alert vi-alert-inf">ℹ️ Nenhuma operação registrada ainda.</div>', unsafe_allow_html=True)
+                # Resumo por operador no período
+                if op_filtro == "Todos":
+                    resumo = df_filtrado.groupby(["operador", "etapa"]).size().reset_index(name="qtd")
+                    resumo.columns = ["Funcionário", "Etapa", "Qtd. Operações"]
+                    st.markdown('<div class="vi-section-title">📊 Resumo por Funcionário no Período</div>', unsafe_allow_html=True)
+                    st.dataframe(resumo, use_container_width=True, hide_index=True)
+                    st.markdown('<div class="vi-div"></div>', unsafe_allow_html=True)
 
-        # ── ABA 2: Pedidos Concluídos ────────────────────────────────────────
-        with aba2:
-            st.markdown('<div class="vi-section-title" style="margin-top:16px">Pedidos Finalizados nas 3 Etapas</div>', unsafe_allow_html=True)
-            if concluidos:
-                df_conc = pd.DataFrame(concluidos)
-                df_show = df_conc.rename(columns={
-                    "pedido":  "Pedido",
-                    "op_sep":  "Op. Separação",
-                    "dt_sep":  "Data Separação",
-                    "op_emb":  "Op. Embalagem",
-                    "dt_emb":  "Data Embalagem",
-                    "op_conf": "Op. Conferência",
-                    "dt_conf": "Data Conferência",
-                }).drop(columns=["etapa"], errors="ignore")
+                # Tabela detalhada
+                st.markdown('<div class="vi-section-title">📋 Detalhamento das Operações</div>', unsafe_allow_html=True)
+                df_exib = df_filtrado[["data_hora","pedido","operador","etapa","status_pedido"]].rename(columns={
+                    "data_hora":     "Data / Hora",
+                    "pedido":        "Pedido",
+                    "operador":      "Funcionário",
+                    "etapa":         "Etapa",
+                    "status_pedido": "Status",
+                })
+                df_exib["Status"] = df_exib["Status"].map(
+                    {"em_andamento": "⏳ Em andamento", "concluido": "✅ Concluído"}
+                ).fillna(df_exib["Status"])
+                st.dataframe(df_exib, use_container_width=True, hide_index=True)
 
-                st.dataframe(df_show, use_container_width=True, hide_index=True)
-
+                # ── Downloads ──
                 st.markdown("")
-                col_csv, col_xlsx = st.columns(2)
-                with col_csv:
+                st.markdown('<div class="vi-section-title">⬇️ Baixar Extrato</div>', unsafe_allow_html=True)
+
+                nome_arquivo = f"extrato_{op_filtro.replace(' ','_')}_{data_ini.strftime('%d%m%Y')}_{data_fim.strftime('%d%m%Y')}"
+
+                col_dl1, col_dl2 = st.columns(2)
+                with col_dl1:
                     st.download_button(
                         "⬇️ Baixar CSV",
-                        data=df_show.to_csv(index=False).encode("utf-8"),
-                        file_name=f"extrato_producao_{datetime.now().strftime('%d%m%Y_%H%M')}.csv",
+                        data=df_exib.to_csv(index=False).encode("utf-8"),
+                        file_name=f"{nome_arquivo}.csv",
                         mime="text/csv",
-                        use_container_width=True
+                        use_container_width=True,
+                        key="dl_hist_csv"
                     )
-                with col_xlsx:
+                with col_dl2:
+                    # Excel com duas abas: detalhado + resumo por operador
                     xlsx_buf = BytesIO()
                     with pd.ExcelWriter(xlsx_buf, engine="openpyxl") as writer:
-                        df_show.to_excel(writer, index=False, sheet_name="Produção")
+                        df_exib.to_excel(writer, index=False, sheet_name="Detalhado")
+                        if op_filtro == "Todos":
+                            resumo.to_excel(writer, index=False, sheet_name="Resumo por Funcionário")
                     xlsx_buf.seek(0)
                     st.download_button(
                         "⬇️ Baixar Excel",
                         data=xlsx_buf.getvalue(),
-                        file_name=f"extrato_producao_{datetime.now().strftime('%d%m%Y_%H%M')}.xlsx",
+                        file_name=f"{nome_arquivo}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True
+                        use_container_width=True,
+                        key="dl_hist_xlsx"
                     )
-            else:
-                st.markdown('<div class="vi-alert vi-alert-inf">ℹ️ Nenhum pedido finalizado ainda.</div>', unsafe_allow_html=True)
 
-        # ── ABA 3: Em Andamento ──────────────────────────────────────────────
-        with aba3:
-            st.markdown('<div class="vi-section-title" style="margin-top:16px">Pedidos em Andamento</div>', unsafe_allow_html=True)
-            if pedidos_em_andamento:
-                rows = []
-                etapa_labels = {1: "⏳ Aguardando Embalagem", 2: "⏳ Aguardando Conferência"}
-                for p in pedidos_em_andamento.values():
-                    rows.append({
-                        "Pedido": f"#{p['pedido']}",
-                        "Etapa Atual": etapa_labels.get(p.get("etapa", 0), "—"),
-                        "Op. Separação": p.get("op_sep", "—"),
-                        "Data Separação": p.get("dt_sep", "—"),
-                        "Op. Embalagem": p.get("op_emb", "—"),
-                        "Data Embalagem": p.get("dt_emb", "—"),
-                    })
-                st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-            else:
-                st.markdown('<div class="vi-alert vi-alert-ok">✅ Nenhum pedido em andamento no momento.</div>', unsafe_allow_html=True)
+    # ══════════════════════════════════════════════════════════════════════════
+    # ABA 2 — PEDIDOS CONCLUÍDOS
+    # ══════════════════════════════════════════════════════════════════════════
+    with aba2:
+        st.markdown('<div class="vi-section-title" style="margin-top:16px">Pedidos Finalizados nas 3 Etapas</div>', unsafe_allow_html=True)
+        if concluidos:
+            df_conc = pd.DataFrame(concluidos)
+            df_show = df_conc.rename(columns={
+                "pedido":  "Pedido",
+                "op_sep":  "Op. Separação",   "dt_sep":  "Data Separação",
+                "op_emb":  "Op. Embalagem",   "dt_emb":  "Data Embalagem",
+                "op_conf": "Op. Conferência", "dt_conf": "Data Conferência",
+            }).drop(columns=["etapa"], errors="ignore")
+
+            st.dataframe(df_show, use_container_width=True, hide_index=True)
+
+            st.markdown("")
+            col_c1, col_c2 = st.columns(2)
+            with col_c1:
+                st.download_button(
+                    "⬇️ Baixar CSV",
+                    data=df_show.to_csv(index=False).encode("utf-8"),
+                    file_name=f"pedidos_concluidos_{datetime.now().strftime('%d%m%Y_%H%M')}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    key="dl_conc_csv"
+                )
+            with col_c2:
+                xlsx_buf2 = BytesIO()
+                with pd.ExcelWriter(xlsx_buf2, engine="openpyxl") as writer:
+                    df_show.to_excel(writer, index=False, sheet_name="Concluídos")
+                xlsx_buf2.seek(0)
+                st.download_button(
+                    "⬇️ Baixar Excel",
+                    data=xlsx_buf2.getvalue(),
+                    file_name=f"pedidos_concluidos_{datetime.now().strftime('%d%m%Y_%H%M')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    key="dl_conc_xlsx"
+                )
+        else:
+            st.markdown('<div class="vi-alert vi-alert-inf">ℹ️ Nenhum pedido finalizado ainda.</div>', unsafe_allow_html=True)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # ABA 3 — EM ANDAMENTO
+    # ══════════════════════════════════════════════════════════════════════════
+    with aba3:
+        st.markdown('<div class="vi-section-title" style="margin-top:16px">Pedidos em Andamento</div>', unsafe_allow_html=True)
+        if pedidos_andamento:
+            etapa_labels = {1: "⏳ Aguardando Embalagem", 2: "⏳ Aguardando Conferência"}
+            rows = []
+            for p in pedidos_andamento.values():
+                rows.append({
+                    "Pedido":          f"#{p['pedido']}",
+                    "Etapa Atual":     etapa_labels.get(p.get("etapa", 0), "—"),
+                    "Op. Separação":   p.get("op_sep", "—"),
+                    "Data Separação":  p.get("dt_sep", "—"),
+                    "Op. Embalagem":   p.get("op_emb", "—"),
+                    "Data Embalagem":  p.get("dt_emb", "—"),
+                })
+            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+        else:
+            st.markdown('<div class="vi-alert vi-alert-ok">✅ Nenhum pedido em andamento no momento.</div>', unsafe_allow_html=True)
 
     st.markdown("")
     if st.button("← Sair da Gerência", use_container_width=True, type="secondary"):
@@ -824,7 +909,6 @@ def tela_operador():
     col_sim, col_nao = st.columns(2)
     with col_sim:
         if st.button("✅  Sim, concluído", use_container_width=True):
-            # Salva no estado dos pedidos
             pedidos = carregar_pedidos()
             now = agora_str()
 
@@ -835,11 +919,15 @@ def tela_operador():
                     "op_sep": operador,
                     "dt_sep": now,
                 }
+                registrar_historico(pedido_atual, operador, "Separação do Pedido", now, "em_andamento")
+
             elif etapa_idx == 1:
                 if pedido_atual in pedidos:
                     pedidos[pedido_atual]["etapa"] = 2
                     pedidos[pedido_atual]["op_emb"] = operador
                     pedidos[pedido_atual]["dt_emb"] = now
+                    registrar_historico(pedido_atual, operador, "Mesa de Embalagem", now, "em_andamento")
+
             else:
                 # Etapa 3 — finalizado!
                 if pedido_atual in pedidos:
@@ -851,6 +939,7 @@ def tela_operador():
                     conc.append(pedidos[pedido_atual])
                     salvar_concluidos(conc)
                     del pedidos[pedido_atual]
+                    registrar_historico(pedido_atual, operador, "Conferência do Pedido", now, "concluido")
 
             salvar_pedidos(pedidos)
 
