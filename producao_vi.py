@@ -82,40 +82,40 @@ _logo_src  = f"data:image/png;base64,{_logo_b64}" if _logo_b64 else ""
 if _logo_b64:
     logo_tag = f'<img src="{_logo_src}" style="height:56px;object-fit:contain;display:block;margin:0 auto 8px;filter:drop-shadow(0 3px 10px rgba(139,0,0,.5));" />'
 else:
-    logo_tag = '<div style="font-size:1.3rem;font-weight:900;color:#fff;letter-spacing:.1em;text-align:center;margin-bottom:8px">VI LINGERIE</div>'
+    logo_tag = '<div style="font-size:1.3rem;font-weight:900;color:#1a2a4a;letter-spacing:.1em;text-align:center;margin-bottom:8px">VI LINGERIE</div>'
 
 st.markdown(f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 *,*::before,*::after{{box-sizing:border-box;}}
-html,body,[data-testid="stApp"]{{font-family:'DM Sans',sans-serif !important;background:#0b0b14 !important;color:#e8e8f0 !important;min-height:100vh;}}
+html,body,[data-testid="stApp"]{{font-family:'DM Sans',sans-serif !important;background:#ffffff !important;color:#1a2a4a !important;min-height:100vh;}}
 [data-testid="stSidebar"]{{display:none !important;}}
 header[data-testid="stHeader"],[data-testid="stToolbar"],[data-testid="stDecoration"]{{display:none !important;}}
 .block-container{{padding:2rem 1.5rem !important;max-width:560px !important;margin:0 auto !important;}}
-.vi-card{{background:linear-gradient(158deg,#13132a 0%,#0d0d1e 100%);border:1px solid rgba(139,0,0,.45);border-radius:20px;padding:36px 32px 32px;position:relative;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.7);animation:vi-fadein .5s cubic-bezier(.22,1,.36,1) both;}}
+.vi-card{{background:#ffffff;border:1px solid rgba(139,0,0,.3);border-radius:20px;padding:36px 32px 32px;position:relative;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.10);animation:vi-fadein .5s cubic-bezier(.22,1,.36,1) both;}}
 .vi-card::after{{content:'';position:absolute;top:0;left:0;width:35%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.03),transparent);animation:vi-shimmer 5s ease 1s infinite;pointer-events:none;}}
 @keyframes vi-fadein{{from{{opacity:0;transform:translateY(18px);}}to{{opacity:1;transform:translateY(0);}}}}
 @keyframes vi-shimmer{{from{{transform:translateX(-120%);}}to{{transform:translateX(300%);}}}}
 @keyframes vi-pulse{{0%,100%{{opacity:1;}}50%{{opacity:.5;}}}}
 @keyframes vi-spin{{to{{transform:rotate(360deg);}}}}
-.vi-loading{{position:fixed;inset:0;background:#0b0b14;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;animation:vi-fadein .3s ease;}}
+.vi-loading{{position:fixed;inset:0;background:#ffffff;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;animation:vi-fadein .3s ease;}}
 .vi-spinner{{width:48px;height:48px;border:3px solid rgba(139,0,0,.2);border-top-color:#dc2626;border-radius:50%;animation:vi-spin .8s linear infinite;margin:20px auto 14px;}}
-.vi-loading-text{{font-size:.82rem;font-weight:600;color:#9ca3af;letter-spacing:.12em;text-transform:uppercase;animation:vi-pulse 1.4s ease infinite;}}
-.vi-section-title{{font-size:.68rem;font-weight:700;color:#6b7280;letter-spacing:.14em;text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:8px;}}
+.vi-loading-text{{font-size:.82rem;font-weight:600;color:#6b7280;letter-spacing:.12em;text-transform:uppercase;animation:vi-pulse 1.4s ease infinite;}}
+.vi-section-title{{font-size:.68rem;font-weight:700;color:#4b5563;letter-spacing:.14em;text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:8px;}}
 .vi-section-title::before{{content:'';display:inline-block;width:20px;height:2px;background:#8B0000;border-radius:2px;}}
 .vi-div{{height:1px;background:linear-gradient(90deg,transparent,rgba(139,0,0,.5),transparent);margin:20px 0;}}
 .vi-alert{{padding:12px 16px;border-radius:10px;font-size:.82rem;font-weight:500;margin:12px 0;}}
 .vi-alert-ok{{background:rgba(27,94,32,.25);border:1px solid rgba(76,175,80,.3);color:#a5d6a7;}}
 .vi-alert-err{{background:rgba(139,0,0,.2);border:1px solid rgba(220,38,38,.35);color:#f87171;}}
 .vi-alert-inf{{background:rgba(21,101,192,.2);border:1px solid rgba(66,165,245,.3);color:#90caf9;}}
-[data-testid="stTextInput"] label p,[data-testid="stSelectbox"] label p,[data-testid="stNumberInput"] label p{{color:#9ca3af !important;font-size:.7rem !important;font-weight:700 !important;letter-spacing:.08em !important;text-transform:uppercase !important;font-family:'DM Sans',sans-serif !important;}}
-[data-testid="stTextInput"] input,[data-testid="stNumberInput"] input{{background:rgba(255,255,255,.05) !important;border:1px solid rgba(139,0,0,.35) !important;border-radius:10px !important;color:#fff !important;font-family:'DM Mono',monospace !important;font-size:1rem !important;}}
-[data-testid="stSelectbox"]>div>div{{background:rgba(255,255,255,.05) !important;border:1px solid rgba(139,0,0,.35) !important;border-radius:10px !important;color:#fff !important;}}
+[data-testid="stTextInput"] label p,[data-testid="stSelectbox"] label p,[data-testid="stNumberInput"] label p{{color:#4b5563 !important;font-size:.7rem !important;font-weight:700 !important;letter-spacing:.08em !important;text-transform:uppercase !important;font-family:'DM Sans',sans-serif !important;}}
+[data-testid="stTextInput"] input,[data-testid="stNumberInput"] input{{background:#f9fafb !important;border:1.5px solid rgba(139,0,0,.3) !important;border-radius:10px !important;color:#1a2a4a !important;font-family:'DM Mono',monospace !important;font-size:1rem !important;}}
+[data-testid="stSelectbox"]>div>div{{background:#f9fafb !important;border:1.5px solid rgba(139,0,0,.3) !important;border-radius:10px !important;color:#1a2a4a !important;}}
 [data-testid="stTextInput"] input:focus,[data-testid="stSelectbox"]>div>div:focus-within,[data-testid="stNumberInput"] input:focus{{border-color:#dc2626 !important;box-shadow:0 0 0 3px rgba(139,0,0,.18) !important;}}
 .stButton>button{{background:linear-gradient(135deg,#7f1d1d 0%,#dc2626 100%) !important;border:none !important;border-radius:10px !important;color:#fff !important;font-weight:700 !important;font-size:.88rem !important;letter-spacing:.04em !important;padding:11px 20px !important;font-family:'DM Sans',sans-serif !important;width:100%;transition:opacity .2s,transform .15s !important;}}
 .stButton>button:hover{{opacity:.85 !important;transform:translateY(-1px) !important;}}
-.stButton>button[kind="secondary"]{{background:rgba(255,255,255,.06) !important;border:1px solid rgba(255,255,255,.12) !important;color:#9ca3af !important;}}
-.stButton>button[kind="secondary"]:hover{{background:rgba(255,255,255,.1) !important;opacity:1 !important;}}
+.stButton>button[kind="secondary"]{{background:#f3f4f6 !important;border:1.5px solid #d1d5db !important;color:#374151 !important;}}
+.stButton>button[kind="secondary"]:hover{{background:#e5e7eb !important;opacity:1 !important;}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -124,7 +124,7 @@ def tela_loading(mensagem="Carregando...", duracao=2.2):
     if _logo_src:
         img = f'<img src="{_logo_src}" style="height:52px;object-fit:contain;filter:drop-shadow(0 3px 10px rgba(139,0,0,.5));" />'
     else:
-        img = '<div style="font-size:1.2rem;font-weight:900;color:#fff;letter-spacing:.1em">VI LINGERIE</div>'
+        img = '<div style="font-size:1.2rem;font-weight:900;color:#1a2a4a;letter-spacing:.1em">VI LINGERIE</div>'
     placeholder = st.empty()
     placeholder.markdown(f'<div class="vi-loading">{img}<div class="vi-spinner"></div><div class="vi-loading-text">{mensagem}</div></div>', unsafe_allow_html=True)
     time.sleep(duracao)
@@ -168,8 +168,8 @@ def tela_extrato():
     st.markdown(f"""
     <div style="text-align:center;margin-bottom:20px">
         {logo_tag}
-        <div style="font-size:1.1rem;font-weight:700;color:#fff;margin-top:4px">Extrato de Produção</div>
-        <div style="font-size:.75rem;color:#9ca3af;margin-top:2px">Consulta, filtros e download por data e funcionário</div>
+        <div style="font-size:1.1rem;font-weight:700;color:#1a2a4a;margin-top:4px">Extrato de Produção</div>
+        <div style="font-size:.75rem;color:#6b7280;margin-top:2px">Consulta, filtros e download por data e funcionário</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -225,7 +225,7 @@ def tela_extrato():
             periodo_txt=f"{data_ini.strftime('%d/%m/%Y')} até {data_fim.strftime('%d/%m/%Y')}"
             op_txt=op_filtro if op_filtro!="Todos" else "todos os funcionários"
             etapa_txt=etapa_filtro if etapa_filtro!="Todas" else "todas as etapas"
-            st.markdown(f'<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px 18px;margin-bottom:16px;"><div style="font-size:.7rem;color:#9ca3af;margin-bottom:6px;text-transform:uppercase;letter-spacing:.08em;font-weight:700">Resultado da consulta</div><div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;"><div style="font-size:.82rem;color:#fff">📅 <b>{periodo_txt}</b></div><div style="font-size:.82rem;color:#f87171">👤 <b>{op_txt}</b></div><div style="font-size:.82rem;color:#90caf9">⚙️ <b>{etapa_txt}</b></div><div style="font-size:.82rem;color:#a5d6a7;margin-left:auto;font-weight:700">{n_res} operação(ões)</div></div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:14px 18px;margin-bottom:16px;"><div style="font-size:.7rem;color:#4b5563;margin-bottom:6px;text-transform:uppercase;letter-spacing:.08em;font-weight:700">Resultado da consulta</div><div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;"><div style="font-size:.82rem;color:#1a2a4a">📅 <b>{periodo_txt}</b></div><div style="font-size:.82rem;color:#f87171">👤 <b>{op_txt}</b></div><div style="font-size:.82rem;color:#90caf9">⚙️ <b>{etapa_txt}</b></div><div style="font-size:.82rem;color:#a5d6a7;margin-left:auto;font-weight:700">{n_res} operação(ões)</div></div></div>', unsafe_allow_html=True)
             if n_res==0:
                 st.markdown('<div class="vi-alert vi-alert-inf">ℹ️ Nenhuma operação encontrada para os filtros selecionados.</div>', unsafe_allow_html=True)
             else:
@@ -310,21 +310,21 @@ def tela_operador():
     st.markdown("""
     <style>
     .block-container{max-width:900px !important;}
-    .painel-top{background:linear-gradient(135deg,#13132a 0%,#0d0d1e 100%);border:1px solid rgba(139,0,0,.4);border-radius:18px;padding:20px 24px;display:flex;align-items:center;gap:18px;margin-bottom:18px;position:relative;overflow:hidden;}
-    .painel-top::after{content:'';position:absolute;top:0;left:0;width:30%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.02),transparent);animation:vi-shimmer 6s ease 2s infinite;}
-    .painel-pedido-box{background:linear-gradient(135deg,#13132a 0%,#0d0d1e 100%);border:1px solid rgba(139,0,0,.4);border-radius:18px;padding:24px;text-align:center;margin-bottom:18px;}
-    .painel-resumo-box{background:linear-gradient(135deg,#13132a 0%,#0d0d1e 100%);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:20px 24px;margin-bottom:18px;}
-    .resumo-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px 10px;text-align:center;}
+    .painel-top{background:linear-gradient(135deg,#8B0000 0%,#dc2626 100%);border:none;border-radius:18px;padding:20px 24px;display:flex;align-items:center;gap:18px;margin-bottom:18px;position:relative;overflow:hidden;}
+    .painel-top::after{content:'';position:absolute;top:0;left:0;width:30%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent);animation:vi-shimmer 6s ease 2s infinite;}
+    .painel-pedido-box{background:#ffffff;border:1.5px solid #e5e7eb;border-radius:18px;padding:24px;text-align:center;margin-bottom:18px;box-shadow:0 2px 12px rgba(0,0,0,.06);}
+    .painel-resumo-box{background:#ffffff;border:1.5px solid #e5e7eb;border-radius:18px;padding:20px 24px;margin-bottom:18px;box-shadow:0 2px 12px rgba(0,0,0,.06);}
+    .resumo-card{background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:14px 10px;text-align:center;}
     .resumo-label{font-size:.6rem;color:#6b7280;text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:4px;}
-    .resumo-valor{font-size:1.4rem;font-weight:700;color:#fff;font-family:'DM Mono',monospace;}
+    .resumo-valor{font-size:1.4rem;font-weight:700;color:#1a2a4a;font-family:'DM Mono',monospace;}
     .btn-iniciar>button{background:linear-gradient(135deg,#1B5E20,#43a047) !important;font-size:1rem !important;padding:14px !important;border-radius:12px !important;}
     .btn-finalizar>button{background:linear-gradient(135deg,#7f1d1d,#dc2626) !important;font-size:1rem !important;padding:14px !important;border-radius:12px !important;}
-    .ultimo-pedido-box{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:14px 18px;margin-top:14px;}
+    .ultimo-pedido-box{background:#fff7f7;border:1px solid rgba(139,0,0,.15);border-radius:12px;padding:14px 18px;margin-top:14px;}
     </style>
     """, unsafe_allow_html=True)
 
     if "_operador" not in st.session_state:
-        st.markdown(f'<div style="text-align:center;margin-bottom:28px;padding-top:20px">{logo_tag}<div style="font-size:1rem;font-weight:700;color:#fff;margin-top:6px">Apontamento de Produção</div><div style="font-size:.75rem;color:#9ca3af;margin-top:2px">Selecione seu nome para começar</div></div><div class="vi-div"></div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="text-align:center;margin-bottom:28px;padding-top:20px">{logo_tag}<div style="font-size:1rem;font-weight:700;color:#1a2a4a;margin-top:6px">Apontamento de Produção</div><div style="font-size:.75rem;color:#6b7280;margin-top:2px">Selecione seu nome para começar</div></div><div class="vi-div"></div>', unsafe_allow_html=True)
         col_l,col_c,col_r=st.columns([1,4,1])
         with col_c:
             st.markdown('<div class="vi-section-title">👤 Quem é você?</div>', unsafe_allow_html=True)
@@ -350,23 +350,23 @@ def tela_operador():
     tempo_turno  = _time.time()-turno_inicio
 
     if "_etapa_idx" not in st.session_state:
-        st.markdown(f'<div class="painel-top">{avatar_html(operador,52)}<div style="flex:1"><div style="font-size:1rem;font-weight:700;color:#fff">{operador}</div><div style="font-size:.72rem;color:#9ca3af;margin-top:2px">Selecione a operação</div></div><div style="text-align:right">{logo_tag.replace("margin:0 auto 8px","margin:0")}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="painel-top">{avatar_html(operador,52)}<div style="flex:1"><div style="font-size:1rem;font-weight:700;color:#fff">{operador}</div><div style="font-size:.72rem;color:rgba(255,255,255,.75);margin-top:2px">Selecione a operação</div></div><div style="text-align:right">{logo_tag.replace("margin:0 auto 8px","margin:0")}</div></div>', unsafe_allow_html=True)
         h_turno=fmt_tempo(tempo_turno)
         h_inicio=datetime.fromtimestamp(turno_inicio).strftime("%H:%M")
-        st.markdown(f'<div class="painel-resumo-box"><div class="vi-section-title" style="margin-bottom:14px">📊 Resumo do Dia</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px"><div class="resumo-card"><div class="resumo-label">Pedidos feitos</div><div class="resumo-valor" style="color:#66bb6a">{pedidos_hoje}</div></div><div class="resumo-card"><div class="resumo-label">Hora de início</div><div class="resumo-valor" style="font-size:1.1rem">{h_inicio}</div></div><div class="resumo-card"><div class="resumo-label">Tempo no turno</div><div class="resumo-valor" style="font-size:1rem">{h_turno}</div></div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="painel-resumo-box"><div class="vi-section-title" style="margin-bottom:14px">📊 Resumo do Dia</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px"><div class="resumo-card"><div class="resumo-label">Pedidos feitos</div><div class="resumo-valor" style="color:#1B5E20">{pedidos_hoje}</div></div><div class="resumo-card"><div class="resumo-label">Hora de início</div><div class="resumo-valor" style="font-size:1.1rem">{h_inicio}</div></div><div class="resumo-card"><div class="resumo-label">Tempo no turno</div><div class="resumo-valor" style="font-size:1rem">{h_turno}</div></div></div>', unsafe_allow_html=True)
         if ultimo_pedido and ultimo_inicio and ultimo_fim:
             dur=ultimo_fim-ultimo_inicio
-            st.markdown(f'<div class="ultimo-pedido-box"><div style="font-size:.65rem;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:8px">⏱ Último pedido — #{ultimo_pedido}</div><div style="display:flex;gap:24px;flex-wrap:wrap"><div><span style="font-size:.7rem;color:#9ca3af">Início: </span><span style="font-family:\'DM Mono\',monospace;color:#fff;font-size:.85rem">{datetime.fromtimestamp(ultimo_inicio).strftime("%H:%M:%S")}</span></div><div><span style="font-size:.7rem;color:#9ca3af">Fim: </span><span style="font-family:\'DM Mono\',monospace;color:#fff;font-size:.85rem">{datetime.fromtimestamp(ultimo_fim).strftime("%H:%M:%S")}</span></div><div><span style="font-size:.7rem;color:#9ca3af">Duração: </span><span style="font-family:\'DM Mono\',monospace;color:#f87171;font-weight:700;font-size:.85rem">{fmt_tempo(dur)}</span></div></div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="ultimo-pedido-box"><div style="font-size:.65rem;color:#991b1b;text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:8px">⏱ Último pedido — #{ultimo_pedido}</div><div style="display:flex;gap:24px;flex-wrap:wrap"><div><span style="font-size:.7rem;color:#6b7280">Início: </span><span style="font-family:\'DM Mono\',monospace;color:#1a2a4a;font-size:.85rem">{datetime.fromtimestamp(ultimo_inicio).strftime("%H:%M:%S")}</span></div><div><span style="font-size:.7rem;color:#6b7280">Fim: </span><span style="font-family:\'DM Mono\',monospace;color:#1a2a4a;font-size:.85rem">{datetime.fromtimestamp(ultimo_fim).strftime("%H:%M:%S")}</span></div><div><span style="font-size:.7rem;color:#6b7280">Duração: </span><span style="font-family:\'DM Mono\',monospace;color:#dc2626;font-weight:700;font-size:.85rem">{fmt_tempo(dur)}</span></div></div></div>', unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
         st.markdown('<div class="vi-section-title" style="margin-top:6px">⚙️ Qual operação você vai realizar?</div>', unsafe_allow_html=True)
         for idx,(etapa,icon,cor) in enumerate(zip(ETAPAS,ETAPA_ICONS,ETAPA_CORES)):
             if idx==0: n_disp=None
             elif idx==1: n_disp=sum(1 for p,d in pedidos.items() if d.get("etapa")==1 and "op_emb" not in d)
             else: n_disp=sum(1 for p,d in pedidos.items() if d.get("etapa")==2 and "op_conf" not in d)
-            badge=f'<span style="background:rgba(255,255,255,.08);padding:2px 9px;border-radius:10px;font-size:.65rem;color:#9ca3af">{n_disp} disponível(is)</span>' if n_disp is not None else ""
+            badge=f'<span style="background:#fee2e2;padding:2px 9px;border-radius:10px;font-size:.65rem;color:#991b1b;font-weight:600">{n_disp} disponível(is)</span>' if n_disp is not None else ""
             col_info,col_btn=st.columns([3,1])
             with col_info:
-                st.markdown(f'<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px 18px;height:100%;display:flex;align-items:center;gap:14px;"><div style="font-size:1.6rem">{icon}</div><div><div style="font-size:.9rem;font-weight:700;color:#fff">{etapa}</div><div style="font-size:.68rem;color:#9ca3af;margin-top:3px">Etapa {idx+1} de 3 &nbsp;{badge}</div></div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="background:#f9fafb;border:1.5px solid #e5e7eb;border-radius:14px;padding:14px 18px;height:100%;display:flex;align-items:center;gap:14px;"><div style="font-size:1.6rem">{icon}</div><div><div style="font-size:.9rem;font-weight:700;color:#1a2a4a">{etapa}</div><div style="font-size:.68rem;color:#6b7280;margin-top:3px">Etapa {idx+1} de 3 &nbsp;{badge}</div></div></div>', unsafe_allow_html=True)
             with col_btn:
                 if st.button("Selecionar",key=f"btn_etapa_{idx}",use_container_width=True):
                     st.session_state["_etapa_idx"]=idx
@@ -391,7 +391,7 @@ def tela_operador():
     st.markdown('<div class="painel-pedido-box">', unsafe_allow_html=True)
 
     if not pedido_atual:
-        st.markdown('<div style="font-size:.65rem;color:#9ca3af;letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px">Pedido Nº</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size:.65rem;color:#6b7280;letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px">Pedido Nº</div>', unsafe_allow_html=True)
         if etapa_idx==0:
             num=st.text_input("",placeholder="Digite o número do pedido",key="inp_num",label_visibility="collapsed")
             st.markdown("")
@@ -436,7 +436,7 @@ def tela_operador():
                         st.session_state.pop("_etapa_idx",None); st.rerun()
     else:
         elapsed=fmt_tempo(_time.time()-ts_inicio) if ts_inicio else "--:--:--"
-        st.markdown(f'<div style="font-size:.65rem;color:#9ca3af;letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px">Pedido em Operação</div><div style="font-family:\'DM Mono\',monospace;font-size:2.8rem;font-weight:700;color:#fff;letter-spacing:.05em">#{pedido_atual}</div><div style="font-size:.75rem;color:{["#64b5f6","#ce93d8","#a5d6a7"][etapa_idx]};margin-top:4px;font-weight:600">{etapa_icon} {etapa_nome}</div><div style="font-size:.7rem;color:#9ca3af;margin-top:8px;font-family:\'DM Mono\',monospace">⏱ {elapsed}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="font-size:.65rem;color:#6b7280;letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px">Pedido em Operação</div><div style="font-family:\'DM Mono\',monospace;font-size:2.8rem;font-weight:700;color:#1a2a4a;letter-spacing:.05em">#{pedido_atual}</div><div style="font-size:.75rem;color:{["#1565C0","#6A0DAD","#1B5E20"][etapa_idx]};margin-top:4px;font-weight:600">{etapa_icon} {etapa_nome}</div><div style="font-size:.7rem;color:#9ca3af;margin-top:8px;font-family:\'DM Mono\',monospace">⏱ {elapsed}</div>', unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
         st.markdown('<div class="vi-div"></div>', unsafe_allow_html=True)
         col_fin,col_can=st.columns([3,1])
@@ -467,32 +467,32 @@ def tela_operador():
                 for k in ["_pedido_atual","_pedido_iniciado","_ts_inicio"]: st.session_state.pop(k,None)
                 st.rerun()
         h_turno=fmt_tempo(_time.time()-turno_inicio); h_inicio=datetime.fromtimestamp(turno_inicio).strftime("%H:%M")
-        st.markdown(f'<div class="painel-resumo-box"><div class="vi-section-title" style="margin-bottom:14px">📊 Resumo do Dia</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px"><div class="resumo-card"><div class="resumo-label">Pedidos feitos</div><div class="resumo-valor" style="color:#66bb6a">{pedidos_hoje}</div></div><div class="resumo-card"><div class="resumo-label">Hora de início</div><div class="resumo-valor" style="font-size:1.1rem">{h_inicio}</div></div><div class="resumo-card"><div class="resumo-label">Tempo no turno</div><div class="resumo-valor" style="font-size:1rem">{h_turno}</div></div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="painel-resumo-box"><div class="vi-section-title" style="margin-bottom:14px">📊 Resumo do Dia</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px"><div class="resumo-card"><div class="resumo-label">Pedidos feitos</div><div class="resumo-valor" style="color:#1B5E20">{pedidos_hoje}</div></div><div class="resumo-card"><div class="resumo-label">Hora de início</div><div class="resumo-valor" style="font-size:1.1rem">{h_inicio}</div></div><div class="resumo-card"><div class="resumo-label">Tempo no turno</div><div class="resumo-valor" style="font-size:1rem">{h_turno}</div></div></div>', unsafe_allow_html=True)
         if ultimo_pedido and ultimo_inicio and ultimo_fim:
             dur=ultimo_fim-ultimo_inicio
-            st.markdown(f'<div class="ultimo-pedido-box"><div style="font-size:.65rem;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:8px">⏱ Último pedido — #{ultimo_pedido}</div><div style="display:flex;gap:24px;flex-wrap:wrap"><div><span style="font-size:.7rem;color:#9ca3af">Início: </span><span style="font-family:\'DM Mono\',monospace;color:#fff;font-size:.85rem">{datetime.fromtimestamp(ultimo_inicio).strftime("%H:%M:%S")}</span></div><div><span style="font-size:.7rem;color:#9ca3af">Fim: </span><span style="font-family:\'DM Mono\',monospace;color:#fff;font-size:.85rem">{datetime.fromtimestamp(ultimo_fim).strftime("%H:%M:%S")}</span></div><div><span style="font-size:.7rem;color:#9ca3af">Duração: </span><span style="font-family:\'DM Mono\',monospace;color:#f87171;font-weight:700;font-size:.85rem">{fmt_tempo(dur)}</span></div></div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="ultimo-pedido-box"><div style="font-size:.65rem;color:#991b1b;text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:8px">⏱ Último pedido — #{ultimo_pedido}</div><div style="display:flex;gap:24px;flex-wrap:wrap"><div><span style="font-size:.7rem;color:#6b7280">Início: </span><span style="font-family:\'DM Mono\',monospace;color:#1a2a4a;font-size:.85rem">{datetime.fromtimestamp(ultimo_inicio).strftime("%H:%M:%S")}</span></div><div><span style="font-size:.7rem;color:#6b7280">Fim: </span><span style="font-family:\'DM Mono\',monospace;color:#1a2a4a;font-size:.85rem">{datetime.fromtimestamp(ultimo_fim).strftime("%H:%M:%S")}</span></div><div><span style="font-size:.7rem;color:#6b7280">Duração: </span><span style="font-family:\'DM Mono\',monospace;color:#dc2626;font-weight:700;font-size:.85rem">{fmt_tempo(dur)}</span></div></div></div>', unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
         return
 
     st.markdown("</div>", unsafe_allow_html=True)
     h_turno=fmt_tempo(_time.time()-turno_inicio); h_inicio=datetime.fromtimestamp(turno_inicio).strftime("%H:%M")
-    st.markdown(f'<div class="painel-resumo-box"><div class="vi-section-title" style="margin-bottom:14px">📊 Resumo do Dia</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px"><div class="resumo-card"><div class="resumo-label">Pedidos feitos</div><div class="resumo-valor" style="color:#66bb6a">{pedidos_hoje}</div></div><div class="resumo-card"><div class="resumo-label">Hora de início</div><div class="resumo-valor" style="font-size:1.1rem">{h_inicio}</div></div><div class="resumo-card"><div class="resumo-label">Tempo no turno</div><div class="resumo-valor" style="font-size:1rem">{h_turno}</div></div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="painel-resumo-box"><div class="vi-section-title" style="margin-bottom:14px">📊 Resumo do Dia</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px"><div class="resumo-card"><div class="resumo-label">Pedidos feitos</div><div class="resumo-valor" style="color:#1B5E20">{pedidos_hoje}</div></div><div class="resumo-card"><div class="resumo-label">Hora de início</div><div class="resumo-valor" style="font-size:1.1rem">{h_inicio}</div></div><div class="resumo-card"><div class="resumo-label">Tempo no turno</div><div class="resumo-valor" style="font-size:1rem">{h_turno}</div></div></div>', unsafe_allow_html=True)
     if ultimo_pedido and ultimo_inicio and ultimo_fim:
         dur=ultimo_fim-ultimo_inicio
-        st.markdown(f'<div class="ultimo-pedido-box"><div style="font-size:.65rem;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:8px">⏱ Último pedido — #{ultimo_pedido}</div><div style="display:flex;gap:24px;flex-wrap:wrap"><div><span style="font-size:.7rem;color:#9ca3af">Início: </span><span style="font-family:\'DM Mono\',monospace;color:#fff;font-size:.85rem">{datetime.fromtimestamp(ultimo_inicio).strftime("%H:%M:%S")}</span></div><div><span style="font-size:.7rem;color:#9ca3af">Fim: </span><span style="font-family:\'DM Mono\',monospace;color:#fff;font-size:.85rem">{datetime.fromtimestamp(ultimo_fim).strftime("%H:%M:%S")}</span></div><div><span style="font-size:.7rem;color:#9ca3af">Duração: </span><span style="font-family:\'DM Mono\',monospace;color:#f87171;font-weight:700;font-size:.85rem">{fmt_tempo(dur)}</span></div></div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="ultimo-pedido-box"><div style="font-size:.65rem;color:#991b1b;text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:8px">⏱ Último pedido — #{ultimo_pedido}</div><div style="display:flex;gap:24px;flex-wrap:wrap"><div><span style="font-size:.7rem;color:#6b7280">Início: </span><span style="font-family:\'DM Mono\',monospace;color:#1a2a4a;font-size:.85rem">{datetime.fromtimestamp(ultimo_inicio).strftime("%H:%M:%S")}</span></div><div><span style="font-size:.7rem;color:#6b7280">Fim: </span><span style="font-family:\'DM Mono\',monospace;color:#1a2a4a;font-size:.85rem">{datetime.fromtimestamp(ultimo_fim).strftime("%H:%M:%S")}</span></div><div><span style="font-size:.7rem;color:#6b7280">Duração: </span><span style="font-family:\'DM Mono\',monospace;color:#dc2626;font-weight:700;font-size:.85rem">{fmt_tempo(dur)}</span></div></div></div>', unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 
 if "_modo" not in st.session_state:
-    st.markdown(f'<div style="text-align:center;padding:40px 0 28px">{logo_tag}<div style="font-size:1.05rem;font-weight:700;color:#fff;margin-top:6px">Sistema de Produção</div><div style="font-size:.75rem;color:#6b7280;margin-top:3px">Vi Lingerie — Linha de Montagem</div></div><div class="vi-div"></div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="text-align:center;padding:40px 0 28px">{logo_tag}<div style="font-size:1.05rem;font-weight:700;color:#1a2a4a;margin-top:6px">Sistema de Produção</div><div style="font-size:.75rem;color:#6b7280;margin-top:3px">Vi Lingerie — Linha de Montagem</div></div><div class="vi-div"></div>', unsafe_allow_html=True)
     st.markdown('<div class="vi-section-title">🚀 Como deseja acessar?</div>', unsafe_allow_html=True)
     col1,col2=st.columns(2)
     with col1:
-        st.markdown('<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:20px;text-align:center;margin-bottom:12px"><div style="font-size:2rem">🏭</div><div style="font-size:.88rem;font-weight:700;color:#fff;margin-top:8px">Operador</div><div style="font-size:.68rem;color:#9ca3af;margin-top:4px">Registrar etapas de produção</div></div>', unsafe_allow_html=True)
+        st.markdown('<div style="background:#fff;border:1.5px solid #e5e7eb;border-radius:14px;padding:20px;text-align:center;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.06)"><div style="font-size:2rem">🏭</div><div style="font-size:.88rem;font-weight:700;color:#1a2a4a;margin-top:8px">Operador</div><div style="font-size:.68rem;color:#6b7280;margin-top:4px">Registrar etapas de produção</div></div>', unsafe_allow_html=True)
         if st.button("Entrar como Operador",use_container_width=True,key="btn_op"):
             st.session_state["_modo"]="operador"; st.rerun()
     with col2:
-        st.markdown('<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:20px;text-align:center;margin-bottom:12px"><div style="font-size:2rem">📊</div><div style="font-size:.88rem;font-weight:700;color:#fff;margin-top:8px">Gerência</div><div style="font-size:.68rem;color:#9ca3af;margin-top:4px">Extrato e relatórios</div></div>', unsafe_allow_html=True)
+        st.markdown('<div style="background:#fff;border:1.5px solid #e5e7eb;border-radius:14px;padding:20px;text-align:center;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.06)"><div style="font-size:2rem">📊</div><div style="font-size:.88rem;font-weight:700;color:#1a2a4a;margin-top:8px">Gerência</div><div style="font-size:.68rem;color:#6b7280;margin-top:4px">Extrato e relatórios</div></div>', unsafe_allow_html=True)
         if st.button("Entrar como Gerência",use_container_width=True,key="btn_ger",type="secondary"):
             st.session_state["_modo"]="gerencia"; st.rerun()
 
