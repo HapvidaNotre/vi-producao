@@ -92,7 +92,7 @@ html,body,[data-testid="stApp"]{{font-family:'DM Sans',sans-serif !important;bac
 [data-testid="stSidebar"]{{display:none !important;}}
 header[data-testid="stHeader"],[data-testid="stToolbar"],[data-testid="stDecoration"]{{display:none !important;}}
 .block-container{{padding:2rem 1.5rem !important;max-width:560px !important;margin:0 auto !important;}}
-.vi-card{{background:#ffffff;border:1px solid rgba(139,0,0,.3);border-radius:20px;padding:36px 32px 32px;position:relative;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.10);animation:vi-fadein .5s cubic-bezier(.22,1,.36,1) both;}}
+.vi-card{{background:#ffffff;border:2px solid rgba(139,0,0,.5);border-radius:20px;padding:36px 32px 32px;position:relative;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.12);animation:vi-fadein .5s cubic-bezier(.22,1,.36,1) both;}}
 .vi-card::after{{content:'';position:absolute;top:0;left:0;width:35%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.03),transparent);animation:vi-shimmer 5s ease 1s infinite;pointer-events:none;}}
 @keyframes vi-fadein{{from{{opacity:0;transform:translateY(18px);}}to{{opacity:1;transform:translateY(0);}}}}
 @keyframes vi-shimmer{{from{{transform:translateX(-120%);}}to{{transform:translateX(300%);}}}}
@@ -109,12 +109,12 @@ header[data-testid="stHeader"],[data-testid="stToolbar"],[data-testid="stDecorat
 .vi-alert-err{{background:rgba(139,0,0,.2);border:1px solid rgba(220,38,38,.35);color:#f87171;}}
 .vi-alert-inf{{background:rgba(21,101,192,.2);border:1px solid rgba(66,165,245,.3);color:#90caf9;}}
 [data-testid="stTextInput"] label p,[data-testid="stSelectbox"] label p,[data-testid="stNumberInput"] label p{{color:#4b5563 !important;font-size:.7rem !important;font-weight:700 !important;letter-spacing:.08em !important;text-transform:uppercase !important;font-family:'DM Sans',sans-serif !important;}}
-[data-testid="stTextInput"] input,[data-testid="stNumberInput"] input{{background:#f9fafb !important;border:1.5px solid rgba(139,0,0,.3) !important;border-radius:10px !important;color:#1a2a4a !important;font-family:'DM Mono',monospace !important;font-size:1rem !important;}}
-[data-testid="stSelectbox"]>div>div{{background:#f9fafb !important;border:1.5px solid rgba(139,0,0,.3) !important;border-radius:10px !important;color:#1a2a4a !important;}}
+[data-testid="stTextInput"] input,[data-testid="stNumberInput"] input{{background:#f9fafb !important;border:2px solid rgba(139,0,0,.45) !important;border-radius:10px !important;color:#1a2a4a !important;font-family:'DM Mono',monospace !important;font-size:1rem !important;}}
+[data-testid="stSelectbox"]>div>div{{background:#f9fafb !important;border:2px solid rgba(139,0,0,.45) !important;border-radius:10px !important;color:#1a2a4a !important;}}
 [data-testid="stTextInput"] input:focus,[data-testid="stSelectbox"]>div>div:focus-within,[data-testid="stNumberInput"] input:focus{{border-color:#dc2626 !important;box-shadow:0 0 0 3px rgba(139,0,0,.18) !important;}}
 .stButton>button{{background:linear-gradient(135deg,#7f1d1d 0%,#dc2626 100%) !important;border:none !important;border-radius:10px !important;color:#fff !important;font-weight:700 !important;font-size:.88rem !important;letter-spacing:.04em !important;padding:11px 20px !important;font-family:'DM Sans',sans-serif !important;width:100%;transition:opacity .2s,transform .15s !important;}}
 .stButton>button:hover{{opacity:.85 !important;transform:translateY(-1px) !important;}}
-.stButton>button[kind="secondary"]{{background:#f3f4f6 !important;border:1.5px solid #d1d5db !important;color:#374151 !important;}}
+.stButton>button[kind="secondary"]{{background:#f3f4f6 !important;border:2px solid #9ca3af !important;color:#374151 !important;}}
 .stButton>button[kind="secondary"]:hover{{background:#e5e7eb !important;opacity:1 !important;}}
 </style>
 """, unsafe_allow_html=True)
@@ -225,7 +225,7 @@ def tela_extrato():
             periodo_txt=f"{data_ini.strftime('%d/%m/%Y')} até {data_fim.strftime('%d/%m/%Y')}"
             op_txt=op_filtro if op_filtro!="Todos" else "todos os funcionários"
             etapa_txt=etapa_filtro if etapa_filtro!="Todas" else "todas as etapas"
-            st.markdown(f'<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:14px 18px;margin-bottom:16px;"><div style="font-size:.7rem;color:#4b5563;margin-bottom:6px;text-transform:uppercase;letter-spacing:.08em;font-weight:700">Resultado da consulta</div><div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;"><div style="font-size:.82rem;color:#1a2a4a">📅 <b>{periodo_txt}</b></div><div style="font-size:.82rem;color:#f87171">👤 <b>{op_txt}</b></div><div style="font-size:.82rem;color:#90caf9">⚙️ <b>{etapa_txt}</b></div><div style="font-size:.82rem;color:#a5d6a7;margin-left:auto;font-weight:700">{n_res} operação(ões)</div></div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background:#f8fafc;border:2px solid #cbd5e1;border-radius:12px;padding:14px 18px;margin-bottom:16px;"><div style="font-size:.7rem;color:#4b5563;margin-bottom:6px;text-transform:uppercase;letter-spacing:.08em;font-weight:700">Resultado da consulta</div><div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;"><div style="font-size:.82rem;color:#1a2a4a">📅 <b>{periodo_txt}</b></div><div style="font-size:.82rem;color:#f87171">👤 <b>{op_txt}</b></div><div style="font-size:.82rem;color:#90caf9">⚙️ <b>{etapa_txt}</b></div><div style="font-size:.82rem;color:#a5d6a7;margin-left:auto;font-weight:700">{n_res} operação(ões)</div></div></div>', unsafe_allow_html=True)
             if n_res==0:
                 st.markdown('<div class="vi-alert vi-alert-inf">ℹ️ Nenhuma operação encontrada para os filtros selecionados.</div>', unsafe_allow_html=True)
             else:
@@ -312,14 +312,14 @@ def tela_operador():
     .block-container{max-width:900px !important;}
     .painel-top{background:linear-gradient(135deg,#8B0000 0%,#dc2626 100%);border:none;border-radius:18px;padding:20px 24px;display:flex;align-items:center;gap:18px;margin-bottom:18px;position:relative;overflow:hidden;}
     .painel-top::after{content:'';position:absolute;top:0;left:0;width:30%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent);animation:vi-shimmer 6s ease 2s infinite;}
-    .painel-pedido-box{background:#ffffff;border:1.5px solid #e5e7eb;border-radius:18px;padding:24px;text-align:center;margin-bottom:18px;box-shadow:0 2px 12px rgba(0,0,0,.06);}
-    .painel-resumo-box{background:#ffffff;border:1.5px solid #e5e7eb;border-radius:18px;padding:20px 24px;margin-bottom:18px;box-shadow:0 2px 12px rgba(0,0,0,.06);}
-    .resumo-card{background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:14px 10px;text-align:center;}
+    .painel-pedido-box{background:#ffffff;border:2px solid #cbd5e1;border-radius:18px;padding:24px;text-align:center;margin-bottom:18px;box-shadow:0 4px 16px rgba(0,0,0,.10);}
+    .painel-resumo-box{background:#ffffff;border:2px solid #cbd5e1;border-radius:18px;padding:20px 24px;margin-bottom:18px;box-shadow:0 4px 16px rgba(0,0,0,.10);}
+    .resumo-card{background:#f8fafc;border:2px solid #cbd5e1;border-radius:12px;padding:14px 10px;text-align:center;}
     .resumo-label{font-size:.6rem;color:#6b7280;text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:4px;}
     .resumo-valor{font-size:1.4rem;font-weight:700;color:#1a2a4a;font-family:'DM Mono',monospace;}
     .btn-iniciar>button{background:linear-gradient(135deg,#1B5E20,#43a047) !important;font-size:1rem !important;padding:14px !important;border-radius:12px !important;}
     .btn-finalizar>button{background:linear-gradient(135deg,#7f1d1d,#dc2626) !important;font-size:1rem !important;padding:14px !important;border-radius:12px !important;}
-    .ultimo-pedido-box{background:#fff7f7;border:1px solid rgba(139,0,0,.15);border-radius:12px;padding:14px 18px;margin-top:14px;}
+    .ultimo-pedido-box{background:#fff7f7;border:2px solid rgba(139,0,0,.3);border-radius:12px;padding:14px 18px;margin-top:14px;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -366,7 +366,7 @@ def tela_operador():
             badge=f'<span style="background:#fee2e2;padding:2px 9px;border-radius:10px;font-size:.65rem;color:#991b1b;font-weight:600">{n_disp} disponível(is)</span>' if n_disp is not None else ""
             col_info,col_btn=st.columns([3,1])
             with col_info:
-                st.markdown(f'<div style="background:#f9fafb;border:1.5px solid #e5e7eb;border-radius:14px;padding:14px 18px;height:100%;display:flex;align-items:center;gap:14px;"><div style="font-size:1.6rem">{icon}</div><div><div style="font-size:.9rem;font-weight:700;color:#1a2a4a">{etapa}</div><div style="font-size:.68rem;color:#6b7280;margin-top:3px">Etapa {idx+1} de 3 &nbsp;{badge}</div></div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="background:#f8fafc;border:2px solid #cbd5e1;border-radius:14px;padding:14px 18px;height:100%;display:flex;align-items:center;gap:14px;"><div style="font-size:1.6rem">{icon}</div><div><div style="font-size:.9rem;font-weight:700;color:#1a2a4a">{etapa}</div><div style="font-size:.68rem;color:#6b7280;margin-top:3px">Etapa {idx+1} de 3 &nbsp;{badge}</div></div></div>', unsafe_allow_html=True)
             with col_btn:
                 if st.button("Selecionar",key=f"btn_etapa_{idx}",use_container_width=True):
                     st.session_state["_etapa_idx"]=idx
@@ -488,11 +488,11 @@ if "_modo" not in st.session_state:
     st.markdown('<div class="vi-section-title">🚀 Como deseja acessar?</div>', unsafe_allow_html=True)
     col1,col2=st.columns(2)
     with col1:
-        st.markdown('<div style="background:#fff;border:1.5px solid #e5e7eb;border-radius:14px;padding:20px;text-align:center;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.06)"><div style="font-size:2rem">🏭</div><div style="font-size:.88rem;font-weight:700;color:#1a2a4a;margin-top:8px">Operador</div><div style="font-size:.68rem;color:#6b7280;margin-top:4px">Registrar etapas de produção</div></div>', unsafe_allow_html=True)
+        st.markdown('<div style="background:#fff;border:2px solid #cbd5e1;border-radius:14px;padding:20px;text-align:center;margin-bottom:12px;box-shadow:0 4px 14px rgba(0,0,0,.10)"><div style="font-size:2rem">🏭</div><div style="font-size:.88rem;font-weight:700;color:#1a2a4a;margin-top:8px">Operador</div><div style="font-size:.68rem;color:#6b7280;margin-top:4px">Registrar etapas de produção</div></div>', unsafe_allow_html=True)
         if st.button("Entrar como Operador",use_container_width=True,key="btn_op"):
             st.session_state["_modo"]="operador"; st.rerun()
     with col2:
-        st.markdown('<div style="background:#fff;border:1.5px solid #e5e7eb;border-radius:14px;padding:20px;text-align:center;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.06)"><div style="font-size:2rem">📊</div><div style="font-size:.88rem;font-weight:700;color:#1a2a4a;margin-top:8px">Gerência</div><div style="font-size:.68rem;color:#6b7280;margin-top:4px">Extrato e relatórios</div></div>', unsafe_allow_html=True)
+        st.markdown('<div style="background:#fff;border:2px solid #cbd5e1;border-radius:14px;padding:20px;text-align:center;margin-bottom:12px;box-shadow:0 4px 14px rgba(0,0,0,.10)"><div style="font-size:2rem">📊</div><div style="font-size:.88rem;font-weight:700;color:#1a2a4a;margin-top:8px">Gerência</div><div style="font-size:.68rem;color:#6b7280;margin-top:4px">Extrato e relatórios</div></div>', unsafe_allow_html=True)
         if st.button("Entrar como Gerência",use_container_width=True,key="btn_ger",type="secondary"):
             st.session_state["_modo"]="gerencia"; st.rerun()
 
