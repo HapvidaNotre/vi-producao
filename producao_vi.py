@@ -5,7 +5,11 @@ import os
 import time
 from datetime import datetime
 from io import BytesIO
+import base64 as _b64
 
+# ============================================================
+# CONFIGURAÇÃO DA PÁGINA
+# ============================================================
 st.set_page_config(
     page_title="Vi Lingerie — Produção",
     layout="centered",
@@ -13,6 +17,9 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# ============================================================
+# CONSTANTES E VARIÁVEIS
+# ============================================================
 ETAPAS = ["Separação do Pedido", "Mesa de Embalagem", "Conferência do Pedido"]
 ETAPA_ICONS = ["📦", "📬", "✅"]
 ETAPA_CORES = ["#1565C0", "#6A0DAD", "#1B5E20"]
@@ -33,7 +40,9 @@ FILE_PEDIDOS    = os.path.join(STATE_DIR, "pedidos.json")
 FILE_CONCLUIDOS = os.path.join(STATE_DIR, "concluidos.json")
 FILE_HISTORICO  = os.path.join(STATE_DIR, "historico.json")
 
-
+# ============================================================
+# FUNÇÕES DE ESTADO E DADOS
+# ============================================================
 def _carregar(path):
     if os.path.exists(path):
         with open(path, "r", encoding="utf-8") as f:
@@ -86,8 +95,6 @@ def fmt_tempo(segundos):
     s = int(segundos % 60)
     return f"{h:02d}:{m:02d}:{s:02d}"
 
-import base64 as _b64
-
 def _get_logo_b64():
     for p in ["logo_vi.png", "../logo_vi.png"]:
         if os.path.exists(p):
@@ -126,7 +133,7 @@ header[data-testid="stHeader"],
 
 .block-container {{
     padding: 1.5rem 1rem !important;
-    max-width: 540px !important;
+    max-width: 600px !important; /* Ajustado levemente para monitores */
     margin: 0 auto !important;
 }}
 
@@ -228,12 +235,12 @@ header[data-testid="stHeader"],
 }}
 .vi-timer-display {{
     font-family: 'DM Mono', monospace;
-    font-size: 1.2rem;
+    font-size: 1.8rem;
     font-weight: 500;
     text-align: center;
     color: #6b7280;
     letter-spacing: .1em;
-    margin-bottom: 20px;
+    margin-bottom: 24px;
 }}
 
 /* ── BOTÕES GRANDES (INÍCIO / FIM) ── */
@@ -325,6 +332,7 @@ header[data-testid="stHeader"],
     font-family: 'DM Mono', monospace !important;
     font-size: 1.1rem !important;
     transition: border-color .2s !important;
+    text-align: center;
 }}
 [data-testid="stSelectbox"] > div > div {{
     background: #fafafa !important;
@@ -337,72 +345,6 @@ header[data-testid="stHeader"],
 [data-testid="stNumberInput"] input:focus {{
     border-color: #8B0000 !important;
     box-shadow: 0 0 0 3px rgba(139,0,0,.12) !important;
-}}
-
-/* ── TELA DE TRANSIÇÃO (pergunta operador) ── */
-.vi-transition-card {{
-    background: #ffffff;
-    border-radius: 24px;
-    box-shadow: 0 8px 40px rgba(0,0,0,.12);
-    padding: 32px 28px;
-    text-align: center;
-    animation: fadeUp .4s cubic-bezier(.22,1,.36,1) both;
-}}
-.vi-transition-next-badge {{
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 18px;
-    border-radius: 30px;
-    font-size: .78rem;
-    font-weight: 700;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-    margin: 12px 0 20px;
-}}
-
-/* ── MINI-STATS ── */
-.vi-stat-row {{
-    display: flex;
-    gap: 10px;
-    margin-top: 18px;
-}}
-.vi-stat-box {{
-    flex: 1;
-    background: #f7f5f2;
-    border-radius: 14px;
-    padding: 12px 8px;
-    text-align: center;
-    border: 1px solid #ece9e4;
-}}
-.vi-stat-label {{
-    font-size: .58rem;
-    font-weight: 700;
-    color: #9ca3af;
-    text-transform: uppercase;
-    letter-spacing: .1em;
-    margin-bottom: 4px;
-}}
-.vi-stat-val {{
-    font-size: 1.3rem;
-    font-weight: 700;
-    color: #1a1a2e;
-    font-family: 'DM Mono', monospace;
-    line-height: 1;
-}}
-
-/* ── ÚLTIMO PEDIDO ── */
-.vi-last-pedido {{
-    background: #fff7f5;
-    border: 1.5px solid rgba(139,0,0,.2);
-    border-radius: 14px;
-    padding: 12px 16px;
-    margin-top: 14px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
 }}
 
 /* ── ALERTS ── */
@@ -419,69 +361,10 @@ header[data-testid="stHeader"],
 .vi-alert-ok    {{ background:rgba(27,94,32,.1);  border:1.5px solid rgba(76,175,80,.3);  color:#2e7d32; }}
 .vi-alert-err   {{ background:rgba(139,0,0,.08);  border:1.5px solid rgba(220,38,38,.3);  color:#b91c1c; }}
 .vi-alert-inf   {{ background:rgba(21,101,192,.1);border:1.5px solid rgba(66,165,245,.3);color:#1565C0; }}
-.vi-alert-warn  {{ background:rgba(180,83,9,.1);  border:1.5px solid rgba(217,119,6,.3);  color:#b45309; }}
-
-/* ── SELETOR DE OPERADOR (tela de transição) ── */
-.vi-op-grid {{
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    margin: 16px 0;
-}}
-.vi-op-btn {{
-    background: #f7f5f2;
-    border: 2px solid #e5e7eb;
-    border-radius: 12px;
-    padding: 12px 8px;
-    cursor: pointer;
-    transition: all .18s ease;
-    text-align: center;
-    font-size: .75rem;
-    font-weight: 600;
-    color: #374151;
-    font-family: 'DM Sans', sans-serif;
-}}
-.vi-op-btn:hover {{
-    border-color: #8B0000;
-    background: #fff7f5;
-    color: #8B0000;
-}}
-.vi-op-btn-selected {{
-    border-color: #8B0000 !important;
-    background: rgba(139,0,0,.08) !important;
-    color: #8B0000 !important;
-}}
-.vi-avatar-sm {{
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: .8rem;
-    font-weight: 700;
-    color: #fff;
-    margin: 0 auto 6px;
-}}
-
-/* ── CONCLUÍDO ── */
-.vi-concluido-card {{
-    background: linear-gradient(135deg, #1B5E20 0%, #2e7d32 100%);
-    border-radius: 20px;
-    padding: 28px 24px;
-    text-align: center;
-    color: #ffffff;
-    box-shadow: 0 8px 28px rgba(27,94,32,.35);
-    animation: vi-pop .5s cubic-bezier(.34,1.56,.64,1) both;
-}}
 
 @keyframes fadeUp {{
     from {{ opacity: 0; transform: translateY(16px); }}
     to   {{ opacity: 1; transform: translateY(0); }}
-}}
-@keyframes vi-pop {{
-    from {{ opacity: 0; transform: scale(.85); }}
-    to   {{ opacity: 1; transform: scale(1); }}
 }}
 @keyframes vi-spin {{
     to {{ transform: rotate(360deg); }}
@@ -542,17 +425,18 @@ def tela_loading(mensagem="Carregando...", duracao=2.0):
     time.sleep(duracao)
     ph.empty()
 
-
 def avatar_html(nome, size=44):
-    partes = nome.strip().split()
-    iniciais = (partes[0][0] + (partes[-1][0] if len(partes) > 1 else "")).upper()
+    if not nome or nome == "— Selecione —":
+        iniciais = "??"
+    else:
+        partes = nome.strip().split()
+        iniciais = (partes[0][0] + (partes[-1][0] if len(partes) > 1 else "")).upper()
+    
     cores = ["#8B0000", "#1565C0", "#4A148C", "#1B5E20", "#E65100", "#880E4F", "#006064", "#37474F"]
     cor = cores[sum(ord(c) for c in nome) % len(cores)]
     return f'<div style="width:{size}px;height:{size}px;border-radius:50%;background:{cor};display:flex;align-items:center;justify-content:center;font-size:{int(size*.36)}px;font-weight:700;color:#fff;flex-shrink:0;">{iniciais}</div>'
 
-
 def stepper_html(etapa_atual):
-    """Renderiza o stepper das 3 etapas."""
     html = '<div class="vi-stepper">'
     for i, (nome, icon) in enumerate(zip(ETAPA_NOMES_CURTOS, ETAPA_ICONS)):
         if i < etapa_atual:
@@ -581,7 +465,6 @@ def stepper_html(etapa_atual):
     html += '</div>'
     return html
 
-
 def splash_once():
     if "_splash_done" not in st.session_state:
         tela_loading("Iniciando sistema de produção", duracao=2.2)
@@ -589,7 +472,7 @@ def splash_once():
 
 
 # ============================================================
-# TELA DE LOGIN DE GERÊNCIA
+# TELAS DE LOGIN E GERÊNCIA
 # ============================================================
 def tela_login_gerencia():
     st.markdown(f"""
@@ -621,10 +504,6 @@ def tela_login_gerencia():
 
     st.markdown("</div></div>", unsafe_allow_html=True)
 
-
-# ============================================================
-# TELA DE EXTRATO (GERÊNCIA)
-# ============================================================
 def tela_extrato():
     concluidos        = carregar_concluidos()
     pedidos_andamento = carregar_pedidos()
@@ -696,12 +575,6 @@ def tela_extrato():
             st.markdown(f'<div class="vi-alert vi-alert-inf">🔍 <b>{n_res}</b> operação(ões) encontrada(s)</div>', unsafe_allow_html=True)
 
             if n_res > 0:
-                if op_filtro == "Todos":
-                    resumo = df_filtrado.groupby(["operador", "etapa"]).size().reset_index(name="qtd")
-                    resumo.columns = ["Funcionário", "Etapa", "Qtd."]
-                    st.dataframe(resumo, use_container_width=True, hide_index=True)
-                    st.markdown('<div class="vi-divider"></div>', unsafe_allow_html=True)
-
                 df_exib = df_filtrado[["data_hora", "pedido", "operador", "etapa", "status_pedido"]].rename(columns={
                     "data_hora": "Data/Hora", "pedido": "Pedido",
                     "operador": "Funcionário", "etapa": "Etapa", "status_pedido": "Status"
@@ -714,18 +587,12 @@ def tela_extrato():
                 nome_arq = f"extrato_{op_filtro.replace(' ','_')}_{data_ini.strftime('%d%m%Y')}_{data_fim.strftime('%d%m%Y')}"
                 col_dl1, col_dl2 = st.columns(2)
                 with col_dl1:
-                    st.download_button("⬇️ CSV", data=df_exib.to_csv(index=False).encode("utf-8"),
-                                       file_name=f"{nome_arq}.csv", mime="text/csv",
-                                       use_container_width=True, key="dl_hist_csv")
+                    st.download_button("⬇️ CSV", data=df_exib.to_csv(index=False).encode("utf-8"), file_name=f"{nome_arq}.csv", mime="text/csv", use_container_width=True)
                 with col_dl2:
                     xlsx_buf = BytesIO()
                     with pd.ExcelWriter(xlsx_buf, engine="openpyxl") as writer:
                         df_exib.to_excel(writer, index=False, sheet_name="Detalhado")
-                    xlsx_buf.seek(0)
-                    st.download_button("⬇️ Excel", data=xlsx_buf.getvalue(),
-                                       file_name=f"{nome_arq}.xlsx",
-                                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                       use_container_width=True, key="dl_hist_xlsx")
+                    st.download_button("⬇️ Excel", data=xlsx_buf.getvalue(), file_name=f"{nome_arq}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
 
     with aba2:
         if concluidos:
@@ -736,20 +603,6 @@ def tela_extrato():
                 "op_conf": "Op. Conf.", "dt_conf": "Data Conf."
             }).drop(columns=["etapa"], errors="ignore")
             st.dataframe(df_show, use_container_width=True, hide_index=True)
-            col_c1, col_c2 = st.columns(2)
-            with col_c1:
-                st.download_button("⬇️ CSV", data=df_show.to_csv(index=False).encode("utf-8"),
-                                   file_name=f"concluidos_{datetime.now().strftime('%d%m%Y')}.csv",
-                                   mime="text/csv", use_container_width=True, key="dl_conc_csv")
-            with col_c2:
-                xlsx_buf2 = BytesIO()
-                with pd.ExcelWriter(xlsx_buf2, engine="openpyxl") as writer:
-                    df_show.to_excel(writer, index=False, sheet_name="Concluídos")
-                xlsx_buf2.seek(0)
-                st.download_button("⬇️ Excel", data=xlsx_buf2.getvalue(),
-                                   file_name=f"concluidos_{datetime.now().strftime('%d%m%Y')}.xlsx",
-                                   mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                   use_container_width=True, key="dl_conc_xlsx")
         else:
             st.markdown('<div class="vi-alert vi-alert-inf">ℹ️ Nenhum pedido finalizado ainda.</div>', unsafe_allow_html=True)
 
@@ -774,10 +627,6 @@ def tela_extrato():
         st.session_state.pop("_gerencia_ok", None)
         st.rerun()
 
-
-# ============================================================
-# TELA DE SELEÇÃO DE OPERADOR
-# ============================================================
 def tela_selecao_operador():
     st.markdown(f"""
     <div style="text-align:center;padding:24px 0 12px">
@@ -804,7 +653,7 @@ def tela_selecao_operador():
         else:
             st.session_state["_operador"]      = operador
             st.session_state["_turno_inicio"]  = time.time()
-            st.session_state["_flow_state"]    = "idle"  # idle | running | transitioning | concluido
+            st.session_state["_flow_state"]    = "idle"
             st.session_state["_etapa_idx"]     = 0
             st.session_state["_pedido_atual"]  = None
             st.session_state["_ts_inicio"]     = None
@@ -812,436 +661,191 @@ def tela_selecao_operador():
 
 
 # ============================================================
-# TELA DE TRANSIÇÃO ENTRE ETAPAS
+# TELA DE OPERAÇÃO UNIFICADA (FLUXO CONTÍNUO)
 # ============================================================
-def tela_transicao():
-    """
-    Pergunta se o próximo operador é o mesmo ou outro.
-    Se outro → mostra grid de seleção.
-    Ao confirmar → vai para tela da próxima etapa (ou concluído).
-    """
-    pedido_num     = st.session_state.get("_pedido_finalizado")
-    etapa_concluida = st.session_state.get("_etapa_concluida", 0)  # 0,1,2
-    proxima_etapa  = etapa_concluida + 1
-    operador_atual = st.session_state.get("_operador", "")
+def tela_operacao():
+    operador = st.session_state.get("_operador", "Operador")
+    flow_state = st.session_state.get("_flow_state", "idle") # idle | aguardando_inicio | running | transicao
+    etapa_idx = st.session_state.get("_etapa_idx", 0)
+    pedido_atual = st.session_state.get("_pedido_atual")
 
-    # ── Pedido totalmente concluído ──
-    if etapa_concluida == 2:
-        st.markdown(f"""
-        <div class="vi-concluido-card">
-            <div style="font-size:2.8rem;margin-bottom:10px">🎉</div>
-            <div style="font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:800;margin-bottom:6px">Pedido Concluído!</div>
-            <div style="font-size:2.2rem;font-weight:700;font-family:'DM Mono',monospace;opacity:.9;margin:10px 0">#{pedido_num}</div>
-            <div style="font-size:.82rem;opacity:.8">Todas as 3 etapas foram finalizadas com sucesso</div>
-        </div>
-        """, unsafe_allow_html=True)
+    pedidos = carregar_pedidos()
 
-        st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
-
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown('<div class="btn-start">', unsafe_allow_html=True)
-            if st.button("▶  Novo Pedido", use_container_width=True, key="btn_novo_concluido"):
-                st.session_state["_flow_state"]   = "idle"
-                st.session_state["_pedido_atual"] = None
-                st.session_state["_ts_inicio"]    = None
-                st.session_state["_etapa_idx"]    = 0
-                st.session_state.pop("_pedido_finalizado", None)
-                st.session_state.pop("_etapa_concluida", None)
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-        with col2:
-            if st.button("Trocar operador", use_container_width=True, type="secondary", key="btn_trocar_op_conc"):
-                for k in ["_operador", "_turno_inicio", "_flow_state", "_etapa_idx",
-                          "_pedido_atual", "_ts_inicio", "_pedido_finalizado", "_etapa_concluida",
-                          "_proximo_operador", "_trans_modo", "_ultimo_pedido_num",
-                          "_ultimo_inicio", "_ultimo_fim"]:
-                    st.session_state.pop(k, None)
-                st.rerun()
-        return
-
-    # ── Transição entre etapas ──
-    prox_icon  = ETAPA_ICONS[proxima_etapa]
-    prox_nome  = ETAPAS[proxima_etapa]
-    prox_cor   = ETAPA_CORES[proxima_etapa]
-    prox_cor_l = ETAPA_CORES_LIGHT[proxima_etapa]
-
+    # ── HEADER FIXO (Sempre visível) ──
     st.markdown(f"""
-    <div class="vi-transition-card">
-        {stepper_html(proxima_etapa)}
-        <div class="vi-divider"></div>
-        <div style="font-size:.7rem;color:#9ca3af;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Pedido</div>
-        <div style="font-family:'Playfair Display',serif;font-size:2.4rem;font-weight:800;color:#1a1a2e">#{pedido_num}</div>
-        <div class="vi-transition-next-badge" style="background:{prox_cor_l};color:{prox_cor};border:1.5px solid {prox_cor}44;margin:10px auto;">
-            {prox_icon} Próxima: {prox_nome}
+    <div class="vi-main-card" style="margin-bottom:16px;">
+        <div class="vi-card-header" style="justify-content:space-between; padding: 16px 24px;">
+            <div class="vi-card-header-accent" style="background:{ETAPA_CORES[min(etapa_idx, 2)]}"></div>
+            <div style="display:flex;align-items:center;gap:12px;">
+                {avatar_html(operador, size=38)}
+                <div>
+                    <div style="font-size:.60rem;font-weight:700;color:#9ca3af;letter-spacing:.1em;text-transform:uppercase">Estação Central</div>
+                    <div style="font-size:.95rem;font-weight:700;color:#1a1a2e;line-height:1.1">{operador}</div>
+                </div>
+            </div>
+            <div>
+                <div class="vi-etapa-badge" style="background:{ETAPA_CORES_LIGHT[min(etapa_idx, 2)]};color:{ETAPA_CORES[min(etapa_idx, 2)]};border:1px solid {ETAPA_CORES[min(etapa_idx, 2)]}44">
+                    {ETAPA_ICONS[min(etapa_idx, 2)]} {ETAPA_NOMES_CURTOS[min(etapa_idx, 2)]}
+                </div>
+            </div>
         </div>
-        <div style="font-size:.88rem;font-weight:600;color:#374151;margin-bottom:6px">Quem vai realizar esta etapa?</div>
-    </div>
+        <div class="vi-card-body" style="padding: 16px 24px 24px;">
     """, unsafe_allow_html=True)
 
-    # Inicializa modo de transição
-    if "_trans_modo" not in st.session_state:
-        st.session_state["_trans_modo"] = None
+    # ── 1. ESTADO: IDLE (Aguardando Pedido) ──
+    if flow_state == "idle":
+        st.markdown('<div style="text-align:center; font-size:.85rem;font-weight:700;color:#374151;margin-bottom:12px">Bipar ou digitar número do pedido:</div>', unsafe_allow_html=True)
+        novo_pedido = st.text_input("Número do pedido", placeholder="Ex: 12345", key="inp_pedido_idle", label_visibility="collapsed")
+        
+        st.markdown('<div class="btn-start" style="margin-top:16px;">', unsafe_allow_html=True)
+        if st.button("▶ BUSCAR PEDIDO", key="btn_buscar"):
+            if not novo_pedido.strip():
+                st.markdown('<div class="vi-alert vi-alert-err">⚠️ Digite o número do pedido.</div>', unsafe_allow_html=True)
+            else:
+                num = novo_pedido.strip().upper()
+                # Regras de Negócio Iniciais
+                if num in pedidos:
+                    st.session_state["_pedido_atual"] = num
+                    st.session_state["_etapa_idx"] = pedidos[num].get("etapa", 0)
+                else:
+                    pedidos[num] = {"pedido": num, "etapa": 0}
+                    salvar_pedidos(pedidos)
+                    st.session_state["_pedido_atual"] = num
+                    st.session_state["_etapa_idx"] = 0
+                
+                st.session_state["_flow_state"] = "aguardando_inicio"
+                st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+    # Se houver um pedido ativo, mostramos o Stepper e o número do pedido
+    if flow_state in ["aguardando_inicio", "running", "transicao"] and pedido_atual:
+        st.markdown(stepper_html(etapa_idx), unsafe_allow_html=True)
+        st.markdown(f'<div class="vi-pedido-num" style="font-size: 2.6rem; margin: 8px 0;">#{pedido_atual}</div>', unsafe_allow_html=True)
 
-    col_mesmo, col_outro = st.columns(2)
-    with col_mesmo:
+    # ── 2. ESTADO: AGUARDANDO INÍCIO DA ETAPA ──
+    if flow_state == "aguardando_inicio":
         st.markdown('<div class="btn-start">', unsafe_allow_html=True)
-        if st.button(f"✅  Sou eu mesmo\n({operador_atual.split()[0]})", use_container_width=True, key="btn_mesmo_op"):
-            st.session_state["_proximo_operador"] = operador_atual
-            st.session_state["_trans_modo"]       = "confirmado"
+        if st.button(f"▶ INICIAR {ETAPA_NOMES_CURTOS[etapa_idx].upper()}", key="btn_iniciar_etapa"):
+            st.session_state["_flow_state"] = "running"
+            st.session_state["_ts_inicio"] = time.time()
+            registrar_historico(pedido_atual, operador, ETAPAS[etapa_idx], agora_str(), "em_andamento")
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    with col_outro:
-        if st.button("👤  Outro operador", use_container_width=True, type="secondary", key="btn_outro_op"):
-            st.session_state["_trans_modo"] = "selecionando"
-            st.rerun()
-
-    # ── Selecionando outro operador ──
-    if st.session_state.get("_trans_modo") == "selecionando":
-        st.markdown('<div class="vi-divider"></div>', unsafe_allow_html=True)
-        st.markdown('<div style="font-size:.68rem;font-weight:700;color:#6b7280;letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px">Selecione o operador</div>', unsafe_allow_html=True)
-
-        outro_op = st.selectbox(
-            "Operador",
-            options=["— Selecione —"] + [op for op in OPERADORES if op != operador_atual],
-            key="sel_outro_op",
-            label_visibility="collapsed"
-        )
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-
-        if st.button("▶  Confirmar e Iniciar", use_container_width=True, key="btn_confirma_outro"):
-            if outro_op == "— Selecione —":
-                st.markdown('<div class="vi-alert vi-alert-err">⚠️ Selecione um operador.</div>', unsafe_allow_html=True)
-            else:
-                st.session_state["_proximo_operador"] = outro_op
-                st.session_state["_trans_modo"]       = "confirmado"
-                st.rerun()
-
-    # ── Confirmado → avança ──
-    if st.session_state.get("_trans_modo") == "confirmado":
-        proximo_op = st.session_state.get("_proximo_operador", operador_atual)
-        st.session_state["_operador"]     = proximo_op
-        st.session_state["_etapa_idx"]   = proxima_etapa
-        st.session_state["_flow_state"]  = "idle"
-        st.session_state["_pedido_atual"] = pedido_num  # mantém pedido para a próxima etapa
-        st.session_state["_ts_inicio"]   = None
-        st.session_state.pop("_pedido_finalizado", None)
-        st.session_state.pop("_etapa_concluida", None)
-        st.session_state.pop("_trans_modo", None)
-        st.rerun()
-
-
-# ============================================================
-# TELA PRINCIPAL DO OPERADOR (fluxo início/fim)
-# ============================================================
-def tela_operador_fluxo():
-    import time as _time
-
-    operador      = st.session_state.get("_operador", "")
-    etapa_idx     = st.session_state.get("_etapa_idx", 0)
-    flow_state    = st.session_state.get("_flow_state", "idle")  # idle | running
-    pedido_atual  = st.session_state.get("_pedido_atual")
-    ts_inicio     = st.session_state.get("_ts_inicio")
-    turno_inicio  = st.session_state.get("_turno_inicio", _time.time())
-
-    hoje_str   = agora_str().split(" ")[0]
-    historico  = carregar_historico()
-    hist_hoje  = [h for h in historico if h.get("operador") == operador and h.get("data") == hoje_str]
-    pedidos_hoje = len(hist_hoje)
-
-    etapa_nome  = ETAPAS[etapa_idx]
-    etapa_icon  = ETAPA_ICONS[etapa_idx]
-    etapa_cor   = ETAPA_CORES[etapa_idx]
-    etapa_cor_l = ETAPA_CORES_LIGHT[etapa_idx]
-
-    ultimo_inicio   = st.session_state.get("_ultimo_inicio")
-    ultimo_fim      = st.session_state.get("_ultimo_fim")
-    ultimo_pedido_n = st.session_state.get("_ultimo_pedido_num")
-
-    h_turno = fmt_tempo(_time.time() - turno_inicio)
-    h_inicio_turno = datetime.fromtimestamp(turno_inicio).strftime("%H:%M")
-
-    # ── CABEÇALHO ──
-    st.markdown(f"""
-    <div class="vi-main-card">
-        <div class="vi-card-header">
-            <div class="vi-card-header-accent" style="background:{etapa_cor}"></div>
-            {avatar_html(operador, 44)}
-            <div style="flex:1">
-                <div style="font-size:.62rem;font-weight:700;color:#9ca3af;letter-spacing:.1em;text-transform:uppercase">{operador}</div>
-                <div class="vi-etapa-badge" style="background:{etapa_cor_l};color:{etapa_cor};border:1.5px solid {etapa_cor}44;margin-top:4px">
-                    {etapa_icon} {etapa_nome}
-                </div>
-            </div>
-            <div style="text-align:right">{logo_tag.replace('margin:0 auto 6px','margin:0')}</div>
-        </div>
-        <div class="vi-card-body">
-            {stepper_html(etapa_idx)}
-    """, unsafe_allow_html=True)
-
-    # ══════════════════════════════
-    # ESTADO: IDLE (aguardando início)
-    # ══════════════════════════════
-    if flow_state == "idle":
-
-        if etapa_idx == 0:
-            # Separação: digita número
-            st.markdown('<div style="font-size:.68rem;font-weight:700;color:#6b7280;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">Número do Pedido</div>', unsafe_allow_html=True)
-            num = st.text_input(
-                "", placeholder="Ex: 12345",
-                key="inp_num_pedido", label_visibility="collapsed"
-            )
-            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-            st.markdown('<div class="btn-start">', unsafe_allow_html=True)
-            if st.button("▶  INICIAR SEPARAÇÃO", use_container_width=True, key="btn_iniciar_sep"):
-                num = num.strip()
-                pedidos_db = carregar_pedidos()
-                if not num:
-                    st.markdown('<div class="vi-alert vi-alert-err">⚠️ Informe o número do pedido.</div>', unsafe_allow_html=True)
-                elif num in pedidos_db:
-                    st.markdown(f'<div class="vi-alert vi-alert-err">⚠️ Pedido #{num} já está em andamento.</div>', unsafe_allow_html=True)
-                else:
-                    st.session_state["_pedido_atual"] = num
-                    st.session_state["_flow_state"]   = "running"
-                    st.session_state["_ts_inicio"]    = _time.time()
-                    st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        else:
-            # Embalagem ou Conferência: seleciona de lista
-            pedidos_db   = carregar_pedidos()
-            chave_op     = "op_emb" if etapa_idx == 1 else "op_conf"
-            etapa_needed = 1 if etapa_idx == 1 else 2
-            disponiveis  = sorted([
-                p for p, d in pedidos_db.items()
-                if d.get("etapa") == etapa_needed and chave_op not in d
-            ])
-
-            if pedido_atual and pedido_atual in disponiveis:
-                # Pedido já vinculado (veio da transição) → inicia direto
-                st.markdown(f"""
-                <div style="background:{etapa_cor_l};border:1.5px solid {etapa_cor}44;border-radius:14px;padding:14px 18px;text-align:center;margin-bottom:16px">
-                    <div style="font-size:.62rem;font-weight:700;color:{etapa_cor};letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Pedido vinculado da etapa anterior</div>
-                    <div style="font-family:'Playfair Display',serif;font-size:2rem;font-weight:800;color:#1a1a2e">#{pedido_atual}</div>
-                </div>
-                """, unsafe_allow_html=True)
-                st.markdown('<div class="btn-start">', unsafe_allow_html=True)
-                if st.button(f"▶  INICIAR {ETAPA_NOMES_CURTOS[etapa_idx].upper()}", use_container_width=True, key="btn_iniciar_vinc"):
-                    st.session_state["_flow_state"] = "running"
-                    st.session_state["_ts_inicio"]  = _time.time()
-                    st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
-
-                st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-                if st.button("Escolher outro pedido", use_container_width=True, type="secondary", key="btn_outro_ped"):
-                    st.session_state["_pedido_atual"] = None
-                    st.rerun()
-
-            elif not disponiveis:
-                st.markdown(f'<div class="vi-alert vi-alert-warn">⏳ Nenhum pedido disponível para <b>{etapa_nome}</b>. Aguarde a etapa anterior ser concluída.</div>', unsafe_allow_html=True)
-                st.session_state["_pedido_atual"] = None
-
-            else:
-                st.markdown(f'<div style="font-size:.68rem;font-weight:700;color:#6b7280;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">Selecione o Pedido</div>', unsafe_allow_html=True)
-                pedido_sel = st.selectbox(
-                    "", options=["— Selecione —"] + disponiveis,
-                    key=f"sel_ped_{etapa_idx}", label_visibility="collapsed"
-                )
-                st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-                st.markdown('<div class="btn-start">', unsafe_allow_html=True)
-                if st.button(f"▶  INICIAR {ETAPA_NOMES_CURTOS[etapa_idx].upper()}", use_container_width=True, key="btn_iniciar_sel"):
-                    if pedido_sel == "— Selecione —":
-                        st.markdown('<div class="vi-alert vi-alert-err">⚠️ Selecione um pedido.</div>', unsafe_allow_html=True)
-                    else:
-                        st.session_state["_pedido_atual"] = pedido_sel
-                        st.session_state["_flow_state"]   = "running"
-                        st.session_state["_ts_inicio"]    = _time.time()
-                        st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
-
-    # ══════════════════════════════
-    # ESTADO: RUNNING (em execução)
-    # ══════════════════════════════
+    # ── 3. ESTADO: RUNNING (Rodando) ──
     elif flow_state == "running":
-        elapsed = fmt_tempo(_time.time() - ts_inicio) if ts_inicio else "--:--:--"
-
-        st.markdown(f"""
-        <div style="text-align:center;margin-bottom:8px">
-            <div style="font-size:.65rem;color:#9ca3af;letter-spacing:.12em;text-transform:uppercase;margin-bottom:2px">Em Operação</div>
-            <div class="vi-pedido-num">#{pedido_atual}</div>
-            <div class="vi-timer-display">⏱ {elapsed}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        tempo_decorrido = time.time() - st.session_state.get("_ts_inicio", time.time())
+        st.markdown(f'<div class="vi-timer-display" id="timer_display">⏱ {fmt_tempo(tempo_decorrido)}</div>', unsafe_allow_html=True)
+        
+        # Refresh automático do cronômetro
+        time.sleep(1)
+        st.rerun()
 
         st.markdown('<div class="btn-stop">', unsafe_allow_html=True)
-        if st.button("⏹  FINALIZAR", use_container_width=True, key="btn_finalizar"):
-            now    = agora_str()
-            ts_fim = _time.time()
-            pedidos_db = carregar_pedidos()
+        if st.button(f"⏹ CONCLUIR {ETAPA_NOMES_CURTOS[etapa_idx].upper()}", key="btn_concluir_etapa"):
+            # Salvar dados da etapa concluída
+            pedidos_atuais = carregar_pedidos()
+            campos_op = ["op_sep", "op_emb", "op_conf"]
+            campos_dt = ["dt_sep", "dt_emb", "dt_conf"]
+            
+            pedidos_atuais[pedido_atual][campos_op[etapa_idx]] = operador
+            pedidos_atuais[pedido_atual][campos_dt[etapa_idx]] = agora_str()
+            registrar_historico(pedido_atual, operador, ETAPAS[etapa_idx], agora_str(), "concluido")
 
-            if etapa_idx == 0:
-                pedidos_db[pedido_atual] = {
-                    "pedido": pedido_atual, "etapa": 1,
-                    "op_sep": operador, "dt_sep": now
-                }
-                registrar_historico(pedido_atual, operador, "Separação do Pedido", now, "em_andamento")
-
-            elif etapa_idx == 1:
-                if pedido_atual in pedidos_db:
-                    pedidos_db[pedido_atual]["etapa"]  = 2
-                    pedidos_db[pedido_atual]["op_emb"] = operador
-                    pedidos_db[pedido_atual]["dt_emb"] = now
-                    registrar_historico(pedido_atual, operador, "Mesa de Embalagem", now, "em_andamento")
-
-            elif etapa_idx == 2:
-                if pedido_atual in pedidos_db:
-                    pedidos_db[pedido_atual]["etapa"]   = 3
-                    pedidos_db[pedido_atual]["op_conf"] = operador
-                    pedidos_db[pedido_atual]["dt_conf"] = now
-                    conc = carregar_concluidos()
-                    conc.append(pedidos_db[pedido_atual])
-                    salvar_concluidos(conc)
-                    del pedidos_db[pedido_atual]
-                    registrar_historico(pedido_atual, operador, "Conferência do Pedido", now, "concluido")
-
-            salvar_pedidos(pedidos_db)
-
-            st.session_state["_ultimo_inicio"]     = ts_inicio
-            st.session_state["_ultimo_fim"]        = ts_fim
-            st.session_state["_ultimo_pedido_num"] = pedido_atual
-            st.session_state["_pedido_finalizado"] = pedido_atual
-            st.session_state["_etapa_concluida"]   = etapa_idx
-            st.session_state["_flow_state"]        = "transitioning"
-            st.session_state["_pedido_atual"]      = None
-            st.session_state["_ts_inicio"]         = None
-            st.rerun()
+            if etapa_idx == 2: # Última etapa concluída
+                concluidos = carregar_concluidos()
+                concluidos.append(pedidos_atuais[pedido_atual])
+                salvar_concluidos(concluidos)
+                del pedidos_atuais[pedido_atual]
+                salvar_pedidos(pedidos_atuais)
+                
+                st.session_state["_flow_state"] = "idle"
+                st.session_state["_pedido_atual"] = None
+                st.session_state["_etapa_idx"] = 0
+                st.balloons() # Feedback de sucesso
+                st.rerun()
+            else:
+                pedidos_atuais[pedido_atual]["etapa"] = etapa_idx + 1
+                salvar_pedidos(pedidos_atuais)
+                st.session_state["_etapa_idx"] = etapa_idx + 1
+                st.session_state["_flow_state"] = "transicao"
+                st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-        if st.button("Cancelar operação", use_container_width=True, type="secondary", key="btn_cancelar"):
-            st.session_state["_flow_state"]   = "idle"
-            st.session_state["_pedido_atual"] = None
-            st.session_state["_ts_inicio"]    = None
-            st.rerun()
+    # ── 4. ESTADO: TRANSIÇÃO (Mesmo operador ou outro?) ──
+    elif flow_state == "transicao":
+        st.markdown(f"""
+        <div style="background:{ETAPA_CORES_LIGHT[etapa_idx]}; border: 1px solid {ETAPA_CORES[etapa_idx]}44; border-radius: 12px; padding: 12px; text-align:center; margin-bottom: 16px;">
+            <div style="font-size:.8rem; font-weight:700; color:{ETAPA_CORES[etapa_idx]};">✅ Etapa anterior concluída!</div>
+            <div style="font-size:.9rem; font-weight:700; color:#1a1a2e; margin-top:4px;">Quem fará a {ETAPAS[etapa_idx]}?</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    # ── Fechamento do card ──
+        colA, colB = st.columns(2)
+        with colA:
+            if st.button(f"👤 Continuar comigo", use_container_width=True, key="btn_eu_mesmo"):
+                st.session_state["_flow_state"] = "aguardando_inicio"
+                st.session_state.pop("_trans_modo", None)
+                st.rerun()
+        
+        with colB:
+            if st.button("👥 Outro operador", use_container_width=True, type="secondary", key="btn_outro_op"):
+                st.session_state["_trans_modo"] = "selecionar"
+                st.rerun()
+
+        if st.session_state.get("_trans_modo") == "selecionar":
+            st.markdown('<div style="margin-top:12px;"></div>', unsafe_allow_html=True)
+            novo_op = st.selectbox(
+                "Selecione o operador:", 
+                options=["— Selecione —"] + OPERADORES, 
+                label_visibility="collapsed", 
+                key="sel_trans_op"
+            )
+            if st.button("Confirmar Troca", use_container_width=True):
+                if novo_op == "— Selecione —":
+                    st.warning("Selecione um operador na lista.")
+                else:
+                    st.session_state["_operador"] = novo_op
+                    st.session_state["_flow_state"] = "aguardando_inicio"
+                    st.session_state.pop("_trans_modo", None)
+                    st.rerun()
+
     st.markdown("</div></div>", unsafe_allow_html=True)
 
-    # ── Resumo do turno ──
-    st.markdown(f"""
-    <div class="vi-stat-row">
-        <div class="vi-stat-box">
-            <div class="vi-stat-label">Pedidos hoje</div>
-            <div class="vi-stat-val" style="color:#1B5E20">{pedidos_hoje}</div>
-        </div>
-        <div class="vi-stat-box">
-            <div class="vi-stat-label">Início turno</div>
-            <div class="vi-stat-val" style="font-size:1rem">{h_inicio_turno}</div>
-        </div>
-        <div class="vi-stat-box">
-            <div class="vi-stat-label">Tempo turno</div>
-            <div class="vi-stat-val" style="font-size:.95rem">{h_turno}</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # ── Último pedido ──
-    if ultimo_pedido_n and ultimo_inicio and ultimo_fim:
-        dur = ultimo_fim - ultimo_inicio
-        st.markdown(f"""
-        <div class="vi-last-pedido">
-            <div>
-                <div style="font-size:.6rem;font-weight:700;color:#9ca3af;letter-spacing:.1em;text-transform:uppercase">⏱ Último pedido</div>
-                <div style="font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:700;color:#1a1a2e">#{ultimo_pedido_n}</div>
-            </div>
-            <div style="text-align:right">
-                <div style="font-size:.7rem;color:#6b7280">{datetime.fromtimestamp(ultimo_inicio).strftime("%H:%M:%S")} → {datetime.fromtimestamp(ultimo_fim).strftime("%H:%M:%S")}</div>
-                <div style="font-family:'DM Mono',monospace;font-weight:700;color:#8B0000;font-size:.9rem">{fmt_tempo(dur)}</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    # ── Botão trocar operador ──
-    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-    if st.button("⏏  Trocar operador / Sair", use_container_width=True, type="secondary", key="btn_sair"):
-        for k in ["_operador", "_turno_inicio", "_flow_state", "_etapa_idx",
-                  "_pedido_atual", "_ts_inicio", "_pedido_finalizado", "_etapa_concluida",
-                  "_proximo_operador", "_trans_modo", "_ultimo_pedido_num",
-                  "_ultimo_inicio", "_ultimo_fim"]:
-            st.session_state.pop(k, None)
+    # Botão super discreto no rodapé apenas para trocar operador geral / sair
+    st.markdown('<div style="text-align:center;">', unsafe_allow_html=True)
+    if st.button("↺ Sair da Estação / Trocar Operador", type="secondary", use_container_width=False):
+        st.session_state.pop("_operador", None)
+        st.session_state.pop("_flow_state", None)
+        st.session_state.pop("_pedido_atual", None)
         st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ============================================================
-# TELA INICIAL (escolha operador / gerência)
+# CONTROLE DE FLUXO PRINCIPAL E ENTRYPOINT
 # ============================================================
-def tela_inicial():
-    st.markdown(f"""
-    <div style="text-align:center;padding:32px 0 20px">
-        {logo_tag}
-        <div style="font-family:'Playfair Display',serif;font-size:1.15rem;font-weight:800;color:#1a1a2e;margin-top:6px">Sistema de Produção</div>
-        <div style="font-size:.72rem;color:#9ca3af;margin-top:3px;letter-spacing:.06em">Vi Lingerie · Linha de Montagem</div>
-    </div>
-    <div class="vi-divider"></div>
-    <div style="font-size:.68rem;font-weight:700;color:#6b7280;letter-spacing:.12em;text-transform:uppercase;margin-bottom:14px">🚀 Como deseja acessar?</div>
-    """, unsafe_allow_html=True)
+def main():
+    splash_once()
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("""
-        <div style="background:#fff;border:2px solid #e5e7eb;border-radius:18px;padding:22px 16px;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.08)">
-            <div style="font-size:2rem;margin-bottom:8px">🏭</div>
-            <div style="font-size:.9rem;font-weight:700;color:#1a1a2e">Operador</div>
-            <div style="font-size:.68rem;color:#9ca3af;margin-top:4px">Registrar etapas de produção</div>
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-        if st.button("Entrar como Operador", use_container_width=True, key="btn_op"):
-            st.session_state["_modo"] = "operador"
-            st.rerun()
-
-    with col2:
-        st.markdown("""
-        <div style="background:#fff;border:2px solid #e5e7eb;border-radius:18px;padding:22px 16px;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.08)">
-            <div style="font-size:2rem;margin-bottom:8px">📊</div>
-            <div style="font-size:.9rem;font-weight:700;color:#1a1a2e">Gerência</div>
-            <div style="font-size:.68rem;color:#9ca3af;margin-top:4px">Extrato e relatórios</div>
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-        if st.button("Entrar como Gerência", use_container_width=True, type="secondary", key="btn_ger"):
-            st.session_state["_modo"] = "gerencia"
-            st.rerun()
-
-
-# ============================================================
-# ROTEADOR PRINCIPAL
-# ============================================================
-splash_once()
-
-modo = st.session_state.get("_modo")
-
-if not modo:
-    tela_inicial()
-
-elif modo == "gerencia":
-    if not st.session_state.get("_gerencia_ok"):
-        tela_login_gerencia()
-    else:
+    if "_gerencia_ok" in st.session_state and st.session_state["_gerencia_ok"]:
         tela_extrato()
+        return
 
-elif modo == "operador":
-    # Sem operador selecionado → tela de seleção
+    if "_modo" in st.session_state and st.session_state["_modo"] == "gerencia":
+        tela_login_gerencia()
+        return
+
     if "_operador" not in st.session_state:
         tela_selecao_operador()
+        st.markdown("<div style='margin-top:40px;'></div>", unsafe_allow_html=True)
+        if st.button("🔐 Acesso Gerência", type="secondary", use_container_width=True):
+            st.session_state["_modo"] = "gerencia"
+            st.rerun()
+        return
 
-    # Em transição entre etapas
-    elif st.session_state.get("_flow_state") == "transitioning":
-        tela_transicao()
+    # O operador está logado. Toda a mágica agora acontece em uma única tela.
+    tela_operacao()
 
-    # Fluxo normal (idle ou running)
-    else:
-        tela_operador_fluxo()
+if __name__ == "__main__":
+    main()
