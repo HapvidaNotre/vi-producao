@@ -1,3 +1,8 @@
+"""
+Vi Lingerie — Sistema de Apontamento de Produção
+Reconstruído do zero. Sem hacks de CSS. Botões 100% nativos.
+"""
+
 import streamlit as st
 import pandas as pd
 import json
@@ -6,587 +11,901 @@ import time
 from datetime import datetime
 from io import BytesIO
 
+# ─────────────────────────────────────────────────────────────
+# CONFIGURAÇÃO DA PÁGINA
+# ─────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Vi Lingerie — Produção",
     layout="centered",
     page_icon="🏭",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="collapsed",
 )
 
-ETAPAS       = ["Separação do Pedido", "Mesa de Embalagem", "Conferência do Pedido"]
-ETAPA_LABELS = ["SEPARAÇÃO", "EMBALAGEM", "CONFERÊNCIA"]
-ETAPA_COLORS = ["#1D4ED8", "#7C3AED", "#16a34a"]
+# ─────────────────────────────────────────────────────────────
+# CONSTANTES
+# ─────────────────────────────────────────────────────────────
+ETAPAS = [
+    "Separação do Pedido",
+    "Mesa de Embalagem",
+    "Conferência do Pedido",
+]
+ETAPA_LABELS  = ["SEPARAÇÃO", "EMBALAGEM", "CONFERÊNCIA"]
+ETAPA_ICONS   = ["📦", "📬", "✅"]
+ETAPA_COLORS  = ["#1D4ED8", "#7C3AED", "#16A34A"]   # azul, roxo, verde
 
 OPERADORES = [
-    "Lucivanio", "Enágio", "Daniel", "Ítalo", "Cildenir",
-    "Samya", "Neide", "Eduardo", "Talyson",
+    "Lucivanio", "Enágio", "Daniel",
+    "Ítalo",     "Cildenir", "Samya",
+    "Neide",     "Eduardo",  "Talyson",
+]
+
+# Paleta de cores dos avatares (por índice do nome)
+AV_PALETTE = [
+    "#7C3AED", "#1D4ED8", "#B91C1C",
+    "#047857", "#C2410C", "#6D28D9",
+    "#0369A1", "#374151", "#BE185D",
 ]
 
 SENHA_GERENCIA = "vi2026"
 
-STATE_DIR = "vi_producao_state"
+# ─────────────────────────────────────────────────────────────
+# PERSISTÊNCIA
+# ─────────────────────────────────────────────────────────────
+STATE_DIR      = "vi_state"
+FILE_PEDIDOS   = os.path.join(STATE_DIR, "pedidos.json")
+FILE_CONCLUIDOS= os.path.join(STATE_DIR, "concluidos.json")
+FILE_HISTORICO = os.path.join(STATE_DIR, "historico.json")
 os.makedirs(STATE_DIR, exist_ok=True)
-FILE_PEDIDOS    = os.path.join(STATE_DIR, "pedidos.json")
-FILE_CONCLUIDOS = os.path.join(STATE_DIR, "concluidos.json")
-FILE_HISTORICO  = os.path.join(STATE_DIR, "historico.json")
 
-def _load(path):
+
+def _ler(path, default):
     if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f: return json.load(f)
-    return {}
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return default
 
-def _save(path, data):
-    with open(path, "w", encoding="utf-8") as f: json.dump(data, f, ensure_ascii=False, indent=2)
 
-def carregar_pedidos():    return _load(FILE_PEDIDOS)
-def salvar_pedidos(d):     _save(FILE_PEDIDOS, d)
-def carregar_concluidos():
-    d = _load(FILE_CONCLUIDOS); return d if isinstance(d, list) else []
-def salvar_concluidos(d):  _save(FILE_CONCLUIDOS, d)
-def carregar_historico():
-    d = _load(FILE_HISTORICO); return d if isinstance(d, list) else []
+def _gravar(path, data):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
-def registrar_historico(pedido, operador, etapa, dh, status="em_andamento"):
-    h = carregar_historico()
-    h.append({"data_hora": dh, "data": dh.split(" ")[0] if " " in dh else dh,
-               "pedido": pedido, "operador": operador, "etapa": etapa, "status_pedido": status})
-    _save(FILE_HISTORICO, h)
 
-def agora_str():
+def db_pedidos()    -> dict: return _ler(FILE_PEDIDOS, {})
+def db_concluidos() -> list: d = _ler(FILE_CONCLUIDOS, []); return d if isinstance(d, list) else []
+def db_historico()  -> list: d = _ler(FILE_HISTORICO,  []); return d if isinstance(d, list) else []
+
+def salvar_pedidos(d):    _gravar(FILE_PEDIDOS, d)
+def salvar_concluidos(d): _gravar(FILE_CONCLUIDOS, d)
+
+def registrar_log(pedido, operador, etapa, status="em_andamento"):
+    dh   = agora()
+    hist = db_historico()
+    hist.append({
+        "data_hora": dh,
+        "data":      dh.split(" ")[0],
+        "pedido":    pedido,
+        "operador":  operador,
+        "etapa":     etapa,
+        "status":    status,
+    })
+    _gravar(FILE_HISTORICO, hist)
+
+
+# ─────────────────────────────────────────────────────────────
+# UTILITÁRIOS
+# ─────────────────────────────────────────────────────────────
+def agora() -> str:
     from datetime import timezone, timedelta
     return datetime.now(timezone(timedelta(hours=-3))).strftime("%d/%m/%Y %H:%M")
 
-def fmt_tempo(s):
-    if not s or s < 0: return "00:00:00"
-    return f"{int(s//3600):02d}:{int((s%3600)//60):02d}:{int(s%60):02d}"
 
+def fmt_hms(seg: float) -> str:
+    if not seg or seg < 0:
+        return "00:00:00"
+    seg = int(seg)
+    return f"{seg//3600:02d}:{(seg%3600)//60:02d}:{seg%60:02d}"
+
+
+def av_cor(nome: str) -> str:
+    return AV_PALETTE[sum(ord(c) for c in nome) % len(AV_PALETTE)]
+
+
+def av_ini(nome: str) -> str:
+    p = nome.strip().split()
+    return (p[0][0] + (p[-1][0] if len(p) > 1 else "")).upper()
+
+
+# ─────────────────────────────────────────────────────────────
+# LOGO
+# ─────────────────────────────────────────────────────────────
 import base64 as _b64
-def _get_logo_b64():
+
+def _logo_b64() -> str:
     for p in ["logo_vi.png", "../logo_vi.png"]:
         if os.path.exists(p):
-            with open(p,"rb") as f: return _b64.b64encode(f.read()).decode()
+            with open(p, "rb") as f:
+                return _b64.b64encode(f.read()).decode()
     return ""
-_logo_b64 = _get_logo_b64()
-_logo_src = f"data:image/png;base64,{_logo_b64}" if _logo_b64 else ""
-logo_html = (f'<img src="{_logo_src}" style="height:34px;object-fit:contain;" />'
-             if _logo_b64
-             else '<span style="font-family:\'Playfair Display\',serif;font-size:1.6rem;font-weight:900;color:#8B0000;letter-spacing:.06em">VI LINGERIE</span>')
 
-_PALETTE = ["#7C3AED","#1D4ED8","#B91C1C","#047857","#C2410C","#6D28D9","#0369A1","#374151","#BE185D"]
-def av_cor(nome): return _PALETTE[sum(ord(c) for c in nome) % len(_PALETTE)]
-def av_ini(nome):
-    p = nome.strip().split()
-    return (p[0][0] + (p[-1][0] if len(p)>1 else "")).upper()
+_LB64 = _logo_b64()
+LOGO_HTML = (
+    f'<img src="data:image/png;base64,{_LB64}" style="height:36px;object-fit:contain;" />'
+    if _LB64
+    else '<span style="font-family:\'Playfair Display\',serif;font-size:1.7rem;'
+         'font-weight:900;color:#8B0000;letter-spacing:.05em;">VI LINGERIE</span>'
+)
 
-# ════════════════════════════════════════════════════════════
-# CSS
-# ════════════════════════════════════════════════════════════
+# ─────────────────────────────────────────────────────────────
+# CSS  —  CLEAN, SEM HACKS
+# ─────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap');
-*,*::before,*::after{box-sizing:border-box;}
-html,body,[data-testid="stApp"]{
-    font-family:'DM Sans',sans-serif!important;
-    background:#EDEBE8!important;
-    color:#111827!important;
-    min-height:100vh;
+/* ── FONTES ─────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap');
+
+/* ── BASE ────────────────────────────────────────────────── */
+html, body, [data-testid="stApp"] {
+    font-family: 'DM Sans', sans-serif !important;
+    background: #ECEAE6 !important;
+    color: #111827 !important;
 }
-[data-testid="stSidebar"],header[data-testid="stHeader"],
-[data-testid="stToolbar"],[data-testid="stDecoration"]{display:none!important;}
-.block-container{padding:1.8rem 1rem 3rem!important;max-width:540px!important;margin:0 auto!important;}
+[data-testid="stSidebar"],
+header[data-testid="stHeader"],
+[data-testid="stToolbar"],
+[data-testid="stDecoration"] { display: none !important; }
 
-.vi-wordmark{text-align:center;margin-bottom:18px;padding-top:4px;}
-
-/* CARD */
-.vi-card{background:#fff;border-radius:20px;
-    box-shadow:0 2px 24px rgba(0,0,0,.09),0 1px 4px rgba(0,0,0,.04);
-    overflow:hidden;animation:vi-up .32s cubic-bezier(.22,1,.36,1) both;}
-@keyframes vi-up{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
-
-/* HEADER */
-.vi-header{padding:14px 18px;display:flex;align-items:center;gap:12px;border-bottom:2.5px solid transparent;position:relative;}
-.vi-header-bar{position:absolute;bottom:-2.5px;left:0;right:0;height:2.5px;}
-.vi-header-label{font-size:.58rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.14em;margin-bottom:1px;}
-.vi-header-name{font-size:.9rem;font-weight:700;color:#111827;}
-.vi-header-badge{margin-left:auto;display:inline-flex;align-items:center;gap:5px;padding:5px 13px;
-    border-radius:999px;font-size:.62rem;font-weight:700;letter-spacing:.1em;
-    border:1.5px solid currentColor;white-space:nowrap;}
-.vi-body{padding:22px 20px 24px;}
-.vi-hr{height:1px;background:#f3f4f6;margin:16px 0;border:none;}
-
-/* STEPPER */
-.vi-stepper-wrap{display:flex;align-items:flex-start;margin-bottom:22px;}
-.vi-step-col{display:flex;flex-direction:column;align-items:center;gap:5px;flex:0 0 auto;}
-.vi-step-circle{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
-.vi-step-lbl{font-size:.54rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;text-align:center;white-space:nowrap;}
-.vi-step-line{flex:1;height:1.5px;background:#e5e7eb;margin-top:19px;}
-.vi-step-line-done{background:#1D4ED8;}
-
-/* PEDIDO BIG */
-.vi-num{font-family:'Playfair Display',serif;font-size:3.8rem;font-weight:900;color:#111827;line-height:1;text-align:center;margin:8px 0 4px;}
-.vi-num span{color:#9ca3af;font-size:2rem;vertical-align:.25em;}
-
-/* TIMER */
-.vi-timer{display:flex;align-items:center;justify-content:center;gap:6px;
-    font-family:'DM Mono',monospace;font-size:1.45rem;font-weight:500;
-    color:#374151;letter-spacing:.06em;margin-bottom:18px;}
-
-/* SCAN */
-.vi-scan-area{text-align:center;padding:14px 0 10px;}
-.vi-scan-title{font-size:1rem;font-weight:700;color:#111827;margin:10px 0 3px;}
-.vi-scan-sub{font-size:.73rem;color:#9ca3af;margin-bottom:14px;}
-
-/* BOTÕES PRIMÁRIOS */
-.vi-btn-blue>button{background:#1D4ED8!important;border:none!important;border-radius:14px!important;
-    color:#fff!important;font-weight:700!important;font-size:.9rem!important;letter-spacing:.06em!important;
-    padding:17px 24px!important;font-family:'DM Sans',sans-serif!important;width:100%;
-    box-shadow:0 4px 16px rgba(29,78,216,.32)!important;transition:all .2s!important;}
-.vi-btn-blue>button:hover{background:#1e40af!important;transform:translateY(-1px)!important;}
-
-.vi-btn-red>button{background:#DC2626!important;border:none!important;border-radius:14px!important;
-    color:#fff!important;font-weight:700!important;font-size:.9rem!important;letter-spacing:.06em!important;
-    padding:17px 24px!important;font-family:'DM Sans',sans-serif!important;width:100%;
-    box-shadow:0 4px 16px rgba(220,38,38,.32)!important;transition:all .2s!important;
-    animation:pulse-red 2s ease infinite;}
-@keyframes pulse-red{0%,100%{box-shadow:0 4px 16px rgba(220,38,38,.32);}50%{box-shadow:0 4px 28px rgba(220,38,38,.58);}}
-.vi-btn-red>button:hover{background:#b91c1c!important;transform:translateY(-1px)!important;}
-
-/* GHOST padrão */
-.stButton>button{background:transparent!important;border:1.5px solid #e5e7eb!important;
-    border-radius:12px!important;color:#6b7280!important;font-weight:600!important;
-    font-size:.78rem!important;letter-spacing:.04em!important;padding:10px 16px!important;
-    font-family:'DM Sans',sans-serif!important;width:100%;transition:all .18s!important;}
-.stButton>button:hover{background:#f9fafb!important;color:#374151!important;border-color:#d1d5db!important;}
-
-/* ── AVATAR PROFILE BUTTON ──
-   Botão que parece foto de perfil de rede social:
-   círculo grande em cima, nome embaixo, sem borda de botão */
-.op-btn>button, .op-btn-sel>button {
-    background:transparent!important;
-    border:none!important;
-    border-radius:16px!important;
-    padding:10px 4px 10px!important;
-    font-family:'DM Sans',sans-serif!important;
-    width:100%;
-    transition:background .18s!important;
-    display:flex!important;
-    flex-direction:column!important;
-    align-items:center!important;
-    gap:0!important;
-    box-shadow:none!important;
-    color:#374151!important;
-    font-size:.78rem!important;
-    font-weight:600!important;
-    line-height:1.3!important;
-    white-space:normal!important;
+.block-container {
+    max-width: 520px !important;
+    padding: 2rem 1rem 4rem !important;
+    margin: 0 auto !important;
 }
-.op-btn>button:hover{background:#f0f4ff!important;color:#1D4ED8!important;}
-.op-btn-sel>button{background:#EFF6FF!important;color:#1D4ED8!important;font-weight:700!important;}
 
-/* INPUTS */
-[data-testid="stTextInput"] label,
-[data-testid="stSelectbox"] label,
-[data-testid="stPasswordInput"] label{display:none!important;}
-[data-testid="stTextInput"] input{background:#F4F4F4!important;border:1.5px solid transparent!important;
-    border-radius:12px!important;color:#111827!important;
-    font-family:'DM Mono',monospace!important;font-size:1rem!important;padding:14px 18px!important;}
-[data-testid="stTextInput"] input:focus{border-color:#1D4ED8!important;box-shadow:0 0 0 3px rgba(29,78,216,.1)!important;}
-[data-testid="stTextInput"] input::placeholder{color:#aaa!important;}
-[data-testid="stSelectbox"]>div>div{background:#F4F4F4!important;border:1.5px solid transparent!important;border-radius:12px!important;}
-[data-testid="stPasswordInput"] input{background:#F4F4F4!important;border:1.5px solid transparent!important;border-radius:12px!important;}
+/* ── CARD ────────────────────────────────────────────────── */
+.vi-card {
+    background: #ffffff;
+    border-radius: 18px;
+    box-shadow: 0 2px 20px rgba(0,0,0,.08), 0 1px 3px rgba(0,0,0,.04);
+    overflow: hidden;
+}
 
-/* ALERTS */
-.vi-alert{padding:11px 15px;border-radius:12px;font-size:.78rem;font-weight:500;margin:8px 0;display:flex;align-items:center;gap:8px;}
-.vi-ok  {background:#f0fdf4;border:1.5px solid #bbf7d0;color:#16a34a;}
-.vi-err {background:#fef2f2;border:1.5px solid #fecaca;color:#dc2626;}
-.vi-inf {background:#eff6ff;border:1.5px solid #bfdbfe;color:#1d4ed8;}
-.vi-warn{background:#fffbeb;border:1.5px solid #fde68a;color:#d97706;}
+/* ── HEADER DO CARD ──────────────────────────────────────── */
+.vi-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px 14px;
+    border-bottom: 3px solid var(--etapa-cor, #1D4ED8);
+}
+.vi-av {
+    width: 46px; height: 46px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 700; color: #fff;
+    flex-shrink: 0;
+}
+.vi-header-info { flex: 1; }
+.vi-header-sub  { font-size: .6rem; font-weight: 700; color: #9ca3af;
+                  text-transform: uppercase; letter-spacing: .14em; }
+.vi-header-name { font-size: .95rem; font-weight: 700; color: #111827; margin-top: 1px; }
+.vi-badge {
+    padding: 5px 14px; border-radius: 999px;
+    font-size: .62rem; font-weight: 700; letter-spacing: .1em;
+    border: 1.5px solid currentColor; white-space: nowrap;
+}
 
-/* ASK CARD */
-.vi-ask-card{background:#f9fafb;border-radius:14px;padding:16px;margin-top:12px;}
-.vi-ask-title{font-size:.68rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.12em;margin-bottom:12px;}
+/* ── BODY ────────────────────────────────────────────────── */
+.vi-body { padding: 24px 20px 26px; }
 
-/* DONE */
-@keyframes vi-pop{from{opacity:0;transform:scale(.88);}to{opacity:1;transform:scale(1);}}
-.vi-done-card{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:2px solid #bbf7d0;
-    border-radius:18px;padding:28px 20px;text-align:center;
-    animation:vi-pop .4s cubic-bezier(.34,1.56,.64,1) both;}
+/* ── WORDMARK ────────────────────────────────────────────── */
+.vi-wm { text-align: center; margin-bottom: 16px; padding-top: 2px; }
+
+/* ── DIVIDER ─────────────────────────────────────────────── */
+.vi-hr { height: 1px; background: #F0EDE8; border: none; margin: 16px 0; }
+
+/* ── TÍTULO DE SEÇÃO ─────────────────────────────────────── */
+.vi-section-label {
+    font-size: .6rem; font-weight: 700; color: #9ca3af;
+    text-transform: uppercase; letter-spacing: .14em;
+    margin-bottom: 14px;
+}
+
+/* ── STEPPER ─────────────────────────────────────────────── */
+.vi-stepper {
+    display: flex; align-items: flex-start;
+    margin-bottom: 24px; gap: 0;
+}
+.vi-step { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 0 0 auto; }
+.vi-step-dot {
+    width: 42px; height: 42px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; font-weight: 700; transition: all .25s;
+}
+.vi-step-lbl {
+    font-size: .55rem; font-weight: 700; letter-spacing: .08em;
+    text-transform: uppercase; text-align: center; white-space: nowrap;
+}
+.vi-step-line { flex: 1; height: 1.5px; background: #E5E7EB; margin-top: 20px; }
+.vi-step-line-done { background: #1D4ED8 !important; }
+
+/* ── NÚMERO DO PEDIDO ────────────────────────────────────── */
+.vi-pedido {
+    font-family: 'Playfair Display', serif;
+    font-size: 4rem; font-weight: 900;
+    color: #111827; line-height: 1;
+    text-align: center; margin: 10px 0 4px;
+}
+.vi-pedido-hash { color: #9CA3AF; font-size: 2.2rem; vertical-align: .22em; }
+
+/* ── TIMER ───────────────────────────────────────────────── */
+.vi-timer {
+    text-align: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 1.5rem; font-weight: 500;
+    color: #374151; letter-spacing: .08em;
+    margin-bottom: 20px;
+}
+
+/* ── SCAN AREA ───────────────────────────────────────────── */
+.vi-scan { text-align: center; padding: 12px 0 16px; }
+.vi-scan-title { font-size: 1rem; font-weight: 700; color: #111827; margin: 10px 0 4px; }
+.vi-scan-sub   { font-size: .73rem; color: #9ca3af; }
+
+/* ── INPUTS STREAMLIT ────────────────────────────────────── */
+[data-testid="stTextInput"]     label { display: none !important; }
+[data-testid="stPasswordInput"] label { display: none !important; }
+[data-testid="stSelectbox"]     label { display: none !important; }
+[data-testid="stNumberInput"]   label { display: none !important; }
+
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input,
+[data-testid="stPasswordInput"] input {
+    background:   #F5F4F2 !important;
+    border:       1.5px solid #E5E2DC !important;
+    border-radius: 12px !important;
+    color:        #111827 !important;
+    font-family:  'DM Mono', monospace !important;
+    font-size:    1rem !important;
+    padding:      14px 18px !important;
+    transition:   border-color .2s !important;
+}
+[data-testid="stTextInput"] input:focus,
+[data-testid="stNumberInput"] input:focus,
+[data-testid="stPasswordInput"] input:focus {
+    border-color: #1D4ED8 !important;
+    box-shadow:   0 0 0 3px rgba(29,78,216,.1) !important;
+    outline:      none !important;
+}
+[data-testid="stTextInput"] input::placeholder { color: #B0A99F !important; }
+
+[data-testid="stSelectbox"] > div > div {
+    background:    #F5F4F2 !important;
+    border:        1.5px solid #E5E2DC !important;
+    border-radius: 12px !important;
+    font-family:   'DM Sans', sans-serif !important;
+}
+
+/* ── BOTÕES STREAMLIT — ESTILOS GLOBAIS ──────────────────── */
+/* Reset geral */
+[data-testid="stButton"] > button {
+    width: 100% !important;
+    font-family: 'DM Sans', sans-serif !important;
+    font-weight: 700 !important;
+    font-size: .88rem !important;
+    letter-spacing: .04em !important;
+    border-radius: 12px !important;
+    padding: 14px 20px !important;
+    transition: all .18s ease !important;
+    cursor: pointer !important;
+    border: none !important;
+}
+
+/* Botão primário azul — classe aplicada via container */
+.btn-blue [data-testid="stButton"] > button {
+    background: #1D4ED8 !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 14px rgba(29,78,216,.35) !important;
+}
+.btn-blue [data-testid="stButton"] > button:hover {
+    background: #1e40af !important;
+    box-shadow: 0 6px 18px rgba(29,78,216,.45) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* Botão vermelho — concluir */
+.btn-red [data-testid="stButton"] > button {
+    background: #DC2626 !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 14px rgba(220,38,38,.35) !important;
+    animation: pulse-red 2s ease infinite !important;
+}
+@keyframes pulse-red {
+    0%,100% { box-shadow: 0 4px 14px rgba(220,38,38,.35); }
+    50%      { box-shadow: 0 4px 22px rgba(220,38,38,.58); }
+}
+.btn-red [data-testid="stButton"] > button:hover {
+    background: #b91c1c !important;
+    transform: translateY(-1px) !important;
+}
+
+/* Botão verde */
+.btn-green [data-testid="stButton"] > button {
+    background: #16A34A !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 14px rgba(22,163,74,.32) !important;
+}
+.btn-green [data-testid="stButton"] > button:hover {
+    background: #15803d !important;
+    transform: translateY(-1px) !important;
+}
+
+/* Botão ghost (secundário) */
+.btn-ghost [data-testid="stButton"] > button {
+    background:   transparent !important;
+    color:        #6B7280 !important;
+    border:       1.5px solid #E5E7EB !important;
+    box-shadow:   none !important;
+    font-weight:  600 !important;
+}
+.btn-ghost [data-testid="stButton"] > button:hover {
+    background:   #F9FAFB !important;
+    color:        #374151 !important;
+    border-color: #D1D5DB !important;
+}
+
+/* Botão de OPERADOR — card com avatar */
+.btn-op [data-testid="stButton"] > button {
+    background:    #F9FAFB !important;
+    color:         #374151 !important;
+    border:        2px solid #F0EDE8 !important;
+    border-radius: 16px !important;
+    padding:       16px 8px 14px !important;
+    font-size:     .78rem !important;
+    font-weight:   600 !important;
+    height:        auto !important;
+    min-height:    90px !important;
+    display:       flex !important;
+    flex-direction: column !important;
+    align-items:   center !important;
+    justify-content: center !important;
+    gap:           8px !important;
+    line-height:   1.3 !important;
+    white-space:   normal !important;
+    box-shadow:    none !important;
+}
+.btn-op [data-testid="stButton"] > button:hover {
+    background:   #EFF6FF !important;
+    border-color: #93C5FD !important;
+    color:        #1D4ED8 !important;
+    transform:    translateY(-2px) !important;
+    box-shadow:   0 4px 12px rgba(29,78,216,.12) !important;
+}
+.btn-op-sel [data-testid="stButton"] > button {
+    background:   #EFF6FF !important;
+    border:       2px solid #1D4ED8 !important;
+    color:        #1D4ED8 !important;
+    border-radius: 16px !important;
+    padding:       16px 8px 14px !important;
+    font-size:     .78rem !important;
+    font-weight:   700 !important;
+    min-height:    90px !important;
+    display:       flex !important;
+    flex-direction: column !important;
+    align-items:   center !important;
+    justify-content: center !important;
+    gap:           8px !important;
+    line-height:   1.3 !important;
+    white-space:   normal !important;
+    box-shadow:    0 0 0 3px rgba(29,78,216,.15) !important;
+}
+
+/* Botão de link pequeno */
+.btn-link [data-testid="stButton"] > button {
+    background:   transparent !important;
+    color:        #9CA3AF !important;
+    border:       none !important;
+    box-shadow:   none !important;
+    font-size:    .72rem !important;
+    font-weight:  500 !important;
+    padding:      8px !important;
+}
+.btn-link [data-testid="stButton"] > button:hover {
+    color:        #374151 !important;
+    background:   transparent !important;
+}
+
+/* ── ALERTS ──────────────────────────────────────────────── */
+.vi-alert {
+    display: flex; align-items: center; gap: 8px;
+    padding: 11px 15px; border-radius: 12px;
+    font-size: .8rem; font-weight: 500; margin: 8px 0;
+}
+.vi-ok   { background:#F0FDF4; border:1.5px solid #BBF7D0; color:#16A34A; }
+.vi-err  { background:#FEF2F2; border:1.5px solid #FECACA; color:#DC2626; }
+.vi-inf  { background:#EFF6FF; border:1.5px solid #BFDBFE; color:#1D4ED8; }
+.vi-warn { background:#FFFBEB; border:1.5px solid #FDE68A; color:#D97706; }
+
+/* ── CARD DE CONCLUSÃO ───────────────────────────────────── */
+.vi-done {
+    background: linear-gradient(135deg,#F0FDF4,#DCFCE7);
+    border: 2px solid #BBF7D0; border-radius: 18px;
+    padding: 32px 20px; text-align: center;
+    animation: pop .4s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes pop { from{opacity:0;transform:scale(.88);} to{opacity:1;transform:scale(1);} }
+
+/* ── CARD ASK NEXT ───────────────────────────────────────── */
+.vi-ask {
+    background: #F9FAFB; border-radius: 14px;
+    padding: 16px 16px 18px; margin-top: 14px;
+    border: 1px solid #F0EDE8;
+}
+.vi-ask-title {
+    font-size: .66rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .12em; margin-bottom: 12px;
+}
+
+/* ── MINI STAT ───────────────────────────────────────────── */
+.vi-stat {
+    background: #F9FAFB; border: 1px solid #F0EDE8;
+    border-radius: 12px; padding: 10px 14px; text-align: center;
+}
+.vi-stat-label { font-size: .58rem; font-weight:700; color:#9CA3AF;
+                 text-transform:uppercase; letter-spacing:.1em; margin-bottom:2px; }
+.vi-stat-val   { font-family:'DM Mono',monospace; font-size:1.3rem; font-weight:600; color:#111827; }
+
+/* ── ANIMAÇÃO ENTRADA ────────────────────────────────────── */
+@keyframes fadeup { from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
+.vi-card { animation: fadeup .3s ease both; }
 </style>
 """, unsafe_allow_html=True)
 
 
-# ════════════════════════════════════════════════════════════
-# COMPONENTES
-# ════════════════════════════════════════════════════════════
-def render_header(operador, etapa_idx):
-    cor = ETAPA_COLORS[etapa_idx]; label = ETAPA_LABELS[etapa_idx]
-    cor_op = av_cor(operador); ini_op = av_ini(operador)
+# ─────────────────────────────────────────────────────────────
+# HELPERS HTML
+# ─────────────────────────────────────────────────────────────
+def avatar_div(nome: str, size: int = 46) -> str:
+    cor = av_cor(nome); ini = av_ini(nome); fs = int(size * .37)
+    return (
+        f'<div class="vi-av" style="width:{size}px;height:{size}px;'
+        f'background:{cor};font-size:{fs}px;">{ini}</div>'
+    )
+
+
+def render_wordmark():
+    st.markdown(f'<div class="vi-wm">{LOGO_HTML}</div>', unsafe_allow_html=True)
+
+
+def render_card_header(operador: str, etapa_idx: int):
+    cor   = ETAPA_COLORS[etapa_idx]
+    label = ETAPA_LABELS[etapa_idx]
+    av    = avatar_div(operador, 46)
     st.markdown(f"""
-    <div class="vi-header">
-        <div style="width:44px;height:44px;border-radius:50%;background:{cor_op};
-            display:flex;align-items:center;justify-content:center;
-            font-size:15px;font-weight:700;color:#fff;flex-shrink:0;">{ini_op}</div>
-        <div>
-            <div class="vi-header-label">ESTAÇÃO CENTRAL</div>
+    <div class="vi-header" style="--etapa-cor:{cor};">
+        {av}
+        <div class="vi-header-info">
+            <div class="vi-header-sub">ESTAÇÃO CENTRAL</div>
             <div class="vi-header-name">{operador}</div>
         </div>
-        <div class="vi-header-badge" style="color:{cor};">{label}</div>
-        <div class="vi-header-bar" style="background:{cor};"></div>
-    </div>""", unsafe_allow_html=True)
+        <div class="vi-badge" style="color:{cor};">{label}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
-def render_stepper(etapa_idx):
-    ICONS = [
-        '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
-        '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>',
-        '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>',
-    ]
-    CHECK = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
-    html = '<div class="vi-stepper-wrap">'
-    for i, label in enumerate(ETAPA_LABELS):
-        done = i < etapa_idx; active = i == etapa_idx
+def render_stepper(etapa_idx: int):
+    CHECK = "✓"
+    html  = '<div class="vi-stepper">'
+    for i, (label, icon) in enumerate(zip(ETAPA_LABELS, ETAPA_ICONS)):
         cor  = ETAPA_COLORS[i]
+        done   = i < etapa_idx
+        active = i == etapa_idx
+
         if done:
-            circ = f'background:{cor};color:#fff;'
-            lbl  = f'color:{cor};font-weight:700;'
-            icon = CHECK
+            dot_style = f"background:{cor};color:#fff;"
+            lbl_style = f"color:{cor};"
+            dot_content = CHECK
         elif active:
-            circ = f'background:{cor};color:#fff;box-shadow:0 0 0 5px {cor}20;'
-            lbl  = f'color:{cor};font-weight:800;'
-            icon = ICONS[i]
+            dot_style = f"background:{cor};color:#fff;box-shadow:0 0 0 5px {cor}22;"
+            lbl_style = f"color:{cor};font-weight:800;"
+            dot_content = icon
         else:
-            circ = 'background:#f3f4f6;color:#d1d5db;'
-            lbl  = 'color:#d1d5db;'
-            icon = ICONS[i]
-        html += f'<div class="vi-step-col"><div class="vi-step-circle" style="{circ}">{icon}</div><div class="vi-step-lbl" style="{lbl}">{label}</div></div>'
+            dot_style = "background:#F0EDE8;color:#C4BAB0;"
+            lbl_style = "color:#C4BAB0;"
+            dot_content = icon
+
+        html += f"""
+        <div class="vi-step">
+            <div class="vi-step-dot" style="{dot_style}">{dot_content}</div>
+            <div class="vi-step-lbl" style="{lbl_style}">{label}</div>
+        </div>"""
+
         if i < 2:
-            html += f'<div class="vi-step-line {"vi-step-line-done" if done else ""}"></div>'
+            line_cls = "vi-step-line vi-step-line-done" if done else "vi-step-line"
+            html += f'<div class="{line_cls}"></div>'
+
     html += '</div>'
     st.markdown(html, unsafe_allow_html=True)
 
 
-# ════════════════════════════════════════════════════════════
-# TELA INICIAL — clique no operador = entra direto
-# ════════════════════════════════════════════════════════════
-def tela_inicial():
-    st.markdown(f'<div class="vi-wordmark">{logo_html}</div>', unsafe_allow_html=True)
-    st.markdown('<div class="vi-card"><div class="vi-body">', unsafe_allow_html=True)
+def render_pedido_num(num: str):
+    st.markdown(
+        f'<div class="vi-pedido"><span class="vi-pedido-hash">#</span>{num}</div>',
+        unsafe_allow_html=True,
+    )
 
+
+def render_timer(ts_inicio: float):
+    elapsed = fmt_hms(time.time() - ts_inicio) if ts_inicio else "00:00:00"
+    st.markdown(
+        f'<div class="vi-timer">⏱ {elapsed}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def alert(msg: str, kind: str = "inf"):
+    st.markdown(f'<div class="vi-alert vi-{kind}">{msg}</div>', unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────────────────────
+# TELA 1 — SELEÇÃO DE OPERADOR
+# ─────────────────────────────────────────────────────────────
+def tela_selecao():
+    render_wordmark()
+
+    # ── Títulos fora do card ──────────────────────────────
     st.markdown("""
-    <div style="text-align:center;margin-bottom:20px">
-        <div style="font-size:1rem;font-weight:700;color:#111827">Apontamento de Produção</div>
-        <div style="font-size:.72rem;color:#9ca3af;margin-top:3px">Toque no seu nome para começar</div>
+    <div style="text-align:center;margin-bottom:20px;">
+        <div style="font-size:1.05rem;font-weight:700;color:#111827;">Apontamento de Produção</div>
+        <div style="font-size:.75rem;color:#9ca3af;margin-top:4px;">Selecione seu nome para começar</div>
     </div>
-    <hr class="vi-hr" style="margin-top:0">
-    <div style="font-size:.6rem;font-weight:700;color:#9ca3af;letter-spacing:.14em;
-        text-transform:uppercase;margin-bottom:16px">QUEM É VOCÊ?</div>
     """, unsafe_allow_html=True)
 
-    # Grade 3 colunas — clique direto entra no sistema
-    rows = [OPERADORES[i:i+3] for i in range(0, len(OPERADORES), 3)]
-    for row in rows:
-        cols = st.columns(3)
-        for i, nome in enumerate(row):
-            with cols[i]:
+    # ── Card ─────────────────────────────────────────────
+    st.markdown('<div class="vi-card"><div class="vi-body">', unsafe_allow_html=True)
+    st.markdown('<div class="vi-section-label">QUEM É VOCÊ?</div>', unsafe_allow_html=True)
+
+    # ── Grade de operadores — 3 colunas com botões REAIS ─
+    sel = st.session_state.get("_sel_op", None)
+
+    linhas = [OPERADORES[i:i+3] for i in range(0, len(OPERADORES), 3)]
+    for linha in linhas:
+        colunas = st.columns(3, gap="small")
+        for col_idx, nome in enumerate(linha):
+            with colunas[col_idx]:
                 cor = av_cor(nome)
                 ini = av_ini(nome)
+                css_class = "btn-op-sel" if sel == nome else "btn-op"
 
-                # Avatar grande arredondado (foto de perfil)
-                st.markdown(f"""
-                <div style="text-align:center;pointer-events:none;margin-bottom:-8px;">
-                    <div style="
-                        width:64px;height:64px;border-radius:50%;
-                        background:{cor};
-                        display:flex;align-items:center;justify-content:center;
-                        font-size:22px;font-weight:700;color:#fff;
-                        margin:0 auto 6px;
-                        box-shadow:0 3px 10px {cor}55;
-                    ">{ini}</div>
-                    <div style="font-size:.75rem;font-weight:600;color:#374151;line-height:1.3">{nome}</div>
-                </div>
-                """, unsafe_allow_html=True)
+                # Avatar como HTML dentro do label do botão não é possível nativamente,
+                # então exibimos o avatar acima e o botão abaixo com espaço zero.
+                st.markdown(
+                    f"""<div style="text-align:center;margin-bottom:4px;">
+                        <div style="width:52px;height:52px;border-radius:50%;
+                            background:{cor};display:flex;align-items:center;
+                            justify-content:center;font-size:18px;font-weight:700;
+                            color:#fff;margin:0 auto;
+                            box-shadow:0 3px 10px {cor}44;">
+                            {ini}
+                        </div>
+                    </div>""",
+                    unsafe_allow_html=True,
+                )
 
-                # Botão real transparente sobre o avatar
-                st.markdown('<div class="op-btn">', unsafe_allow_html=True)
-                if st.button(" ", key=f"op_{nome}", use_container_width=True):
-                    # Entra direto no sistema
-                    st.session_state.update({
-                        "_operador":     nome,
-                        "_turno_inicio": time.time(),
-                        "_etapa_idx":    0,
-                        "_flow":         "input",
-                        "_pedido":       None,
-                        "_ts_inicio":    None,
-                        "_ts_fim":       None,
-                        "_ask_mode":     None,
-                    })
+                st.markdown(f'<div class="{css_class}">', unsafe_allow_html=True)
+                if st.button(nome, key=f"op__{nome}", use_container_width=True):
+                    # ✅ Um único clique = seleciona E entra no sistema
+                    st.session_state["_sel_op"]       = nome
+                    st.session_state["_operador"]     = nome
+                    st.session_state["_turno_ts"]     = time.time()
+                    st.session_state["_etapa_idx"]    = 0
+                    st.session_state["_flow"]         = "input"
+                    st.session_state["_pedido"]       = None
+                    st.session_state["_ts_inicio"]    = None
+                    st.session_state["_ts_fim"]       = None
+                    st.session_state["_ask_mode"]     = None
                     st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
 
-        # Células vazias na última linha
-        for i in range(len(row), 3):
-            with cols[i]:
+        # Preenche células vazias na última linha
+        for vazio in range(len(linha), 3):
+            with colunas[vazio]:
                 st.empty()
 
-    # CSS: faz o botão ficar transparente e cobrir o avatar acima
-    st.markdown("""
-    <style>
-    /* Botões de operador: transparentes, cobrem o avatar */
-    div[class*="op-btn"] > div[data-testid="stButton"] > button {
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        color: transparent !important;
-        font-size: 0 !important;
-        height: 96px !important;
-        margin-top: -96px !important;
-        border-radius: 16px !important;
-        cursor: pointer !important;
-        position: relative !important;
-        z-index: 10 !important;
-    }
-    div[class*="op-btn"] > div[data-testid="stButton"] > button:hover {
-        background: rgba(29,78,216,.07) !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+        st.markdown("<div style='height:4px;'></div>", unsafe_allow_html=True)
 
     st.markdown('</div></div>', unsafe_allow_html=True)
 
-    # Link gerência
-    st.markdown('<div style="text-align:center;margin-top:16px;">', unsafe_allow_html=True)
-    if st.button("🔒 Acesso Gerência", key="btn_ger_link"):
-        st.session_state["_modo"] = "gerencia"
-        st.rerun()
-    st.markdown("""
-    <style>
-    /* Estiliza apenas o botão de gerência como link sutil */
-    div[data-testid="stButton"]:has(button[kind="secondary"]) button,
-    [data-testid="stButton"] button[aria-label="🔒 Acesso Gerência"] {
-        color: #9ca3af !important;
-        font-size: .7rem !important;
-        border: none !important;
-        background: transparent !important;
-    }
-    </style>
-    </div>""", unsafe_allow_html=True)
+    # ── Link gerência ─────────────────────────────────────
+    st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
+    _, mid, _ = st.columns([1, 2, 1])
+    with mid:
+        st.markdown('<div class="btn-link">', unsafe_allow_html=True)
+        if st.button("🔒  Acesso Gerência", key="btn__ger_link", use_container_width=True):
+            st.session_state["_modo"] = "gerencia"
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
-# ════════════════════════════════════════════════════════════
-# TELA DO OPERADOR
-# ════════════════════════════════════════════════════════════
+# ─────────────────────────────────────────────────────────────
+# TELA 2 — FLUXO DO OPERADOR
+# Estados: input → confirm → running → ask_next → done
+# ─────────────────────────────────────────────────────────────
 def tela_operador():
-    operador  = st.session_state.get("_operador", "")
+    operador  = st.session_state["_operador"]
     etapa_idx = st.session_state.get("_etapa_idx", 0)
     flow      = st.session_state.get("_flow", "input")
     pedido    = st.session_state.get("_pedido")
     ts_inicio = st.session_state.get("_ts_inicio")
-    elapsed   = fmt_tempo(time.time() - ts_inicio) if ts_inicio and flow == "running" else None
+    ts_turno  = st.session_state.get("_turno_ts", time.time())
 
-    st.markdown(f'<div class="vi-wordmark">{logo_html}</div>', unsafe_allow_html=True)
+    render_wordmark()
+
+    # ── CARD ──────────────────────────────────────────────
     st.markdown('<div class="vi-card">', unsafe_allow_html=True)
-    render_header(operador, etapa_idx)
+    render_card_header(operador, etapa_idx)
     st.markdown('<div class="vi-body">', unsafe_allow_html=True)
 
-    # ══ INPUT ══════════════════════════════════════════════
+    # ════════════════════════════════════════════════════
+    # ESTADO: INPUT
+    # ════════════════════════════════════════════════════
     if flow == "input":
+
+        # ── Etapa 0 (Separação): digitar/bipar número ──
         if etapa_idx == 0:
-            SCAN_SVG = """<svg width="54" height="54" viewBox="0 0 24 24" fill="none"
-              stroke="#c8c2bb" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/>
-              <path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
-              <line x1="7" y1="12" x2="17" y2="12"/><line x1="12" y1="7" x2="12" y2="17"/>
-            </svg>"""
-            st.markdown(f"""
-            <div class="vi-scan-area">
-                {SCAN_SVG}
+            st.markdown("""
+            <div class="vi-scan">
+                <svg width="52" height="52" viewBox="0 0 24 24" fill="none"
+                     stroke="#C4BAB0" stroke-width="1.4" stroke-linecap="round">
+                  <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
+                  <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+                  <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
+                  <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+                  <line x1="8" y1="12" x2="16" y2="12"/>
+                  <line x1="12" y1="8"  x2="12" y2="16"/>
+                </svg>
                 <div class="vi-scan-title">Bipar ou digitar pedido</div>
                 <div class="vi-scan-sub">Insira o número do pedido para iniciar</div>
-            </div>""", unsafe_allow_html=True)
+            </div>
+            """, unsafe_allow_html=True)
 
-            c_i, c_b = st.columns([4, 1])
-            with c_i:
-                st.text_input("pedido", placeholder="Ex: 12345",
-                              key="inp_num", label_visibility="collapsed")
-            with c_b:
-                st.markdown('<div class="vi-btn-blue">', unsafe_allow_html=True)
-                go = st.button("→", use_container_width=True, key="btn_go")
+            col_inp, col_btn = st.columns([5, 1], gap="small")
+            with col_inp:
+                numero = st.text_input(
+                    "num", placeholder="Ex: 12345",
+                    key="inp__numero", label_visibility="collapsed",
+                )
+            with col_btn:
+                st.markdown('<div class="btn-blue" style="padding-top:2px;">', unsafe_allow_html=True)
+                ir = st.button("→", key="btn__ir", use_container_width=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            if go:
-                num = st.session_state.get("inp_num", "").strip()
-                db  = carregar_pedidos()
+            if ir:
+                num = st.session_state.get("inp__numero", "").strip()
+                db  = db_pedidos()
                 if not num:
-                    st.markdown('<div class="vi-alert vi-err">⚠️ Informe o número do pedido.</div>', unsafe_allow_html=True)
+                    alert("⚠️ Informe o número do pedido.", "err")
                 elif num in db:
-                    st.markdown(f'<div class="vi-alert vi-err">⚠️ Pedido #{num} já está em andamento.</div>', unsafe_allow_html=True)
+                    alert(f"⚠️ Pedido #{num} já está em andamento.", "err")
                 else:
-                    st.session_state.update({"_pedido": num, "_flow": "confirm"})
+                    st.session_state["_pedido"] = num
+                    st.session_state["_flow"]   = "confirm"
                     st.rerun()
+
+        # ── Etapa 1/2: selecionar da lista ──
         else:
             render_stepper(etapa_idx)
-            db          = carregar_pedidos()
-            chave_op    = "op_emb" if etapa_idx == 1 else "op_conf"
-            etapa_need  = 1 if etapa_idx == 1 else 2
-            disponiveis = sorted([p for p, d in db.items()
-                                   if d.get("etapa") == etapa_need and chave_op not in d])
+
+            db         = db_pedidos()
+            chave_op   = "op_emb" if etapa_idx == 1 else "op_conf"
+            etapa_need = etapa_idx          # etapa 1 → busca pedidos com etapa==1
+            disponiveis = sorted([
+                p for p, d in db.items()
+                if d.get("etapa") == etapa_need and chave_op not in d
+            ])
+
             if not disponiveis:
-                st.markdown(f'<div class="vi-alert vi-warn">⏳ Nenhum pedido disponível para {ETAPA_LABELS[etapa_idx]}. Aguarde a etapa anterior.</div>', unsafe_allow_html=True)
-                if st.button("🔄 Verificar novamente", use_container_width=True, key="btn_recheck"):
+                alert(
+                    f"⏳ Nenhum pedido aguardando {ETAPA_LABELS[etapa_idx]}. "
+                    "Aguarde a etapa anterior ser concluída.",
+                    "warn",
+                )
+                st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+                st.markdown('<div class="btn-ghost">', unsafe_allow_html=True)
+                if st.button("🔄  Atualizar lista", key="btn__atualizar", use_container_width=True):
                     st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
             else:
-                pedido_sel = st.selectbox("Pedido", ["— Selecione —"] + disponiveis,
-                                          key=f"sel_ped_{etapa_idx}", label_visibility="visible")
-                st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-                st.markdown('<div class="vi-btn-blue">', unsafe_allow_html=True)
-                if st.button(f"▶  INICIAR {ETAPA_LABELS[etapa_idx]}", use_container_width=True, key=f"btn_ini_{etapa_idx}"):
-                    if pedido_sel == "— Selecione —":
-                        st.markdown('<div class="vi-alert vi-err">⚠️ Selecione um pedido.</div>', unsafe_allow_html=True)
+                sel_ped = st.selectbox(
+                    "Pedido",
+                    options=["— Selecione o pedido —"] + disponiveis,
+                    key=f"sel__ped_{etapa_idx}",
+                    label_visibility="collapsed",
+                )
+                st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+                st.markdown('<div class="btn-blue">', unsafe_allow_html=True)
+                if st.button(
+                    f"▶  INICIAR {ETAPA_LABELS[etapa_idx]}",
+                    key=f"btn__ini_{etapa_idx}",
+                    use_container_width=True,
+                ):
+                    if sel_ped == "— Selecione o pedido —":
+                        alert("⚠️ Selecione um pedido da lista.", "err")
                     else:
-                        st.session_state.update({"_pedido": pedido_sel, "_flow": "confirm"})
+                        st.session_state["_pedido"] = sel_ped
+                        st.session_state["_flow"]   = "confirm"
                         st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
 
-    # ══ CONFIRM ════════════════════════════════════════════
+    # ════════════════════════════════════════════════════
+    # ESTADO: CONFIRM  — exibe o número e pede confirmação
+    # ════════════════════════════════════════════════════
     elif flow == "confirm":
         render_stepper(etapa_idx)
-        st.markdown(f'<div class="vi-num"><span>#</span>{pedido}</div>', unsafe_allow_html=True)
-        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-        st.markdown('<div class="vi-btn-blue">', unsafe_allow_html=True)
-        if st.button(f"▶  INICIAR {ETAPA_LABELS[etapa_idx]}", use_container_width=True, key="btn_start"):
-            st.session_state.update({"_flow": "running", "_ts_inicio": time.time()})
+        render_pedido_num(pedido)
+        st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
+
+        st.markdown('<div class="btn-blue">', unsafe_allow_html=True)
+        if st.button(
+            f"▶  INICIAR {ETAPA_LABELS[etapa_idx]}",
+            key="btn__confirmar",
+            use_container_width=True,
+        ):
+            st.session_state["_flow"]      = "running"
+            st.session_state["_ts_inicio"] = time.time()
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-        if st.button("← Alterar pedido", use_container_width=True, key="btn_back"):
-            st.session_state.update({"_flow": "input", "_pedido": None})
-            st.rerun()
 
-    # ══ RUNNING ════════════════════════════════════════════
+        st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+        st.markdown('<div class="btn-ghost">', unsafe_allow_html=True)
+        if st.button("← Alterar pedido", key="btn__alterar", use_container_width=True):
+            st.session_state["_flow"]   = "input"
+            st.session_state["_pedido"] = None
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # ════════════════════════════════════════════════════
+    # ESTADO: RUNNING  — cronômetro + botão CONCLUIR
+    # ════════════════════════════════════════════════════
     elif flow == "running":
         render_stepper(etapa_idx)
-        st.markdown(f"""
-        <div class="vi-num"><span>#</span>{pedido}</div>
-        <div class="vi-timer">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2.2">
-                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-            </svg>
-            {elapsed}
-        </div>""", unsafe_allow_html=True)
+        render_pedido_num(pedido)
+        render_timer(ts_inicio)
 
-        st.markdown('<div class="vi-btn-red">', unsafe_allow_html=True)
-        if st.button(f"■  CONCLUIR {ETAPA_LABELS[etapa_idx]}", use_container_width=True, key="btn_concluir"):
-            now    = agora_str()
-            ts_fim = time.time()
-            db     = carregar_pedidos()
-            if etapa_idx == 0:
-                db[pedido] = {"pedido": pedido, "etapa": 1, "op_sep": operador, "dt_sep": now}
-                registrar_historico(pedido, operador, ETAPAS[0], now, "em_andamento")
-            elif etapa_idx == 1:
-                if pedido in db:
-                    db[pedido].update({"etapa": 2, "op_emb": operador, "dt_emb": now})
-                    registrar_historico(pedido, operador, ETAPAS[1], now, "em_andamento")
-            elif etapa_idx == 2:
-                if pedido in db:
-                    db[pedido].update({"etapa": 3, "op_conf": operador, "dt_conf": now})
-                    conc = carregar_concluidos()
-                    conc.append(db[pedido])
-                    salvar_concluidos(conc)
-                    del db[pedido]
-                    registrar_historico(pedido, operador, ETAPAS[2], now, "concluido")
-            salvar_pedidos(db)
-            st.session_state.update({"_ts_fim": ts_fim, "_flow": "ask_next" if etapa_idx < 2 else "done"})
+        st.markdown('<div class="btn-red">', unsafe_allow_html=True)
+        if st.button(
+            f"■  CONCLUIR {ETAPA_LABELS[etapa_idx]}",
+            key="btn__concluir",
+            use_container_width=True,
+        ):
+            _finalizar_etapa(operador, etapa_idx, pedido)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+        st.markdown('<div class="btn-ghost">', unsafe_allow_html=True)
+        if st.button("✕  Cancelar operação", key="btn__cancelar", use_container_width=True):
+            st.session_state.update({
+                "_flow": "input", "_pedido": None, "_ts_inicio": None,
+            })
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-        if st.button("✕ Cancelar operação", use_container_width=True, key="btn_cancel"):
-            st.session_state.update({"_flow": "input", "_pedido": None, "_ts_inicio": None})
-            st.rerun()
 
-    # ══ ASK_NEXT ═══════════════════════════════════════════
+    # ════════════════════════════════════════════════════
+    # ESTADO: ASK_NEXT — etapa concluída, quem faz a próxima?
+    # ════════════════════════════════════════════════════
     elif flow == "ask_next":
         prox_idx  = etapa_idx + 1
         prox_cor  = ETAPA_COLORS[prox_idx]
         prox_nome = ETAPA_LABELS[prox_idx]
         ts_fim    = st.session_state.get("_ts_fim", time.time())
-        dur       = fmt_tempo(ts_fim - ts_inicio) if ts_inicio else "--"
+        dur       = fmt_hms(ts_fim - ts_inicio) if ts_inicio else "--"
 
         render_stepper(etapa_idx)
+
+        # Pill de confirmação
         st.markdown(f"""
-        <div style="text-align:center;margin-bottom:10px">
-            <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;
-                padding:9px 16px;display:inline-block;margin-bottom:8px;">
-                <span style="font-size:.6rem;font-weight:700;color:#16a34a;letter-spacing:.1em;text-transform:uppercase;">
+        <div style="text-align:center;margin-bottom:6px;">
+            <div style="display:inline-block;background:#F0FDF4;border:1.5px solid #BBF7D0;
+                border-radius:10px;padding:8px 18px;">
+                <span style="font-size:.62rem;font-weight:700;color:#16A34A;
+                    text-transform:uppercase;letter-spacing:.1em;">
                     ✓ {ETAPA_LABELS[etapa_idx]} CONCLUÍDA &nbsp;·&nbsp; {dur}
                 </span>
             </div>
-            <div class="vi-num"><span>#</span>{pedido}</div>
         </div>
-        <div class="vi-ask-card">
+        """, unsafe_allow_html=True)
+
+        render_pedido_num(pedido)
+
+        # Card de pergunta
+        st.markdown(f"""
+        <div class="vi-ask">
             <div class="vi-ask-title" style="color:{prox_cor};">
-                Próxima: {prox_nome} — Quem vai realizar?
+                {ETAPA_ICONS[prox_idx]} &nbsp;Próxima etapa: {prox_nome}<br>
+                <span style="color:#9CA3AF;font-weight:500;font-size:.6rem;
+                    text-transform:none;letter-spacing:.03em;">
+                    Quem vai realizar esta etapa?
+                </span>
             </div>
         """, unsafe_allow_html=True)
 
         ask_mode = st.session_state.get("_ask_mode")
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown('<div class="vi-btn-blue">', unsafe_allow_html=True)
-            if st.button(f"✓ Sou eu  ({operador.split()[0]})", use_container_width=True, key="btn_mesmo"):
-                _avancar(etapa_idx, pedido, operador)
+
+        # Dois botões lado a lado
+        col_eu, col_outro = st.columns(2, gap="small")
+        with col_eu:
+            st.markdown('<div class="btn-blue">', unsafe_allow_html=True)
+            if st.button(
+                f"✓  Sou eu\n({operador.split()[0]})",
+                key="btn__mesmo_op",
+                use_container_width=True,
+            ):
+                _avancar_etapa(etapa_idx, pedido, operador)
             st.markdown('</div>', unsafe_allow_html=True)
-        with c2:
-            if st.button("👤 Outro operador", use_container_width=True, key="btn_outro"):
+        with col_outro:
+            st.markdown('<div class="btn-ghost">', unsafe_allow_html=True)
+            if st.button("👤  Outro operador", key="btn__outro_op", use_container_width=True):
                 st.session_state["_ask_mode"] = "select"
                 st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
 
+        # Sub-grid de seleção de outro operador
         if ask_mode == "select":
-            st.markdown("<div style='margin-top:12px'>", unsafe_allow_html=True)
-            st.markdown("<div style='font-size:.65rem;font-weight:700;color:#9ca3af;letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px'>Selecione o operador:</div>", unsafe_allow_html=True)
-
-            # Grade de avatares para selecionar o próximo operador
+            st.markdown("<div class='vi-hr'></div>", unsafe_allow_html=True)
+            st.markdown(
+                '<div style="font-size:.62rem;font-weight:700;color:#9ca3af;'
+                'text-transform:uppercase;letter-spacing:.12em;margin-bottom:10px;">'
+                "Selecione o operador:</div>",
+                unsafe_allow_html=True,
+            )
             outros = [op for op in OPERADORES if op != operador]
-            rows2 = [outros[i:i+3] for i in range(0, len(outros), 3)]
-            for row2 in rows2:
-                cols2 = st.columns(3)
-                for j, nome2 in enumerate(row2):
-                    with cols2[j]:
+            linhas2 = [outros[i:i+3] for i in range(0, len(outros), 3)]
+            for linha2 in linhas2:
+                cols2 = st.columns(3, gap="small")
+                for ci, nome2 in enumerate(linha2):
+                    with cols2[ci]:
                         cor2 = av_cor(nome2); ini2 = av_ini(nome2)
-                        st.markdown(f"""
-                        <div style="text-align:center;pointer-events:none;margin-bottom:-8px;">
-                            <div style="width:52px;height:52px;border-radius:50%;background:{cor2};
-                                display:flex;align-items:center;justify-content:center;
-                                font-size:18px;font-weight:700;color:#fff;margin:0 auto 5px;
-                                box-shadow:0 2px 8px {cor2}44;">{ini2}</div>
-                            <div style="font-size:.7rem;font-weight:600;color:#374151;line-height:1.3">{nome2}</div>
-                        </div>""", unsafe_allow_html=True)
-                        st.markdown('<div class="op-btn">', unsafe_allow_html=True)
-                        if st.button(" ", key=f"prox_{nome2}", use_container_width=True):
-                            _avancar(etapa_idx, pedido, nome2)
+                        st.markdown(
+                            f"""<div style="text-align:center;margin-bottom:4px;">
+                                <div style="width:44px;height:44px;border-radius:50%;
+                                    background:{cor2};display:flex;align-items:center;
+                                    justify-content:center;font-size:15px;font-weight:700;
+                                    color:#fff;margin:0 auto;
+                                    box-shadow:0 2px 8px {cor2}44;">{ini2}</div>
+                            </div>""",
+                            unsafe_allow_html=True,
+                        )
+                        st.markdown('<div class="btn-op">', unsafe_allow_html=True)
+                        if st.button(nome2, key=f"prox__{nome2}", use_container_width=True):
+                            _avancar_etapa(etapa_idx, pedido, nome2)
                         st.markdown('</div>', unsafe_allow_html=True)
-                for j in range(len(row2), 3):
-                    with cols2[j]:
+                for vz in range(len(linha2), 3):
+                    with cols2[vz]:
                         st.empty()
-            st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown('</div>', unsafe_allow_html=True)  # ask-card
+        st.markdown('</div>', unsafe_allow_html=True)  # vi-ask
 
-    # ══ DONE ═══════════════════════════════════════════════
+    # ════════════════════════════════════════════════════
+    # ESTADO: DONE — pedido totalmente concluído
+    # ════════════════════════════════════════════════════
     elif flow == "done":
         ts_fim = st.session_state.get("_ts_fim", time.time())
-        dur    = fmt_tempo(ts_fim - ts_inicio) if ts_inicio else "--"
+        dur    = fmt_hms(ts_fim - ts_inicio) if ts_inicio else "--"
+
         st.markdown(f"""
-        <div class="vi-done-card">
-            <div style="font-size:2.8rem;margin-bottom:6px">🎉</div>
-            <div style="font-family:'Playfair Display',serif;font-size:1.4rem;
-                font-weight:900;color:#16a34a;margin-bottom:4px">Pedido Concluído!</div>
-            <div style="font-family:'DM Mono',monospace;font-size:2.2rem;
-                font-weight:700;color:#111827;margin:8px 0">#{pedido}</div>
-            <div style="font-size:.7rem;color:#6b7280">Todas as etapas finalizadas · {dur}</div>
-        </div>""", unsafe_allow_html=True)
-        st.markdown('<div style="height:14px"></div>', unsafe_allow_html=True)
-        st.markdown('<div class="vi-btn-blue">', unsafe_allow_html=True)
-        if st.button("▶  Iniciar Novo Pedido", use_container_width=True, key="btn_novo"):
+        <div class="vi-done">
+            <div style="font-size:3rem;margin-bottom:8px;">🎉</div>
+            <div style="font-family:'Playfair Display',serif;font-size:1.5rem;
+                font-weight:900;color:#16A34A;margin-bottom:4px;">Pedido Concluído!</div>
+            <div style="font-family:'DM Mono',monospace;font-size:2.4rem;
+                font-weight:700;color:#111827;margin:8px 0;">#{pedido}</div>
+            <div style="font-size:.72rem;color:#6B7280;">
+                Todas as 3 etapas finalizadas &nbsp;·&nbsp; {dur}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
+        st.markdown('<div class="btn-blue">', unsafe_allow_html=True)
+        if st.button("▶  Iniciar Novo Pedido", key="btn__novo_ped", use_container_width=True):
             st.session_state.update({
                 "_flow": "input", "_etapa_idx": 0,
                 "_pedido": None, "_ts_inicio": None, "_ts_fim": None, "_ask_mode": None,
@@ -594,15 +913,75 @@ def tela_operador():
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
+    # ── Fecha body e card ──────────────────────────────
     st.markdown('</div></div>', unsafe_allow_html=True)
-    st.markdown('<div style="height:12px"></div>', unsafe_allow_html=True)
-    if st.button("⏏  Trocar Operador / Sair", use_container_width=True, key="btn_sair"):
+
+    # ── Rodapé: stats do turno + trocar operador ──────
+    st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
+    hoje_str = agora().split(" ")[0]
+    hist = db_historico()
+    ops_hoje = len([h for h in hist if h.get("operador") == operador and h.get("data") == hoje_str])
+    turno_dur = fmt_hms(time.time() - ts_turno)
+
+    c1, c2 = st.columns(2, gap="small")
+    with c1:
+        st.markdown(
+            f'<div class="vi-stat"><div class="vi-stat-label">Operações hoje</div>'
+            f'<div class="vi-stat-val" style="color:#16A34A;">{ops_hoje}</div></div>',
+            unsafe_allow_html=True,
+        )
+    with c2:
+        st.markdown(
+            f'<div class="vi-stat"><div class="vi-stat-label">Tempo de turno</div>'
+            f'<div class="vi-stat-val">{turno_dur}</div></div>',
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+    st.markdown('<div class="btn-ghost">', unsafe_allow_html=True)
+    if st.button("⏏  Trocar Operador / Sair", key="btn__sair_op", use_container_width=True):
         for k in list(st.session_state.keys()):
             st.session_state.pop(k, None)
         st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
-def _avancar(etapa_atual, pedido, proximo_op):
+# ─────────────────────────────────────────────────────────────
+# AÇÕES DE NEGÓCIO
+# ─────────────────────────────────────────────────────────────
+def _finalizar_etapa(operador: str, etapa_idx: int, pedido: str):
+    now    = agora()
+    ts_fim = time.time()
+    db     = db_pedidos()
+
+    if etapa_idx == 0:
+        db[pedido] = {
+            "pedido": pedido, "etapa": 1,
+            "op_sep": operador, "dt_sep": now,
+        }
+        registrar_log(pedido, operador, ETAPAS[0], "em_andamento")
+
+    elif etapa_idx == 1:
+        if pedido in db:
+            db[pedido].update({"etapa": 2, "op_emb": operador, "dt_emb": now})
+            registrar_log(pedido, operador, ETAPAS[1], "em_andamento")
+
+    elif etapa_idx == 2:
+        if pedido in db:
+            db[pedido].update({"etapa": 3, "op_conf": operador, "dt_conf": now})
+            conc = db_concluidos()
+            conc.append(db[pedido])
+            salvar_concluidos(conc)
+            del db[pedido]
+            registrar_log(pedido, operador, ETAPAS[2], "concluido")
+
+    salvar_pedidos(db)
+    next_flow = "ask_next" if etapa_idx < 2 else "done"
+    st.session_state.update({"_ts_fim": ts_fim, "_flow": next_flow})
+    st.rerun()
+
+
+def _avancar_etapa(etapa_atual: int, pedido: str, proximo_op: str):
     st.session_state.update({
         "_operador":  proximo_op,
         "_etapa_idx": etapa_atual + 1,
@@ -615,121 +994,226 @@ def _avancar(etapa_atual, pedido, proximo_op):
     st.rerun()
 
 
-# ════════════════════════════════════════════════════════════
-# GERÊNCIA
-# ════════════════════════════════════════════════════════════
+# ─────────────────────────────────────────────────────────────
+# TELA 3 — LOGIN GERÊNCIA
+# ─────────────────────────────────────────────────────────────
 def tela_login_gerencia():
-    st.markdown(f'<div class="vi-wordmark">{logo_html}</div>', unsafe_allow_html=True)
+    render_wordmark()
     st.markdown('<div class="vi-card"><div class="vi-body">', unsafe_allow_html=True)
-    st.markdown("""<div style="text-align:center;margin-bottom:18px">
-        <div style="font-size:1rem;font-weight:700;color:#111827">Área da Gerência</div>
-        <div style="font-size:.72rem;color:#9ca3af;margin-top:3px">Informe a senha de acesso</div>
-    </div>""", unsafe_allow_html=True)
-    senha = st.text_input("Senha", type="password", placeholder="••••••••", label_visibility="collapsed")
-    st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="vi-btn-blue">', unsafe_allow_html=True)
-    if st.button("🔓 Acessar", use_container_width=True, key="btn_ger_login"):
+    st.markdown("""
+    <div style="text-align:center;margin-bottom:20px;">
+        <div style="font-size:1.05rem;font-weight:700;color:#111827;">Área da Gerência</div>
+        <div style="font-size:.73rem;color:#9ca3af;margin-top:4px;">Informe a senha de acesso</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    senha = st.text_input(
+        "senha", type="password", placeholder="••••••••",
+        key="inp__senha_ger", label_visibility="collapsed",
+    )
+    st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+
+    st.markdown('<div class="btn-blue">', unsafe_allow_html=True)
+    if st.button("🔓  Acessar", key="btn__acessar_ger", use_container_width=True):
         if senha == SENHA_GERENCIA:
-            st.session_state["_gerencia_ok"] = True; st.rerun()
+            st.session_state["_ger_ok"] = True
+            st.rerun()
         else:
-            st.markdown('<div class="vi-alert vi-err">❌ Senha incorreta.</div>', unsafe_allow_html=True)
+            alert("❌ Senha incorreta.", "err")
     st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
-    if st.button("← Voltar", use_container_width=True, key="btn_volta_ger"):
-        st.session_state.pop("_modo", None); st.rerun()
+
+    st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+    st.markdown('<div class="btn-ghost">', unsafe_allow_html=True)
+    if st.button("← Voltar", key="btn__volta_ger", use_container_width=True):
+        st.session_state.pop("_modo", None)
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
     st.markdown('</div></div>', unsafe_allow_html=True)
 
 
+# ─────────────────────────────────────────────────────────────
+# TELA 4 — EXTRATO GERÊNCIA
+# ─────────────────────────────────────────────────────────────
 def tela_extrato():
-    conc = carregar_concluidos(); pend = carregar_pedidos(); hist = carregar_historico()
-    st.markdown(f'<div class="vi-wordmark">{logo_html}</div>', unsafe_allow_html=True)
-    st.markdown('<div style="text-align:center;margin-bottom:14px"><div style="font-size:.95rem;font-weight:700;color:#111827">Extrato de Produção</div><div style="font-size:.68rem;color:#9ca3af">Consulta, filtros e relatórios</div></div>', unsafe_allow_html=True)
+    conc = db_concluidos()
+    pend = db_pedidos()
+    hist = db_historico()
 
-    ts=len([h for h in hist if h.get("etapa")==ETAPAS[0]]); te=len([h for h in hist if h.get("etapa")==ETAPAS[1]])
-    tc=len([h for h in hist if h.get("etapa")==ETAPAS[2]]); tk=len(conc)
-    c1,c2,c3,c4=st.columns(4)
-    for col,lab,val,cor in [(c1,"📦 Sep.",ts,"#1D4ED8"),(c2,"📬 Emb.",te,"#7C3AED"),(c3,"✅ Conf.",tc,"#16a34a"),(c4,"🎯 Conc.",tk,"#DC2626")]:
+    render_wordmark()
+    st.markdown("""
+    <div style="text-align:center;margin-bottom:16px;">
+        <div style="font-size:1.05rem;font-weight:700;color:#111827;">Extrato de Produção</div>
+        <div style="font-size:.72rem;color:#9ca3af;margin-top:3px;">Consulta, filtros e relatórios</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # KPIs
+    ts = len([h for h in hist if h.get("etapa") == ETAPAS[0]])
+    te = len([h for h in hist if h.get("etapa") == ETAPAS[1]])
+    tc = len([h for h in hist if h.get("etapa") == ETAPAS[2]])
+    tk = len(conc)
+    k1, k2, k3, k4 = st.columns(4, gap="small")
+    for col, lab, val, cor in [
+        (k1, "📦 Sep.",   ts, "#1D4ED8"),
+        (k2, "📬 Emb.",   te, "#7C3AED"),
+        (k3, "✅ Conf.",  tc, "#16A34A"),
+        (k4, "🎯 Conc.",  tk, "#DC2626"),
+    ]:
         with col:
-            st.markdown(f'<div class="vi-card" style="padding:12px;text-align:center;border-radius:14px"><div style="font-size:.55rem;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;font-weight:700">{lab}</div><div style="font-size:1.7rem;font-weight:700;color:{cor};font-family:\'DM Mono\',monospace">{val}</div></div>', unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="vi-stat"><div class="vi-stat-label">{lab}</div>'
+                f'<div class="vi-stat-val" style="color:{cor};font-size:1.6rem;">{val}</div></div>',
+                unsafe_allow_html=True,
+            )
 
-    st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
-    a1,a2,a3=st.tabs(["📅 Histórico","📋 Concluídos","⏳ Em Andamento"])
+    st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+    aba1, aba2, aba3 = st.tabs(["📅 Histórico", "📋 Concluídos", "⏳ Em Andamento"])
 
-    with a1:
+    # ── Aba Histórico ─────────────────────────────────
+    with aba1:
         if not hist:
-            st.markdown('<div class="vi-alert vi-inf">ℹ️ Nenhuma operação registrada.</div>', unsafe_allow_html=True)
+            alert("ℹ️ Nenhuma operação registrada ainda.", "inf")
         else:
-            df=pd.DataFrame(hist)
-            def pd_dt(s):
-                try: return pd.to_datetime(s,format="%d/%m/%Y",errors="coerce")
-                except: return pd.NaT
-            df["_dt"]=df["data"].apply(pd_dt)
+            df = pd.DataFrame(hist)
+            df["_dt"] = pd.to_datetime(df["data"], format="%d/%m/%Y", errors="coerce")
+
             from datetime import date, timedelta as td
-            hoje=date.today()
-            cf1,cf2,cf3,cf4=st.columns(4)
-            with cf1: di=st.date_input("Início",value=hoje-td(days=7),key="di",format="DD/MM/YYYY")
-            with cf2: df2v=st.date_input("Fim",value=hoje,key="df2",format="DD/MM/YYYY")
-            with cf3: ops=["Todos"]+sorted(df["operador"].dropna().unique().tolist()); opf=st.selectbox("Func.",ops,key="hist_op")
-            with cf4: ets=["Todas"]+ETAPAS; etf=st.selectbox("Etapa",ets,key="hist_et")
-            mask=(df["_dt"]>=pd.Timestamp(di))&(df["_dt"]<=pd.Timestamp(df2v))
-            dff=df[mask].copy()
-            if opf!="Todos": dff=dff[dff["operador"]==opf]
-            if etf!="Todas": dff=dff[dff["etapa"]==etf]
-            dff=dff.sort_values("data_hora",ascending=False)
-            st.markdown(f'<div class="vi-alert vi-inf">🔍 <b>{len(dff)}</b> resultado(s)</div>',unsafe_allow_html=True)
+            hoje = date.today()
+            cf1, cf2, cf3, cf4 = st.columns(4, gap="small")
+            with cf1:
+                di = st.date_input("Início", value=hoje - td(days=7),
+                                   key="ger__di", format="DD/MM/YYYY")
+            with cf2:
+                df_v = st.date_input("Fim", value=hoje,
+                                     key="ger__df", format="DD/MM/YYYY")
+            with cf3:
+                ops_l = ["Todos"] + sorted(df["operador"].dropna().unique().tolist())
+                opf   = st.selectbox("Funcionário", ops_l, key="ger__op",
+                                     label_visibility="visible")
+            with cf4:
+                etl  = ["Todas"] + ETAPAS
+                etf  = st.selectbox("Etapa", etl, key="ger__et",
+                                    label_visibility="visible")
+
+            mask = (df["_dt"] >= pd.Timestamp(di)) & (df["_dt"] <= pd.Timestamp(df_v))
+            dff  = df[mask].copy()
+            if opf != "Todos": dff = dff[dff["operador"] == opf]
+            if etf != "Todas": dff = dff[dff["etapa"]    == etf]
+            dff  = dff.sort_values("data_hora", ascending=False)
+
+            alert(f"🔍 <b>{len(dff)}</b> operação(ões) encontrada(s)", "inf")
+
             if len(dff):
-                if opf=="Todos":
-                    r=dff.groupby(["operador","etapa"]).size().reset_index(name="Qtd.")
-                    r.columns=["Funcionário","Etapa","Qtd."]; st.dataframe(r,use_container_width=True,hide_index=True)
-                de=dff[["data_hora","pedido","operador","etapa","status_pedido"]].rename(columns={"data_hora":"Data/Hora","pedido":"Pedido","operador":"Funcionário","etapa":"Etapa","status_pedido":"Status"})
-                de["Status"]=de["Status"].map({"em_andamento":"⏳","concluido":"✅"}).fillna(de["Status"])
-                st.dataframe(de,use_container_width=True,hide_index=True)
-                na=f"extrato_{opf.replace(' ','_')}_{di.strftime('%d%m%Y')}"
-                d1,d2=st.columns(2)
-                with d1: st.download_button("⬇️ CSV",data=de.to_csv(index=False).encode("utf-8"),file_name=f"{na}.csv",mime="text/csv",use_container_width=True,key="dl_csv")
+                if opf == "Todos":
+                    res = dff.groupby(["operador", "etapa"]).size().reset_index(name="Qtd.")
+                    res.columns = ["Funcionário", "Etapa", "Qtd."]
+                    st.dataframe(res, use_container_width=True, hide_index=True)
+                    st.markdown("<div class='vi-hr'></div>", unsafe_allow_html=True)
+
+                de = dff[["data_hora","pedido","operador","etapa","status"]].rename(columns={
+                    "data_hora": "Data/Hora", "pedido": "Pedido",
+                    "operador": "Funcionário", "etapa": "Etapa", "status": "Status"
+                })
+                de["Status"] = de["Status"].map(
+                    {"em_andamento": "⏳", "concluido": "✅"}
+                ).fillna(de["Status"])
+                st.dataframe(de, use_container_width=True, hide_index=True)
+
+                nome_arq = f"extrato_{opf.replace(' ','_')}_{di.strftime('%d%m%Y')}"
+                d1, d2 = st.columns(2, gap="small")
+                with d1:
+                    st.download_button(
+                        "⬇️ CSV", data=de.to_csv(index=False).encode("utf-8"),
+                        file_name=f"{nome_arq}.csv", mime="text/csv",
+                        use_container_width=True, key="dl__csv",
+                    )
                 with d2:
-                    xb=BytesIO()
-                    with pd.ExcelWriter(xb,engine="openpyxl") as w: de.to_excel(w,index=False,sheet_name="Histórico")
+                    xb = BytesIO()
+                    with pd.ExcelWriter(xb, engine="openpyxl") as w:
+                        de.to_excel(w, index=False, sheet_name="Histórico")
                     xb.seek(0)
-                    st.download_button("⬇️ Excel",data=xb.getvalue(),file_name=f"{na}.xlsx",mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",use_container_width=True,key="dl_xlsx")
+                    st.download_button(
+                        "⬇️ Excel", data=xb.getvalue(),
+                        file_name=f"{nome_arq}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True, key="dl__xlsx",
+                    )
 
-    with a2:
-        if conc:
-            dc=pd.DataFrame(conc).rename(columns={"pedido":"Pedido","op_sep":"Op. Sep.","dt_sep":"Data Sep.","op_emb":"Op. Emb.","dt_emb":"Data Emb.","op_conf":"Op. Conf.","dt_conf":"Data Conf."}).drop(columns=["etapa"],errors="ignore")
-            st.dataframe(dc,use_container_width=True,hide_index=True)
-            xb2=BytesIO()
-            with pd.ExcelWriter(xb2,engine="openpyxl") as w: dc.to_excel(w,index=False,sheet_name="Concluídos")
+    # ── Aba Concluídos ────────────────────────────────
+    with aba2:
+        if not conc:
+            alert("ℹ️ Nenhum pedido finalizado ainda.", "inf")
+        else:
+            dc = pd.DataFrame(conc).rename(columns={
+                "pedido": "Pedido", "op_sep": "Op. Sep.", "dt_sep": "Data Sep.",
+                "op_emb": "Op. Emb.", "dt_emb": "Data Emb.",
+                "op_conf": "Op. Conf.", "dt_conf": "Data Conf.",
+            }).drop(columns=["etapa"], errors="ignore")
+            st.dataframe(dc, use_container_width=True, hide_index=True)
+            xb2 = BytesIO()
+            with pd.ExcelWriter(xb2, engine="openpyxl") as w:
+                dc.to_excel(w, index=False, sheet_name="Concluídos")
             xb2.seek(0)
-            e1,e2=st.columns(2)
-            with e1: st.download_button("⬇️ CSV",data=dc.to_csv(index=False).encode("utf-8"),file_name=f"concluidos_{datetime.now().strftime('%d%m%Y')}.csv",mime="text/csv",use_container_width=True,key="dl_conc_csv")
-            with e2: st.download_button("⬇️ Excel",data=xb2.getvalue(),file_name=f"concluidos_{datetime.now().strftime('%d%m%Y')}.xlsx",mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",use_container_width=True,key="dl_conc_xlsx")
+            e1, e2 = st.columns(2, gap="small")
+            with e1:
+                st.download_button(
+                    "⬇️ CSV", data=dc.to_csv(index=False).encode("utf-8"),
+                    file_name=f"concluidos_{datetime.now().strftime('%d%m%Y')}.csv",
+                    mime="text/csv", use_container_width=True, key="dl__conc_csv",
+                )
+            with e2:
+                st.download_button(
+                    "⬇️ Excel", data=xb2.getvalue(),
+                    file_name=f"concluidos_{datetime.now().strftime('%d%m%Y')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True, key="dl__conc_xlsx",
+                )
+
+    # ── Aba Em Andamento ──────────────────────────────
+    with aba3:
+        if not pend:
+            alert("✅ Nenhum pedido em andamento.", "ok")
         else:
-            st.markdown('<div class="vi-alert vi-inf">ℹ️ Nenhum pedido finalizado.</div>',unsafe_allow_html=True)
+            el = {1: "📬 Aguard. Embalagem", 2: "✅ Aguard. Conferência"}
+            rows = [
+                {
+                    "Pedido":   f"#{d['pedido']}",
+                    "Etapa":    el.get(d.get("etapa", 0), "—"),
+                    "Op. Sep.": d.get("op_sep", "—"),
+                    "Op. Emb.": d.get("op_emb", "—"),
+                }
+                for d in pend.values()
+            ]
+            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
-    with a3:
-        if pend:
-            el={1:"📬 Aguard. Embalagem",2:"✅ Aguard. Conferência"}
-            rows=[{"Pedido":f"#{d['pedido']}","Etapa":el.get(d.get("etapa",0),"—"),"Op. Sep.":d.get("op_sep","—"),"Op. Emb.":d.get("op_emb","—")} for p,d in pend.items()]
-            st.dataframe(pd.DataFrame(rows),use_container_width=True,hide_index=True)
+    st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
+    st.markdown('<div class="btn-ghost">', unsafe_allow_html=True)
+    if st.button("← Sair da Gerência", key="btn__sair_ger", use_container_width=True):
+        st.session_state.pop("_modo",   None)
+        st.session_state.pop("_ger_ok", None)
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────────────────────
+# ROTEADOR PRINCIPAL
+# ─────────────────────────────────────────────────────────────
+def main():
+    modo = st.session_state.get("_modo")
+
+    if modo == "gerencia":
+        if st.session_state.get("_ger_ok"):
+            tela_extrato()
         else:
-            st.markdown('<div class="vi-alert vi-ok">✅ Nenhum pedido em andamento.</div>',unsafe_allow_html=True)
+            tela_login_gerencia()
+        return
 
-    st.markdown('<div style="height:12px"></div>', unsafe_allow_html=True)
-    if st.button("← Sair da Gerência", use_container_width=True, key="btn_sair_ger"):
-        st.session_state.pop("_modo",None); st.session_state.pop("_gerencia_ok",None); st.rerun()
-
-
-# ════════════════════════════════════════════════════════════
-# ROTEADOR
-# ════════════════════════════════════════════════════════════
-modo = st.session_state.get("_modo")
-if not modo:
+    # Modo operador
     if "_operador" in st.session_state:
         tela_operador()
     else:
-        tela_inicial()
-elif modo == "gerencia":
-    if not st.session_state.get("_gerencia_ok"):
-        tela_login_gerencia()
-    else:
-        tela_extrato()
+        tela_selecao()
+
+
+main()
