@@ -1,721 +1,366 @@
 import streamlit as st
-import pandas as pd
 import json
-import os
 import time
-from datetime import datetime, timedelta, timezone
-from io import BytesIO
-import base64
-
-# ============================================================
-# CONFIGURAÇÃO DA PÁGINA
-# ============================================================
-st.set_page_config(
-    page_title="Vi Lingerie — Produção",
-    layout="wide",
-    page_icon="🧵",
-    initial_sidebar_state="collapsed"
-)
-
-# ============================================================
-# CONSTANTES
-# ============================================================
-OPERADORES = [
-    "Lucivanio", "Enágio", "Daniel", "Ítalo", "Cildenir",
-    "Samya", "Neide", "Eduardo", "Talyson",
+from datetime import datetime, timedelta
+from pathlib import Path
+# ─── Config ───
+st.set_page_config(page_title="VI LINGERIE - Apontamento", page_icon="👙", layout="wide")
+DATA_FILE = "orders.json"
+OPERATORS = [
+    "LUCIVANIO", "ENÁGIO", "DANIEL", "ÍTALO",
+    "CILDENIR", "SAMYA", "NEIDE", "EDUARDO", "TALYSON"
 ]
-
-SENHA_GERENCIA = "vi2026"
-
-# Diretório para arquivos de estado
-STATE_DIR = "vi_producao_state"
-os.makedirs(STATE_DIR, exist_ok=True)
-
-FILE_PEDIDOS = os.path.join(STATE_DIR, "pedidos.json")
-FILE_CONCLUIDOS = os.path.join(STATE_DIR, "concluidos.json")
-FILE_HISTORICO = os.path.join(STATE_DIR, "historico.json")
-
-# ============================================================
-# FUNÇÕES DE PERSISTÊNCIA
-# ============================================================
-def _carregar(path):
-    if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
+STEPS = [
+    {"key": "separacao", "label": "SEPARAÇÃO"},
+    {"key": "embalagem", "label": "EMBALAGEM"},
+    {"key": "conferencia", "label": "CONFERÊNCIA"},
+]
+OPERATOR_COLORS = {
+    "LUCIVANIO": "#7B2D8E",
+    "ENÁGIO": "#2E8B57",
+    "DANIEL": "#4B0082",
+    "ÍTALO": "#2563EB",
+    "CILDENIR": "#1B5E20",
+    "SAMYA": "#CC7722",
+    "NEIDE": "#A0365A",
+    "EDUARDO": "#DC2626",
+    "TALYSON": "#7C5CBF",
+}
+# ─── Persistence ───
+def load_orders():
+    if Path(DATA_FILE).exists():
+        with open(DATA_FILE, "r") as f:
             return json.load(f)
-    return {} if "pedidos" in path else []
-
-def _salvar(path, data):
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
-def carregar_pedidos():
-    return _carregar(FILE_PEDIDOS)
-
-def salvar_pedidos(data):
-    _salvar(FILE_PEDIDOS, data)
-
-def carregar_concluidos():
-    return _carregar(FILE_CONCLUIDOS)
-
-def salvar_concluidos(data):
-    _salvar(FILE_CONCLUIDOS, data)
-
-def carregar_historico():
-    return _carregar(FILE_HISTORICO)
-
-def salvar_historico(data):
-    _salvar(FILE_HISTORICO, data)
-
-def registrar_historico(pedido_num, operador, etapa, data_hora, status="em_andamento"):
-    hist = carregar_historico()
-    hist.append({
-        "data_hora": data_hora,
-        "data": data_hora.split(" ")[0],
-        "pedido": pedido_num,
-        "operador": operador,
-        "etapa": etapa,
-        "status": status,
-    })
-    salvar_historico(hist)
-
-# ============================================================
-# FUNÇÕES AUXILIARES
-# ============================================================
-def agora_str():
-    br = timezone(timedelta(hours=-3))
-    return datetime.now(br).strftime("%d/%m/%Y %H:%M")
-
-def format_tempo(segundos):
-    if segundos is None or segundos <= 0:
-        return "00:00:00"
-    h = int(segundos // 3600)
-    m = int((segundos % 3600) // 60)
-    s = int(segundos % 60)
+    return []
+def save_orders(orders):
+    with open(DATA_FILE, "w") as f:
+        json.dump(orders, f, indent=2)
+def format_duration(seconds):
+    if seconds is None:
+        return "--:--:--"
+    h = int(seconds // 3600)
+    m = int((seconds % 3600) // 60)
+    s = int(seconds % 60)
     return f"{h:02d}:{m:02d}:{s:02d}"
-
-def avatar_iniciais(nome, tamanho=48):
-    partes = nome.strip().split()
-    iniciais = (partes[0][0] + (partes[-1][0] if len(partes) > 1 else "")).upper()
-    cores = ["#1976D2", "#7B1FA2", "#2E7D32", "#C2185B", "#F57C00", "#0288D1"]
-    cor = cores[sum(ord(c) for c in nome) % len(cores)]
-    return f"""
-    <div style="width:{tamanho}px; height:{tamanho}px; border-radius:50%;
-                background:{cor}; display:flex; align-items:center;
-                justify-content:center; font-size:{tamanho*0.4}px;
-                font-weight:700; color:white;">
-        {iniciais}
-    </div>
-    """
-
-def logo_html():
-    return '<span style="font-size:2rem; font-weight:900; color:#1e293b;">VI</span>'
-
-# ============================================================
-# CSS GLOBAL (TEMA CLARO, BASEADO NAS IMAGENS)
-# ============================================================
+# ─── Custom CSS ───
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
-    html, body, [data-testid="stApp"] {
-        font-family: 'Inter', sans-serif;
-        background: #f8fafc !important;
-        color: #0f172a !important;
-        height: 100vh;
-        overflow: hidden;
+    .main-header {
+        text-align: center;
+        padding: 1rem 0;
     }
-
-    /* Remove cabeçalho e sidebar padrão */
-    [data-testid="stSidebar"], header[data-testid="stHeader"],
-    [data-testid="stToolbar"], [data-testid="stDecoration"] {
-        display: none !important;
+    .main-header h1 {
+        color: #8B1A4A;
+        font-size: 2.5rem;
+        font-weight: 900;
+        margin: 0;
     }
-
-    .block-container {
-        padding: 0 !important;
-        max-width: 100% !important;
-        height: 100vh;
-    }
-
-    /* Cards e containers */
-    .card {
-        background: white;
-        border-radius: 32px;
-        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05), 0 8px 10px -6px rgba(0,0,0,0.02);
-        padding: 28px 24px;
-        border: 1px solid #e9eef2;
-    }
-
-    .divider {
-        height: 1px;
-        background: #e2e8f0;
-        margin: 20px 0;
-    }
-
-    /* Avatar grande */
-    .avatar-large {
-        width: 64px;
-        height: 64px;
-        border-radius: 50%;
-        background: #1976D2;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 28px;
-        font-weight: 700;
-        color: white;
-    }
-
-    /* Estações (etapas) */
-    .estacao-titulo {
+    .main-header p {
+        color: #666;
         font-size: 0.9rem;
-        font-weight: 600;
-        color: #64748b;
+    }
+    .operator-btn {
+        border-radius: 12px;
+        padding: 8px;
+        text-align: center;
+        cursor: pointer;
+        font-weight: bold;
+        color: white;
+        margin: 4px;
+    }
+    .step-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: bold;
+        margin: 0 4px;
+    }
+    .step-done { background: #22c55e; color: white; }
+    .step-current { background: #3b82f6; color: white; }
+    .step-pending { background: #e5e7eb; color: #9ca3af; }
+    .timer-display {
+        font-size: 3rem;
+        font-family: monospace;
+        text-align: center;
+        padding: 1rem;
+        font-weight: bold;
+    }
+    .order-number {
+        font-size: 2.5rem;
+        font-weight: 900;
+        text-align: center;
+        margin: 1rem 0;
+    }
+    .metric-card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+    }
+    .metric-value {
+        font-size: 1.8rem;
+        font-weight: 900;
+    }
+    .metric-label {
+        font-size: 0.75rem;
+        color: #666;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 8px;
+        font-weight: bold;
     }
-
-    .numero-pedido-grande {
-        font-family: 'Inter', monospace;
-        font-weight: 700;
-        font-size: 3.2rem;
-        color: #0f172a;
-        text-align: center;
-        line-height: 1.2;
-    }
-
-    .timer-grande {
-        font-family: 'Inter', monospace;
-        font-size: 2rem;
-        font-weight: 500;
-        color: #475569;
-        text-align: center;
-        letter-spacing: 2px;
-        margin: 8px 0 24px;
-    }
-
-    /* Botões */
-    .stButton > button {
-        border-radius: 40px !important;
-        font-weight: 600 !important;
-        font-size: 1rem !important;
-        padding: 14px 28px !important;
-        border: none !important;
-        transition: all 0.2s !important;
-        box-shadow: 0 4px 6px -2px rgba(0,0,0,0.05) !important;
-    }
-    .stButton > button:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1) !important;
-    }
-
-    /* Botão primário (iniciar) */
-    button[kind="primary"] {
-        background: #0f172a !important;
-        color: white !important;
-    }
-
-    /* Botão finalizar (vermelho) */
-    .btn-finalizar > button {
-        background: #dc2626 !important;
-        color: white !important;
-        box-shadow: 0 4px 10px rgba(220,38,38,0.3) !important;
-    }
-
-    /* Inputs */
-    [data-testid="stTextInput"] input {
-        background: #f1f5f9 !important;
-        border: 1px solid #cbd5e1 !important;
-        border-radius: 40px !important;
-        padding: 14px 20px !important;
-        font-size: 1rem !important;
-    }
-    [data-testid="stTextInput"] label {
-        font-size: 0.8rem !important;
-        font-weight: 600 !important;
-        color: #475569 !important;
-        margin-bottom: 8px !important;
-    }
-
-    /* Selectbox */
-    [data-testid="stSelectbox"] > div > div {
-        background: #f1f5f9 !important;
-        border: 1px solid #cbd5e1 !important;
-        border-radius: 40px !important;
-        padding: 8px 16px !important;
-    }
-
-    /* Layout da estação central */
-    .layout-4colunas {
-        display: grid;
-        grid-template-columns: 280px 1fr 1fr 1fr;
-        height: 100vh;
-        gap: 1px;
-        background: #e9eef2;
-    }
-    .painel-esquerdo {
-        background: white;
-        padding: 32px 24px;
-        overflow-y: auto;
-    }
-    .coluna-etapa {
-        background: white;
-        padding: 32px 24px;
-        overflow-y: auto;
-        border-left: 1px solid #e9eef2;
-    }
-
-    /* Animações */
-    @keyframes pulse {
-        0% { box-shadow: 0 0 0 0 rgba(220,38,38,0.4); }
-        70% { box-shadow: 0 0 0 12px rgba(220,38,38,0); }
-        100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); }
-    }
-    .pulse {
-        animation: pulse 2s infinite;
-        border-radius: 40px;
-    }
-
-    /* Scroll */
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-track { background: #f1f5f9; }
-    ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
 </style>
 """, unsafe_allow_html=True)
-
-# ============================================================
-# TELA INICIAL (COMO NA IMAGEM)
-# ============================================================
-def tela_inicial():
-    st.markdown("<div style='height:12vh'></div>", unsafe_allow_html=True)
-    cols = st.columns([1, 1.8, 1])
-    with cols[1]:
-        st.markdown(f"""
-        <div class="card" style="text-align: center;">
-            <div style="font-size: 3rem; margin-bottom: 8px;">🧵</div>
-            <h1 style="font-size: 2.5rem; margin: 0; color: #0f172a;">VI LINGERIE</h1>
-            <p style="color: #475569; font-size: 1.2rem; margin-top: 8px;">Apontamento de Produção</p>
-            <p style="color: #64748b;">Selecione seu nome para começar</p>
-            <div class="divider"></div>
-            <p style="font-weight: 600; color: #334155;">QUEM É VOCÊ?</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Grade de operadores (como na imagem)
-        ops_por_linha = 3
-        for i in range(0, len(OPERADORES), ops_por_linha):
-            cols_ops = st.columns(ops_por_linha)
-            for j, op in enumerate(OPERADORES[i:i+ops_por_linha]):
-                with cols_ops[j]:
-                    iniciais = "".join([p[0] for p in op.split()]).upper()[:2]
-                    st.markdown(f"""
-                    <div style="text-align: center; padding: 12px;">
-                        <div style="width: 56px; height: 56px; border-radius: 50%;
-                                    background: #e2e8f0; display: flex; align-items: center;
-                                    justify-content: center; margin: 0 auto 8px;
-                                    font-size: 20px; font-weight: 700; color: #1e293b;">
-                            {iniciais}
-                        </div>
-                        <div style="font-weight: 600;">{op}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-        st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
-
-        if st.button("➡️ Entrar no sistema", key="btn_entrar_inicial", use_container_width=True):
-            st.session_state["_modo"] = "selecao_operador"
+# ─── Session State Init ───
+if "page" not in st.session_state:
+    st.session_state.page = "login"
+if "operator" not in st.session_state:
+    st.session_state.operator = None
+if "phase" not in st.session_state:
+    st.session_state.phase = "input"
+if "order_number" not in st.session_state:
+    st.session_state.order_number = ""
+if "current_step_idx" not in st.session_state:
+    st.session_state.current_step_idx = 0
+if "start_time" not in st.session_state:
+    st.session_state.start_time = None
+if "current_order" not in st.session_state:
+    st.session_state.current_order = None
+# ─── LOGIN PAGE ───
+def login_page():
+    st.markdown('<div class="main-header"><h1>VI LINGERIE</h1><p>Apontamento de Produção</p><p style="font-size:0.8rem; color:#999;">Selecione seu nome para começar</p></div>', unsafe_allow_html=True)
+    st.markdown("#### 🧑 QUEM É VOCÊ?")
+    cols = st.columns(3)
+    for i, op in enumerate(OPERATORS):
+        col = cols[i % 3]
+        color = OPERATOR_COLORS.get(op, "#666")
+        if col.button(op, key=f"op_{op}", use_container_width=True):
+            st.session_state.operator = op
+            st.session_state.page = "operator"
+            st.session_state.phase = "input"
+            st.session_state.current_step_idx = 0
+            st.session_state.current_order = None
             st.rerun()
-
-        st.markdown("<div style='text-align: center; margin-top: 20px;'>", unsafe_allow_html=True)
-        if st.button("🔐 Acesso Gerência", key="btn_gerencia_inicial", use_container_width=True):
-            st.session_state["_modo"] = "gerencia_login"
-            st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
-
-# ============================================================
-# SELEÇÃO DE OPERADOR (APÓS CLICAR EM "ENTRAR NO SISTEMA")
-# ============================================================
-def tela_selecao_operador():
-    st.markdown("<div style='height:15vh'></div>", unsafe_allow_html=True)
-    cols = st.columns([1, 1.5, 1])
-    with cols[1]:
-        st.markdown("""
-        <div class="card" style="text-align: center;">
-            <h2 style="margin-bottom: 24px;">Selecione seu nome</h2>
-        </div>
-        """, unsafe_allow_html=True)
-
-        operador = st.selectbox("", options=["— Selecione —"] + OPERADORES, label_visibility="collapsed")
-        if st.button("▶ Entrar no Sistema", use_container_width=True, key="btn_confirmar_operador"):
-            if operador == "— Selecione —":
-                st.error("Selecione um operador.")
-            else:
-                st.session_state["_operador"] = operador
-                st.session_state["_turno_inicio"] = time.time()
-                st.session_state["_etapa_0_state"] = "idle"
-                st.session_state["_etapa_1_state"] = "idle"
-                st.session_state["_etapa_2_state"] = "idle"
-                st.session_state["_modo"] = "operador"
-                st.rerun()
-
-        if st.button("← Voltar", use_container_width=True):
-            st.session_state["_modo"] = "inicial"
-            st.rerun()
-
-# ============================================================
-# LOGIN GERÊNCIA
-# ============================================================
-def tela_login_gerencia():
-    st.markdown("<div style='height:20vh'></div>", unsafe_allow_html=True)
-    cols = st.columns([1, 1.2, 1])
-    with cols[1]:
-        st.markdown("""
-        <div class="card" style="text-align: center;">
-            <h2>Área da Gerência</h2>
-            <div class="divider"></div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        senha = st.text_input("Senha", type="password")
-        if st.button("🔓 Acessar", use_container_width=True):
-            if senha == SENHA_GERENCIA:
-                st.session_state["_gerencia_ok"] = True
-                st.session_state["_modo"] = "gerencia"
-                st.rerun()
-            else:
-                st.error("Senha incorreta.")
-
-        if st.button("← Voltar", use_container_width=True):
-            st.session_state["_modo"] = "inicial"
-            st.rerun()
-
-# ============================================================
-# TELA DE EXTRATO (GERÊNCIA)
-# ============================================================
-def tela_extrato():
-    st.markdown(f"""
-    <div style="padding: 24px 32px; background: white; border-bottom: 1px solid #e2e8f0;">
-        <div style="display: flex; align-items: center; gap: 16px;">
-            {logo_html()}
-            <h2 style="margin: 0;">Extrato de Produção</h2>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    concluidos = carregar_concluidos()
-    pedidos_andamento = carregar_pedidos()
-    historico = carregar_historico()
-
-    # Estatísticas
-    total_sep = len([h for h in historico if h["etapa"] == "Separação"])
-    total_emb = len([h for h in historico if h["etapa"] == "Embalagem"])
-    total_conf = len([h for h in historico if h["etapa"] == "Conferência"])
-    total_conc = len(concluidos)
-
-    col1, col2, col3, col4 = st.columns(4)
+    st.divider()
+    if st.button("🔒 Acesso Gerência", use_container_width=True):
+        st.session_state.page = "manager"
+        st.rerun()
+# ─── OPERATOR PAGE ───
+def operator_page():
+    operator = st.session_state.operator
+    color = OPERATOR_COLORS.get(operator, "#666")
+    # Header
+    col1, col2, col3 = st.columns([1, 3, 1])
     with col1:
-        st.metric("Separações", total_sep)
+        st.markdown(f'<div style="background:{color}; color:white; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:1.2rem;">{operator[0]}</div>', unsafe_allow_html=True)
     with col2:
-        st.metric("Embalagens", total_emb)
+        st.markdown(f"<p style='font-size:0.6rem; font-weight:bold; color:#999; letter-spacing:2px; margin:0;'>ESTAÇÃO CENTRAL</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='font-weight:bold; margin:0;'>{operator}</p>", unsafe_allow_html=True)
     with col3:
-        st.metric("Conferências", total_conf)
-    with col4:
-        st.metric("Concluídos", total_conc)
-
-    st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
-
-    tab1, tab2, tab3 = st.tabs(["📅 Histórico", "📋 Concluídos", "⏳ Em Andamento"])
-
-    with tab1:
-        if not historico:
-            st.info("Nenhuma operação registrada.")
+        if st.button("🚪", key="logout"):
+            st.session_state.page = "login"
+            st.session_state.operator = None
+            st.rerun()
+    st.markdown(f'<div style="height:4px; background:{color}; border-radius:2px;"></div>', unsafe_allow_html=True)
+    phase = st.session_state.phase
+    step_idx = st.session_state.current_step_idx
+    # Step tracker
+    step_html = ""
+    for i, step in enumerate(STEPS):
+        if i < step_idx:
+            step_html += f'<span class="step-badge step-done">✓ {step["label"]}</span>'
+        elif i == step_idx:
+            step_html += f'<span class="step-badge step-current">● {step["label"]}</span>'
         else:
-            df = pd.DataFrame(historico)
-            df["data_dt"] = pd.to_datetime(df["data"], format="%d/%m/%Y", errors="coerce")
-            hoje = datetime.now().date()
-
-            col_f1, col_f2, col_f3 = st.columns(3)
-            with col_f1:
-                data_ini = st.date_input("Data inicial", hoje - timedelta(days=7))
-            with col_f2:
-                data_fim = st.date_input("Data final", hoje)
-            with col_f3:
-                op_filtro = st.selectbox("Funcionário", ["Todos"] + sorted(df["operador"].unique()))
-
-            mask = (df["data_dt"] >= pd.Timestamp(data_ini)) & (df["data_dt"] <= pd.Timestamp(data_fim))
-            df_filtrado = df[mask]
-            if op_filtro != "Todos":
-                df_filtrado = df_filtrado[df_filtrado["operador"] == op_filtro]
-            df_filtrado = df_filtrado.sort_values("data_hora", ascending=False)
-
-            st.write(f"**{len(df_filtrado)}** operações encontradas.")
-            if not df_filtrado.empty:
-                st.dataframe(df_filtrado[["data_hora", "pedido", "operador", "etapa", "status"]],
-                             use_container_width=True, hide_index=True)
-
-    with tab2:
-        if concluidos:
-            df_conc = pd.DataFrame(concluidos)
-            st.dataframe(df_conc, use_container_width=True, hide_index=True)
-        else:
-            st.info("Nenhum pedido concluído.")
-
-    with tab3:
-        if pedidos_andamento:
-            rows = []
-            for p, d in pedidos_andamento.items():
-                etapa_atual = {1: "Embalagem", 2: "Conferência"}.get(d.get("etapa"), "Desconhecida")
-                rows.append({"Pedido": p, "Etapa": etapa_atual, "Operador Sep.": d.get("op_sep", "—")})
-            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-        else:
-            st.success("Nenhum pedido em andamento.")
-
-    if st.button("← Sair da Gerência", use_container_width=True):
-        st.session_state["_modo"] = "inicial"
-        st.session_state.pop("_gerencia_ok", None)
-        st.rerun()
-
-# ============================================================
-# COMPONENTE DE ETAPA (SEPARAÇÃO, EMBALAGEM, CONFERÊNCIA)
-# ============================================================
-def render_etapa(indice, nome, icone, operador_logado):
-    state_key = f"_etapa_{indice}_state"
-    pedido_key = f"_etapa_{indice}_pedido"
-    ts_key = f"_etapa_{indice}_ts"
-    op_key = f"_etapa_{indice}_op"
-
-    state = st.session_state.get(state_key, "idle")
-    pedido = st.session_state.get(pedido_key)
-    ts_inicio = st.session_state.get(ts_key)
-    operador = st.session_state.get(op_key, operador_logado)
-
-    # Cabeçalho da etapa
-    st.markdown(f"""
-    <div style="margin-bottom: 24px;">
-        <div style="font-size: 1.8rem; margin-bottom: 4px;">{icone}</div>
-        <div class="estacao-titulo">{nome.upper()}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Estado IDLE
-    if state == "idle":
-        if indice == 0:  # Separação
-            num = st.text_input("Nº do Pedido", placeholder="Ex: 12345", key=f"input_{indice}")
-            if st.button("INICIAR SEPARAÇÃO", key=f"btn_iniciar_{indice}", use_container_width=True):
-                num = num.strip()
-                if not num:
-                    st.error("Informe o número do pedido.")
-                else:
-                    pedidos_db = carregar_pedidos()
-                    if num in pedidos_db:
-                        st.error(f"Pedido #{num} já está em andamento.")
-                    else:
-                        st.session_state[state_key] = "running"
-                        st.session_state[pedido_key] = num
-                        st.session_state[ts_key] = time.time()
-                        st.session_state[op_key] = operador_logado
-                        st.rerun()
-        else:  # Embalagem ou Conferência
-            pedidos_db = carregar_pedidos()
-            etapa_necessaria = 1 if indice == 1 else 2
-            disponiveis = [p for p, d in pedidos_db.items() if d.get("etapa") == etapa_necessaria]
-            if not disponiveis:
-                st.info("Aguardando etapa anterior...")
+            step_html += f'<span class="step-badge step-pending">{step["label"]}</span>'
+    if phase != "input":
+        st.markdown(f'<div style="text-align:center; margin:1rem 0;">{step_html}</div>', unsafe_allow_html=True)
+    current_step = STEPS[step_idx]
+    # ─ INPUT PHASE ─
+    if phase == "input":
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<div style='text-align:center; font-size:3rem; opacity:0.3;'>📦</div>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align:center; font-weight:bold;'>Bipar ou digitar pedido</p>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align:center; font-size:0.85rem; color:#999;'>Insira o número do pedido para iniciar</p>", unsafe_allow_html=True)
+        order_num = st.text_input("Número do pedido", placeholder="Ex: 12345", label_visibility="collapsed")
+        if st.button("➡️ Confirmar Pedido", use_container_width=True, disabled=not order_num.strip()):
+            st.session_state.order_number = order_num.strip()
+            st.session_state.current_order = {
+                "id": str(time.time()),
+                "orderNumber": order_num.strip(),
+                "steps": [],
+                "createdAt": time.time(),
+                "completedAt": None,
+            }
+            st.session_state.phase = "ready"
+            st.rerun()
+    # ─ READY PHASE ─
+    elif phase == "ready":
+        st.markdown(f'<div class="order-number">#{st.session_state.order_number}</div>', unsafe_allow_html=True)
+        if st.button(f"▶️ INICIAR {current_step['label']}", use_container_width=True, type="primary"):
+            st.session_state.start_time = time.time()
+            now = time.time()
+            order = st.session_state.current_order
+            order["steps"].append({
+                "step": current_step["key"],
+                "operatorId": operator,
+                "startTime": now,
+                "endTime": None,
+            })
+            st.session_state.current_order = order
+            st.session_state.phase = "running"
+            st.rerun()
+    # ─ RUNNING PHASE ─
+    elif phase == "running":
+        st.markdown(f'<div class="order-number">#{st.session_state.order_number}</div>', unsafe_allow_html=True)
+        elapsed = time.time() - st.session_state.start_time
+        st.markdown(f'<div class="timer-display">⏱ {format_duration(elapsed)}</div>', unsafe_allow_html=True)
+        if st.button(f"⏹️ CONCLUIR {current_step['label']}", use_container_width=True, type="primary"):
+            now = time.time()
+            order = st.session_state.current_order
+            # Close current step
+            for s in order["steps"]:
+                if s["step"] == current_step["key"] and s["endTime"] is None:
+                    s["endTime"] = now
+                    break
+            is_last = step_idx == len(STEPS) - 1
+            if is_last:
+                order["completedAt"] = now
+                orders = load_orders()
+                orders.append(order)
+                save_orders(orders)
+                st.session_state.phase = "done"
             else:
-                pedido_sel = st.selectbox("Selecione o pedido", [""] + sorted(disponiveis), key=f"select_{indice}")
-                if st.button(f"INICIAR {nome.upper()}", key=f"btn_iniciar_{indice}", use_container_width=True):
-                    if not pedido_sel:
-                        st.error("Selecione um pedido.")
-                    else:
-                        st.session_state[state_key] = "running"
-                        st.session_state[pedido_key] = pedido_sel
-                        st.session_state[ts_key] = time.time()
-                        st.session_state[op_key] = operador_logado
-                        st.rerun()
-
-    # Estado RUNNING
-    elif state == "running":
-        elapsed = format_tempo(time.time() - ts_inicio)
-        st.markdown(f"""
-        <div style="text-align: center;">
-            <div class="numero-pedido-grande">#{pedido}</div>
-            <div class="timer-grande">{elapsed}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Botão finalizar com efeito pulse
-        st.markdown('<div class="btn-finalizar pulse">', unsafe_allow_html=True)
-        if st.button(f"CONCLUIR {nome.upper()}", key=f"btn_finalizar_{indice}", use_container_width=True):
-            now = agora_str()
-            ts_fim = time.time()
-            pedidos_db = carregar_pedidos()
-
-            if indice == 0:
-                pedidos_db[pedido] = {
-                    "pedido": pedido,
-                    "etapa": 1,
-                    "op_sep": operador,
-                    "dt_sep": now
-                }
-                registrar_historico(pedido, operador, "Separação", now)
-            elif indice == 1:
-                if pedido in pedidos_db:
-                    pedidos_db[pedido]["etapa"] = 2
-                    pedidos_db[pedido]["op_emb"] = operador
-                    pedidos_db[pedido]["dt_emb"] = now
-                    registrar_historico(pedido, operador, "Embalagem", now)
-            elif indice == 2:
-                if pedido in pedidos_db:
-                    pedidos_db[pedido]["etapa"] = 3
-                    pedidos_db[pedido]["op_conf"] = operador
-                    pedidos_db[pedido]["dt_conf"] = now
-                    concluidos = carregar_concluidos()
-                    concluidos.append(pedidos_db[pedido])
-                    salvar_concluidos(concluidos)
-                    del pedidos_db[pedido]
-                    registrar_historico(pedido, operador, "Conferência", now, "concluido")
-
-            salvar_pedidos(pedidos_db)
-            st.session_state[f"_etapa_{indice}_ts_fim"] = ts_fim
-            st.session_state[state_key] = "ask_next"
+                orders = load_orders()
+                # Update or append
+                existing = [i for i, o in enumerate(orders) if o["id"] == order["id"]]
+                if existing:
+                    orders[existing[0]] = order
+                else:
+                    orders.append(order)
+                save_orders(orders)
+                st.session_state.current_order = order
+                st.session_state.phase = "transition"
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        if st.button("✕ Cancelar", key=f"btn_cancelar_{indice}", use_container_width=True):
-            st.session_state[state_key] = "idle"
-            st.session_state[pedido_key] = None
-            st.session_state[ts_key] = None
-            st.rerun()
-
-    # Estado ASK_NEXT (após finalizar)
-    elif state == "ask_next":
-        ts_fim = st.session_state.get(f"_etapa_{indice}_ts_fim")
-        duracao = format_tempo((ts_fim - ts_inicio) if ts_fim and ts_inicio else 0)
-
-        if indice == 2:  # Conferência finalizada
-            st.markdown(f"""
-            <div style="background: #e8f5e9; border-radius: 32px; padding: 32px; text-align: center;">
-                <div style="font-size: 3rem;">🎉</div>
-                <h3 style="color: #2e7d32;">Pedido Concluído!</h3>
-                <div class="numero-pedido-grande">#{pedido}</div>
-                <p style="color: #64748b;">Tempo total: {duracao}</p>
-            </div>
-            """, unsafe_allow_html=True)
-            if st.button("Novo Pedido", key=f"btn_novo_{indice}", use_container_width=True):
-                st.session_state[state_key] = "idle"
-                st.session_state[pedido_key] = None
-                st.session_state[ts_key] = None
+        # Auto-refresh timer
+        time.sleep(1)
+        st.rerun()
+    # ─ TRANSITION PHASE ─
+    elif phase == "transition":
+        st.markdown(f'<div class="order-number">#{st.session_state.order_number}</div>', unsafe_allow_html=True)
+        next_step = STEPS[step_idx + 1]
+        st.success(f"✅ Etapa {current_step['label']} concluída!")
+        st.markdown(f"**Quem fará a {next_step['label']}?**")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🧑 Eu mesmo", use_container_width=True, type="primary"):
+                st.session_state.current_step_idx = step_idx + 1
+                st.session_state.phase = "ready"
                 st.rerun()
+        with col2:
+            if st.button("👥 Outro operador", use_container_width=True):
+                # Save and go back to login
+                orders = load_orders()
+                order = st.session_state.current_order
+                existing = [i for i, o in enumerate(orders) if o["id"] == order["id"]]
+                if existing:
+                    orders[existing[0]] = order
+                else:
+                    orders.append(order)
+                save_orders(orders)
+                st.session_state.current_step_idx = step_idx + 1
+                st.session_state.page = "login"
+                st.session_state.operator = None
+                st.session_state.phase = "input"
+                st.rerun()
+    # ─ DONE PHASE ─
+    elif phase == "done":
+        st.markdown(f'<div class="order-number">#{st.session_state.order_number}</div>', unsafe_allow_html=True)
+        st.success("✅ Pedido concluído! Todas as etapas foram finalizadas.")
+        if st.button("📦 Novo Pedido", use_container_width=True, type="primary"):
+            st.session_state.phase = "input"
+            st.session_state.order_number = ""
+            st.session_state.current_step_idx = 0
+            st.session_state.current_order = None
+            st.rerun()
+# ─── MANAGER PAGE ───
+def manager_page():
+    col1, col2 = st.columns([1, 10])
+    with col1:
+        if st.button("⬅️"):
+            st.session_state.page = "login"
+            st.rerun()
+    with col2:
+        st.markdown("<h2 style='color:#8B1A4A; margin:0;'>VI LINGERIE</h2>", unsafe_allow_html=True)
+        st.caption("Painel de Gerência")
+    orders = load_orders()
+    completed = [o for o in orders if o.get("completedAt")]
+    # Summary cards
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("📦 PEDIDOS CONCLUÍDOS", len(completed))
+    with col2:
+        if completed:
+            avg = sum((o["completedAt"] - o["createdAt"]) for o in completed) / len(completed)
+            st.metric("⏱ TEMPO MÉDIO", format_duration(avg))
         else:
-            st.markdown(f"""
-            <div style="background: #f1f5f9; border-radius: 32px; padding: 24px; text-align: center; margin-bottom: 24px;">
-                <p style="font-weight: 600; color: #334155;">Etapa anterior concluída!</p>
-                <div class="numero-pedido-grande" style="font-size: 2rem;">#{pedido}</div>
-                <p style="color: #64748b;">Duração: {duracao}</p>
-            </div>
-            <p style="font-weight: 600; text-align: center;">Quem fará a próxima etapa?</p>
-            """, unsafe_allow_html=True)
-
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("Eu mesmo", key=f"btn_mesmo_{indice}", use_container_width=True):
-                    _proxima_etapa(indice, pedido, operador_logado)
-            with col2:
-                if st.button("Outro operador", key=f"btn_outro_{indice}", use_container_width=True):
-                    st.session_state[f"_ask_mode_{indice}"] = "selecionando"
-                    st.rerun()
-
-            if st.session_state.get(f"_ask_mode_{indice}") == "selecionando":
-                outros = [op for op in OPERADORES if op != operador_logado]
-                outro = st.selectbox("Selecione", [""] + outros, key=f"select_outro_{indice}")
-                if st.button("Confirmar", key=f"btn_confirmar_{indice}", use_container_width=True):
-                    if not outro:
-                        st.error("Selecione um operador.")
-                    else:
-                        _proxima_etapa(indice, pedido, outro)
-
-def _proxima_etapa(etapa_atual, pedido, novo_operador):
-    prox = etapa_atual + 1
-    st.session_state[f"_etapa_{etapa_atual}_state"] = "done"
-    st.session_state[f"_etapa_{etapa_atual}_pedido"] = pedido
-    st.session_state[f"_etapa_{prox}_state"] = "running"
-    st.session_state[f"_etapa_{prox}_pedido"] = pedido
-    st.session_state[f"_etapa_{prox}_ts"] = time.time()
-    st.session_state[f"_etapa_{prox}_op"] = novo_operador
-    st.session_state["_operador"] = novo_operador
-    st.rerun()
-
-# ============================================================
-# TELA PRINCIPAL DO OPERADOR (COMO NAS IMAGENS)
-# ============================================================
-def tela_operador():
-    operador = st.session_state["_operador"]
-    turno_inicio = st.session_state.get("_turno_inicio", time.time())
-    tempo_turno = format_tempo(time.time() - turno_inicio)
-
-    # Layout de 4 colunas (painel esquerdo + 3 etapas)
-    st.markdown('<div class="layout-4colunas">', unsafe_allow_html=True)
-
-    # PAINEL ESQUERDO (ESTAÇÃO CENTRAL)
-    st.markdown('<div class="painel-esquerdo">', unsafe_allow_html=True)
-    st.markdown(f"""
-    <div style="margin-bottom: 32px;">
-        <div style="font-size: 1.2rem; font-weight: 600; color: #334155;">ESTAÇÃO CENTRAL</div>
-        <div style="display: flex; align-items: center; gap: 12px; margin-top: 16px;">
-            {avatar_iniciais(operador, 56)}
-            <span style="font-size: 1.4rem; font-weight: 600;">{operador}</span>
-        </div>
-    </div>
-    <div class="divider"></div>
-    <div style="margin-top: 24px;">
-        <p style="color: #475569; font-size: 0.9rem;">Tempo de turno: <strong>{tempo_turno}</strong></p>
-    </div>
-    """, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)  # fecha painel esquerdo
-
-    # COLUNAS DAS ETAPAS
-    with st.container():
-        # Separação
-        st.markdown('<div class="coluna-etapa">', unsafe_allow_html=True)
-        render_etapa(0, "SEPARAÇÃO", "📦", operador)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # Embalagem
-        st.markdown('<div class="coluna-etapa">', unsafe_allow_html=True)
-        render_etapa(1, "EMBALAGEM", "📬", operador)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # Conferência
-        st.markdown('<div class="coluna-etapa">', unsafe_allow_html=True)
-        render_etapa(2, "CONFERÊNCIA", "✅", operador)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown('</div>', unsafe_allow_html=True)  # fecha layout-4colunas
-
-# ============================================================
-# ROTEADOR PRINCIPAL
-# ============================================================
-if "_modo" not in st.session_state:
-    st.session_state["_modo"] = "inicial"
-
-modo = st.session_state["_modo"]
-
-if modo == "inicial":
-    tela_inicial()
-elif modo == "selecao_operador":
-    tela_selecao_operador()
-elif modo == "gerencia_login":
-    tela_login_gerencia()
-elif modo == "gerencia":
-    if st.session_state.get("_gerencia_ok"):
-        tela_extrato()
+            st.metric("⏱ TEMPO MÉDIO", "--:--:--")
+    with col3:
+        active_ops = set()
+        for o in orders:
+            for s in o.get("steps", []):
+                if s.get("endTime"):
+                    active_ops.add(s["operatorId"])
+        st.metric("👥 OPERADORES ATIVOS", len(active_ops))
+    # Operator performance
+    st.markdown("---")
+    st.markdown("##### DESEMPENHO POR OPERADOR")
+    op_stats = []
+    for op in OPERATORS:
+        steps = []
+        for o in orders:
+            for s in o.get("steps", []):
+                if s["operatorId"] == op and s.get("endTime"):
+                    steps.append(s)
+        if steps:
+            total_time = sum((s["endTime"] - s["startTime"]) for s in steps)
+            avg_time = total_time / len(steps)
+            op_stats.append({
+                "Operador": op,
+                "Etapas": len(steps),
+                "Tempo Total": format_duration(total_time),
+                "Média": format_duration(avg_time),
+            })
+    if op_stats:
+        st.dataframe(op_stats, use_container_width=True, hide_index=True)
     else:
-        st.session_state["_modo"] = "gerencia_login"
-        st.rerun()
-elif modo == "operador":
-    if "_operador" in st.session_state:
-        tela_operador()
+        st.info("Nenhum dado de operador ainda.")
+    # Recent orders
+    st.markdown("---")
+    st.markdown("##### PEDIDOS RECENTES")
+    if orders:
+        table_data = []
+        for o in reversed(orders[-20:]):
+            row = {"Pedido": f"#{o['orderNumber']}"}
+            for step_def in STEPS:
+                step = next((s for s in o["steps"] if s["step"] == step_def["key"]), None)
+                if step and step.get("endTime"):
+                    dur = format_duration(step["endTime"] - step["startTime"])
+                    row[step_def["label"]] = f"{step['operatorId']} ({dur})"
+                elif step:
+                    row[step_def["label"]] = f"{step['operatorId']} (...)"
+                else:
+                    row[step_def["label"]] = "—"
+            row["Status"] = "✅ Concluído" if o.get("completedAt") else "🔄 Em andamento"
+            table_data.append(row)
+        st.dataframe(table_data, use_container_width=True, hide_index=True)
     else:
-        st.session_state["_modo"] = "selecao_operador"
-        st.rerun()
+        st.info("Nenhum pedido registrado ainda.")
+# ─── ROUTER ───
+page = st.session_state.page
+if page == "login":
+    login_page()
+elif page == "operator":
+    operator_page()
+elif page == "manager":
+    manager_page()
