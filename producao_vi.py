@@ -1,22 +1,25 @@
-Python 3.14.3 (tags/v3.14.3:323c59a, Feb  3 2026, 16:04:56) [MSC v.1944 64 bit (AMD64)] on win32
-Enter "help" below or click "Help" above for more information.
 import streamlit as st
 import json
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
+
 # ─── Config ───
 st.set_page_config(page_title="VI LINGERIE - Apontamento", page_icon="👙", layout="wide")
+
 DATA_FILE = "orders.json"
+
 OPERATORS = [
     "LUCIVANIO", "ENÁGIO", "DANIEL", "ÍTALO",
     "CILDENIR", "SAMYA", "NEIDE", "EDUARDO", "TALYSON"
 ]
+
 STEPS = [
     {"key": "separacao", "label": "SEPARAÇÃO"},
     {"key": "embalagem", "label": "EMBALAGEM"},
     {"key": "conferencia", "label": "CONFERÊNCIA"},
 ]
+
 OPERATOR_COLORS = {
     "LUCIVANIO": "#7B2D8E",
     "ENÁGIO": "#2E8B57",
@@ -28,15 +31,18 @@ OPERATOR_COLORS = {
     "EDUARDO": "#DC2626",
     "TALYSON": "#7C5CBF",
 }
+
 # ─── Persistence ───
 def load_orders():
     if Path(DATA_FILE).exists():
         with open(DATA_FILE, "r") as f:
             return json.load(f)
     return []
+
 def save_orders(orders):
     with open(DATA_FILE, "w") as f:
         json.dump(orders, f, indent=2)
+
 def format_duration(seconds):
     if seconds is None:
         return "--:--:--"
@@ -44,6 +50,7 @@ def format_duration(seconds):
     m = int((seconds % 3600) // 60)
     s = int(seconds % 60)
     return f"{h:02d}:{m:02d}:{s:02d}"
+
 # ─── Custom CSS ───
 st.markdown("""
 <style>
@@ -195,6 +202,7 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
 # ─── Session State Init ───
 if "page" not in st.session_state:
     st.session_state.page = "login"
@@ -210,6 +218,7 @@ if "start_time" not in st.session_state:
     st.session_state.start_time = None
 if "current_order" not in st.session_state:
     st.session_state.current_order = None
+
 # ─── LOGIN PAGE ───
 def login_page():
     st.markdown('''
@@ -219,6 +228,7 @@ def login_page():
         <p style="font-size:0.85rem; color:#999;">Selecione seu nome para começar</p>
     </div>
     ''', unsafe_allow_html=True)
+    
     st.markdown("#### 🧑 QUEM É VOCÊ?")
     cols = st.columns(3)
     for i, op in enumerate(OPERATORS):
@@ -231,14 +241,17 @@ def login_page():
             st.session_state.current_step_idx = 0
             st.session_state.current_order = None
             st.rerun()
+    
     st.divider()
     if st.button("🔒 Acesso Gerência", use_container_width=True):
         st.session_state.page = "manager"
         st.rerun()
+
 # ─── OPERATOR PAGE ───
 def operator_page():
     operator = st.session_state.operator
     color = OPERATOR_COLORS.get(operator, "#666")
+    
     # Header
     st.markdown('<div class="operator-header">', unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 3, 1])
@@ -254,8 +267,10 @@ def operator_page():
             st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown(f'<div style="height:3px; background:linear-gradient(90deg, {color}, {color}80); border-radius:2px; margin-bottom:1.5rem;"></div>', unsafe_allow_html=True)
+    
     phase = st.session_state.phase
     step_idx = st.session_state.current_step_idx
+    
     # Step tracker
     step_html = ""
     for i, step in enumerate(STEPS):
@@ -265,15 +280,19 @@ def operator_page():
             step_html += f'<span class="step-badge step-current">● {step["label"]}</span>'
         else:
             step_html += f'<span class="step-badge step-pending">{step["label"]}</span>'
+    
     if phase != "input":
         st.markdown(f'<div style="text-align:center; margin:1rem 0;">{step_html}</div>', unsafe_allow_html=True)
+    
     current_step = STEPS[step_idx]
+    
     # ─ INPUT PHASE ─
     if phase == "input":
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("<div style='text-align:center; font-size:3rem; opacity:0.3;'>📦</div>", unsafe_allow_html=True)
         st.markdown("<p style='text-align:center; font-weight:bold;'>Bipar ou digitar pedido</p>", unsafe_allow_html=True)
         st.markdown("<p style='text-align:center; font-size:0.85rem; color:#999;'>Insira o número do pedido para iniciar</p>", unsafe_allow_html=True)
+        
         order_num = st.text_input("Número do pedido", placeholder="Ex: 12345", label_visibility="collapsed")
         if st.button("➡️ Confirmar Pedido", use_container_width=True, disabled=not order_num.strip()):
             st.session_state.order_number = order_num.strip()
@@ -286,6 +305,7 @@ def operator_page():
             }
             st.session_state.phase = "ready"
             st.rerun()
+    
     # ─ READY PHASE ─
     elif phase == "ready":
         st.markdown(f'<div class="order-number">#{st.session_state.order_number}</div>', unsafe_allow_html=True)
@@ -302,19 +322,23 @@ def operator_page():
             st.session_state.current_order = order
             st.session_state.phase = "running"
             st.rerun()
+    
     # ─ RUNNING PHASE ─
     elif phase == "running":
         st.markdown(f'<div class="order-number">#{st.session_state.order_number}</div>', unsafe_allow_html=True)
         elapsed = time.time() - st.session_state.start_time
         st.markdown(f'<div class="timer-display">⏱ {format_duration(elapsed)}</div>', unsafe_allow_html=True)
+        
         if st.button(f"⏹️ CONCLUIR {current_step['label']}", use_container_width=True, type="primary"):
             now = time.time()
             order = st.session_state.current_order
+            
             # Close current step
             for s in order["steps"]:
                 if s["step"] == current_step["key"] and s["endTime"] is None:
                     s["endTime"] = now
                     break
+            
             is_last = step_idx == len(STEPS) - 1
             if is_last:
                 order["completedAt"] = now
@@ -334,15 +358,18 @@ def operator_page():
                 st.session_state.current_order = order
                 st.session_state.phase = "transition"
             st.rerun()
+        
         # Auto-refresh timer
         time.sleep(1)
         st.rerun()
+    
     # ─ TRANSITION PHASE ─
     elif phase == "transition":
         st.markdown(f'<div class="order-number">#{st.session_state.order_number}</div>', unsafe_allow_html=True)
         next_step = STEPS[step_idx + 1]
         st.success(f"✅ Etapa {current_step['label']} concluída!")
         st.markdown(f"**Quem fará a {next_step['label']}?**")
+        
         col1, col2 = st.columns(2)
         with col1:
             if st.button("🧑 Eu mesmo", use_container_width=True, type="primary"):
@@ -365,6 +392,7 @@ def operator_page():
                 st.session_state.operator = None
                 st.session_state.phase = "input"
                 st.rerun()
+    
     # ─ DONE PHASE ─
     elif phase == "done":
         st.markdown(f'<div class="order-number">#{st.session_state.order_number}</div>', unsafe_allow_html=True)
@@ -375,6 +403,7 @@ def operator_page():
             st.session_state.current_step_idx = 0
             st.session_state.current_order = None
             st.rerun()
+
 # ─── MANAGER PAGE ───
 def manager_page():
     # Header com logo
@@ -388,8 +417,10 @@ def manager_page():
     if st.button("⬅️ Voltar ao Login", key="back_to_login"):
         st.session_state.page = "login"
         st.rerun()
+    
     orders = load_orders()
     completed = [o for o in orders if o.get("completedAt")]
+    
     # Summary cards
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -407,6 +438,7 @@ def manager_page():
                 if s.get("endTime"):
                     active_ops.add(s["operatorId"])
         st.metric("👥 OPERADORES ATIVOS", len(active_ops))
+    
     # Operator performance
     st.markdown("---")
     st.markdown("##### DESEMPENHO POR OPERADOR")
@@ -423,40 +455,42 @@ def manager_page():
             op_stats.append({
                 "Operador": op,
                 "Etapas": len(steps),
-...                 "Tempo Total": format_duration(total_time),
-...                 "Média": format_duration(avg_time),
-...             })
-...     if op_stats:
-...         st.dataframe(op_stats, use_container_width=True, hide_index=True)
-...     else:
-...         st.info("Nenhum dado de operador ainda.")
-...     # Recent orders
-...     st.markdown("---")
-...     st.markdown("##### PEDIDOS RECENTES")
-...     if orders:
-...         table_data = []
-...         for o in reversed(orders[-20:]):
-...             row = {"Pedido": f"#{o['orderNumber']}"}
-...             for step_def in STEPS:
-...                 step = next((s for s in o["steps"] if s["step"] == step_def["key"]), None)
-...                 if step and step.get("endTime"):
-...                     dur = format_duration(step["endTime"] - step["startTime"])
-...                     row[step_def["label"]] = f"{step['operatorId']} ({dur})"
-...                 elif step:
-...                     row[step_def["label"]] = f"{step['operatorId']} (...)"
-...                 else:
-...                     row[step_def["label"]] = "—"
-...             row["Status"] = "✅ Concluído" if o.get("completedAt") else "🔄 Em andamento"
-...             table_data.append(row)
-...         st.dataframe(table_data, use_container_width=True, hide_index=True)
-...     else:
-...         st.info("Nenhum pedido registrado ainda.")
-... # ─── ROUTER ───
-... page = st.session_state.page
-... if page == "login":
-...     login_page()
-... elif page == "operator":
-...     operator_page()
-... elif page == "manager":
-...     manager_page()
-... 
+                "Tempo Total": format_duration(total_time),
+                "Média": format_duration(avg_time),
+            })
+    
+    if op_stats:
+        st.dataframe(op_stats, use_container_width=True, hide_index=True)
+    else:
+        st.info("Nenhum dado de operador ainda.")
+    
+    # Recent orders
+    st.markdown("---")
+    st.markdown("##### PEDIDOS RECENTES")
+    if orders:
+        table_data = []
+        for o in reversed(orders[-20:]):
+            row = {"Pedido": f"#{o['orderNumber']}"}
+            for step_def in STEPS:
+                step = next((s for s in o["steps"] if s["step"] == step_def["key"]), None)
+                if step and step.get("endTime"):
+                    dur = format_duration(step["endTime"] - step["startTime"])
+                    row[step_def["label"]] = f"{step['operatorId']} ({dur})"
+                elif step:
+                    row[step_def["label"]] = f"{step['operatorId']} (...)"
+                else:
+                    row[step_def["label"]] = "—"
+            row["Status"] = "✅ Concluído" if o.get("completedAt") else "🔄 Em andamento"
+            table_data.append(row)
+        st.dataframe(table_data, use_container_width=True, hide_index=True)
+    else:
+        st.info("Nenhum pedido registrado ainda.")
+
+# ─── ROUTER ───
+page = st.session_state.page
+if page == "login":
+    login_page()
+elif page == "operator":
+    operator_page()
+elif page == "manager":
+    manager_page()
