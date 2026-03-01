@@ -16,6 +16,7 @@ st.set_page_config(
 # ── constantes ──────────────────────────────────────────────
 ETAPAS       = ["Separação do Pedido", "Mesa de Embalagem", "Conferência do Pedido"]
 ETAPA_LABELS = ["SEPARAÇÃO", "EMBALAGEM", "CONFERÊNCIA"]
+ETAPA_COLORS = ["#1D4ED8", "#7C3AED", "#16a34a"]
 
 OPERADORES = [
     "Lucivanio", "Enágio", "Daniel", "Ítalo", "Cildenir",
@@ -23,7 +24,6 @@ OPERADORES = [
 ]
 
 SENHA_GERENCIA = "vi2026"
-ETAPA_COLORS   = ["#1D4ED8", "#7C3AED", "#16a34a"]
 
 STATE_DIR = "vi_producao_state"
 os.makedirs(STATE_DIR, exist_ok=True)
@@ -80,12 +80,13 @@ def av_cor(nome): return _PALETTE[sum(ord(c) for c in nome) % len(_PALETTE)]
 def av_ini(nome):
     p = nome.strip().split()
     return (p[0][0] + (p[-1][0] if len(p)>1 else "")).upper()
-def avatar_tag(nome, size=44):
-    ini = av_ini(nome); cor = av_cor(nome); fs = int(size*.34)
-    return (f'<div style="width:{size}px;height:{size}px;border-radius:50%;background:{cor};'
-            f'display:inline-flex;align-items:center;justify-content:center;'
-            f'font-size:{fs}px;font-weight:700;color:#fff;flex-shrink:0;'
-            f'font-family:\'DM Sans\',sans-serif;">{ini}</div>')
+
+def avatar_circle(nome, size=38):
+    cor = av_cor(nome); ini = av_ini(nome); fs = int(size * .36)
+    return f"""<div style="width:{size}px;height:{size}px;border-radius:50%;background:{cor};
+        display:flex;align-items:center;justify-content:center;
+        font-size:{fs}px;font-weight:700;color:#fff;margin:0 auto 6px;
+        font-family:'DM Sans',sans-serif;">{ini}</div>"""
 
 # ════════════════════════════════════════════════════════════
 # CSS
@@ -117,52 +118,129 @@ html,body,[data-testid="stApp"]{
 .vi-header-label{font-size:.58rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.14em;margin-bottom:1px;}
 .vi-header-name{font-size:.9rem;font-weight:700;color:#111827;}
 .vi-header-badge{margin-left:auto;display:inline-flex;align-items:center;gap:5px;padding:5px 13px;border-radius:999px;font-size:.62rem;font-weight:700;letter-spacing:.1em;border:1.5px solid currentColor;white-space:nowrap;}
-.vi-logout-btn{padding:5px;cursor:pointer;opacity:.4;transition:opacity .15s;}
-.vi-logout-btn:hover{opacity:.8;}
 
 /* BODY */
-.vi-body{padding:24px 20px 24px;}
+.vi-body{padding:22px 20px 24px;}
+
+/* HR */
+.vi-hr{height:1px;background:#f3f4f6;margin:16px 0;border:none;}
 
 /* STEPPER */
-.vi-stepper{display:flex;align-items:flex-start;margin-bottom:24px;}
+.vi-stepper-wrap{display:flex;align-items:flex-start;margin-bottom:22px;}
 .vi-step-col{display:flex;flex-direction:column;align-items:center;gap:5px;flex:0 0 auto;}
 .vi-step-circle{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:all .3s;}
 .vi-step-lbl{font-size:.54rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;text-align:center;white-space:nowrap;}
 .vi-step-line{flex:1;height:1.5px;background:#e5e7eb;margin-top:19px;}
 .vi-step-line-done{background:#1D4ED8;}
 
-/* SCAN AREA */
-.vi-scan-area{text-align:center;padding:16px 0 12px;}
-.vi-scan-title{font-size:1rem;font-weight:700;color:#111827;margin-bottom:3px;}
-.vi-scan-sub{font-size:.73rem;color:#9ca3af;margin-bottom:16px;}
-
 /* PEDIDO BIG */
-.vi-num{font-family:'Playfair Display',serif;font-size:3.8rem;font-weight:900;color:#111827;line-height:1;text-align:center;margin:8px 0;}
+.vi-num{font-family:'Playfair Display',serif;font-size:3.8rem;font-weight:900;color:#111827;line-height:1;text-align:center;margin:8px 0 4px;}
 .vi-num span{color:#9ca3af;font-size:2rem;vertical-align:.25em;}
 
 /* TIMER */
 .vi-timer{display:flex;align-items:center;justify-content:center;gap:6px;font-family:'DM Mono',monospace;font-size:1.45rem;font-weight:500;color:#374151;letter-spacing:.06em;margin-bottom:18px;}
 
-/* BOTÕES */
-.vi-btn-blue>button{background:#1D4ED8!important;border:none!important;border-radius:14px!important;color:#fff!important;font-weight:700!important;font-size:.9rem!important;letter-spacing:.06em!important;padding:17px 24px!important;font-family:'DM Sans',sans-serif!important;width:100%;box-shadow:0 4px 16px rgba(29,78,216,.32)!important;transition:all .2s!important;}
-.vi-btn-blue>button:hover{background:#1e40af!important;transform:translateY(-1px)!important;box-shadow:0 6px 22px rgba(29,78,216,.42)!important;}
-.vi-btn-red>button{background:#DC2626!important;border:none!important;border-radius:14px!important;color:#fff!important;font-weight:700!important;font-size:.9rem!important;letter-spacing:.06em!important;padding:17px 24px!important;font-family:'DM Sans',sans-serif!important;width:100%;box-shadow:0 4px 16px rgba(220,38,38,.32)!important;transition:all .2s!important;animation:pulse-red 2s ease infinite;}
+/* SCAN */
+.vi-scan-area{text-align:center;padding:14px 0 10px;}
+.vi-scan-title{font-size:1rem;font-weight:700;color:#111827;margin:10px 0 3px;}
+.vi-scan-sub{font-size:.73rem;color:#9ca3af;margin-bottom:14px;}
+
+/* BOTÕES PRIMÁRIOS */
+.vi-btn-blue > button{
+    background:#1D4ED8!important;border:none!important;border-radius:14px!important;
+    color:#fff!important;font-weight:700!important;font-size:.9rem!important;
+    letter-spacing:.06em!important;padding:17px 24px!important;
+    font-family:'DM Sans',sans-serif!important;width:100%;
+    box-shadow:0 4px 16px rgba(29,78,216,.32)!important;transition:all .2s!important;
+}
+.vi-btn-blue > button:hover{background:#1e40af!important;transform:translateY(-1px)!important;}
+
+.vi-btn-red > button{
+    background:#DC2626!important;border:none!important;border-radius:14px!important;
+    color:#fff!important;font-weight:700!important;font-size:.9rem!important;
+    letter-spacing:.06em!important;padding:17px 24px!important;
+    font-family:'DM Sans',sans-serif!important;width:100%;
+    box-shadow:0 4px 16px rgba(220,38,38,.32)!important;transition:all .2s!important;
+    animation:pulse-red 2s ease infinite;
+}
 @keyframes pulse-red{0%,100%{box-shadow:0 4px 16px rgba(220,38,38,.32);}50%{box-shadow:0 4px 28px rgba(220,38,38,.58);}}
-.vi-btn-red>button:hover{background:#b91c1c!important;transform:translateY(-1px)!important;}
-.vi-btn-green>button{background:#16a34a!important;border:none!important;border-radius:14px!important;color:#fff!important;font-weight:700!important;font-size:.9rem!important;letter-spacing:.06em!important;padding:17px 24px!important;font-family:'DM Sans',sans-serif!important;width:100%;box-shadow:0 4px 16px rgba(22,163,74,.3)!important;transition:all .2s!important;}
-.stButton>button{background:transparent!important;border:1.5px solid #e5e7eb!important;border-radius:12px!important;color:#6b7280!important;font-weight:600!important;font-size:.78rem!important;letter-spacing:.04em!important;padding:10px 16px!important;font-family:'DM Sans',sans-serif!important;width:100%;transition:all .18s!important;}
-.stButton>button:hover{background:#f9fafb!important;color:#374151!important;border-color:#d1d5db!important;}
+.vi-btn-red > button:hover{background:#b91c1c!important;transform:translateY(-1px)!important;}
+
+/* BOTÃO GHOST padrão */
+.stButton > button{
+    background:transparent!important;border:1.5px solid #e5e7eb!important;
+    border-radius:12px!important;color:#6b7280!important;font-weight:600!important;
+    font-size:.78rem!important;letter-spacing:.04em!important;padding:10px 16px!important;
+    font-family:'DM Sans',sans-serif!important;width:100%;transition:all .18s!important;
+}
+.stButton > button:hover{background:#f9fafb!important;color:#374151!important;border-color:#d1d5db!important;}
+
+/* ── BOTÕES DE OPERADOR ── */
+/* Cada botão de operador tem uma classe via container */
+.op-btn-sel > button{
+    background:#EFF6FF!important;
+    border:2px solid #1D4ED8!important;
+    border-radius:14px!important;
+    color:#1D4ED8!important;
+    font-weight:700!important;
+    font-size:.75rem!important;
+    padding:14px 8px 12px!important;
+    height:90px!important;
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:center!important;
+    justify-content:center!important;
+    gap:6px!important;
+    font-family:'DM Sans',sans-serif!important;
+    width:100%;
+    transition:all .18s!important;
+    white-space:normal!important;
+    line-height:1.2!important;
+}
+.op-btn > button{
+    background:#f9fafb!important;
+    border:2px solid #f3f4f6!important;
+    border-radius:14px!important;
+    color:#374151!important;
+    font-weight:600!important;
+    font-size:.75rem!important;
+    padding:14px 8px 12px!important;
+    height:90px!important;
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:center!important;
+    justify-content:center!important;
+    gap:6px!important;
+    font-family:'DM Sans',sans-serif!important;
+    width:100%;
+    transition:all .18s!important;
+    white-space:normal!important;
+    line-height:1.2!important;
+}
+.op-btn > button:hover{
+    background:#EFF6FF!important;
+    border-color:#93c5fd!important;
+    color:#1D4ED8!important;
+}
 
 /* INPUTS */
-[data-testid="stTextInput"] label,[data-testid="stSelectbox"] label,[data-testid="stPasswordInput"] label{display:none!important;}
-[data-testid="stTextInput"] input,[data-testid="stNumberInput"] input{background:#F4F4F4!important;border:1.5px solid transparent!important;border-radius:12px!important;color:#111827!important;font-family:'DM Mono',monospace!important;font-size:1rem!important;padding:14px 18px!important;}
-[data-testid="stTextInput"] input:focus,[data-testid="stNumberInput"] input:focus{border-color:#1D4ED8!important;box-shadow:0 0 0 3px rgba(29,78,216,.1)!important;}
-[data-testid="stTextInput"] input::placeholder{color:#aaa!important;}
-[data-testid="stSelectbox"]>div>div{background:#F4F4F4!important;border:1.5px solid transparent!important;border-radius:12px!important;color:#111827!important;}
-[data-testid="stPasswordInput"] input{background:#F4F4F4!important;border:1.5px solid transparent!important;border-radius:12px!important;}
+[data-testid="stTextInput"] label,
+[data-testid="stSelectbox"] label,
+[data-testid="stPasswordInput"] label{display:none!important;}
 
-/* HR */
-.vi-hr{height:1px;background:#f3f4f6;margin:16px 0;border:none;}
+[data-testid="stTextInput"] input{
+    background:#F4F4F4!important;border:1.5px solid transparent!important;
+    border-radius:12px!important;color:#111827!important;
+    font-family:'DM Mono',monospace!important;font-size:1rem!important;padding:14px 18px!important;
+}
+[data-testid="stTextInput"] input:focus{border-color:#1D4ED8!important;box-shadow:0 0 0 3px rgba(29,78,216,.1)!important;}
+[data-testid="stTextInput"] input::placeholder{color:#aaa!important;}
+[data-testid="stSelectbox"] > div > div{
+    background:#F4F4F4!important;border:1.5px solid transparent!important;border-radius:12px!important;
+}
+[data-testid="stPasswordInput"] input{
+    background:#F4F4F4!important;border:1.5px solid transparent!important;border-radius:12px!important;
+}
 
 /* ALERTS */
 .vi-alert{padding:11px 15px;border-radius:12px;font-size:.78rem;font-weight:500;margin:8px 0;display:flex;align-items:center;gap:8px;}
@@ -171,41 +249,39 @@ html,body,[data-testid="stApp"]{
 .vi-inf {background:#eff6ff;border:1.5px solid #bfdbfe;color:#1d4ed8;}
 .vi-warn{background:#fffbeb;border:1.5px solid #fde68a;color:#d97706;}
 
-/* OP GRID */
-.vi-op-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0;}
-.vi-op-cell{background:#f9fafb;border:2px solid #f3f4f6;border-radius:14px;padding:14px 8px 12px;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:.73rem;font-weight:600;color:#374151;text-align:center;transition:all .18s;}
+/* ASK CARD */
+.vi-ask-card{background:#f9fafb;border-radius:14px;padding:16px;margin-top:12px;}
+.vi-ask-title{font-size:.68rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.12em;margin-bottom:12px;}
 
 /* DONE */
 @keyframes vi-pop{from{opacity:0;transform:scale(.88);}to{opacity:1;transform:scale(1);}}
 .vi-done-card{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:2px solid #bbf7d0;border-radius:18px;padding:28px 20px;text-align:center;animation:vi-pop .4s cubic-bezier(.34,1.56,.64,1) both;}
 
-/* ASK CARD */
-.vi-ask-card{background:#f9fafb;border-radius:14px;padding:16px;margin-top:12px;}
-.vi-ask-title{font-size:.68rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.12em;margin-bottom:12px;}
-
 /* FOOTER */
-.vi-footer{text-align:center;margin-top:16px;font-size:.7rem;color:#9ca3af;cursor:pointer;}
+.vi-footer-link{text-align:center;margin-top:14px;}
 </style>
 """, unsafe_allow_html=True)
 
 
 # ════════════════════════════════════════════════════════════
-# COMPONENTS
+# COMPONENTES REUTILIZÁVEIS
 # ════════════════════════════════════════════════════════════
-def render_header(operador, etapa_idx, show_logout=True):
+def render_header(operador, etapa_idx):
     cor   = ETAPA_COLORS[etapa_idx]
     label = ETAPA_LABELS[etapa_idx]
-    av    = avatar_tag(operador, 44)
-    logout_icon = """<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>"""
+    cor_op = av_cor(operador)
+    ini_op = av_ini(operador)
     st.markdown(f"""
     <div class="vi-header">
-        {av}
+        <div style="width:44px;height:44px;border-radius:50%;background:{cor_op};
+            display:flex;align-items:center;justify-content:center;
+            font-size:15px;font-weight:700;color:#fff;flex-shrink:0;
+            font-family:'DM Sans',sans-serif;">{ini_op}</div>
         <div>
             <div class="vi-header-label">ESTAÇÃO CENTRAL</div>
             <div class="vi-header-name">{operador}</div>
         </div>
         <div class="vi-header-badge" style="color:{cor};">{label}</div>
-        {'<div class="vi-logout-btn" id="_logout_icon">'+logout_icon+'</div>' if show_logout else ''}
         <div class="vi-header-bar" style="background:{cor};"></div>
     </div>
     """, unsafe_allow_html=True)
@@ -213,20 +289,15 @@ def render_header(operador, etapa_idx, show_logout=True):
 
 def render_stepper(etapa_idx):
     ICONS = [
-        # box
-        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
-        # mail
-        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>',
-        # check clipboard
-        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>',
+        '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
+        '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>',
+        '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>',
     ]
-    CHECK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
-
-    html = '<div class="vi-stepper">'
+    CHECK = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+    html = '<div class="vi-stepper-wrap">'
     for i, label in enumerate(ETAPA_LABELS):
-        done   = i < etapa_idx
-        active = i == etapa_idx
-        cor    = ETAPA_COLORS[i]
+        done = i < etapa_idx; active = i == etapa_idx
+        cor  = ETAPA_COLORS[i]
         if done:
             circ = f'background:{cor};color:#fff;'
             lbl  = f'color:{cor};font-weight:700;'
@@ -241,119 +312,103 @@ def render_stepper(etapa_idx):
             icon = ICONS[i]
         html += f'<div class="vi-step-col"><div class="vi-step-circle" style="{circ}">{icon}</div><div class="vi-step-lbl" style="{lbl}">{label}</div></div>'
         if i < 2:
-            line = 'vi-step-line-done' if done else ''
-            html += f'<div class="vi-step-line {line}"></div>'
+            line_cls = "vi-step-line-done" if done else ""
+            html += f'<div class="vi-step-line {line_cls}"></div>'
     html += '</div>'
     st.markdown(html, unsafe_allow_html=True)
 
 
 # ════════════════════════════════════════════════════════════
-# TELA INICIAL — SELEÇÃO DE OPERADOR
+# TELA INICIAL — seleção de operador com botões REAIS
 # ════════════════════════════════════════════════════════════
 def tela_inicial():
     st.markdown(f'<div class="vi-wordmark">{logo_html}</div>', unsafe_allow_html=True)
     st.markdown('<div class="vi-card"><div class="vi-body">', unsafe_allow_html=True)
 
     st.markdown("""
-    <div style="text-align:center;margin-bottom:20px">
+    <div style="text-align:center;margin-bottom:18px">
         <div style="font-size:1rem;font-weight:700;color:#111827">Apontamento de Produção</div>
         <div style="font-size:.72rem;color:#9ca3af;margin-top:3px">Selecione seu nome para começar</div>
     </div>
     <hr class="vi-hr" style="margin-top:0">
-    <div style="font-size:.6rem;font-weight:700;color:#9ca3af;letter-spacing:.14em;text-transform:uppercase;margin-bottom:14px">QUEM É VOCÊ?</div>
+    <div style="font-size:.6rem;font-weight:700;color:#9ca3af;letter-spacing:.14em;
+        text-transform:uppercase;margin-bottom:12px">QUEM É VOCÊ?</div>
     """, unsafe_allow_html=True)
 
     sel = st.session_state.get("_sel_op")
 
-    # Grade 3×N de operadores
+    # Grade 3 colunas — cada botão mostra avatar + nome
     rows = [OPERADORES[i:i+3] for i in range(0, len(OPERADORES), 3)]
     for row in rows:
-        cols = st.columns(len(row))
-        for col, nome in zip(cols, row):
-            with col:
-                cor  = av_cor(nome)
-                ini  = av_ini(nome)
-                is_s = sel == nome
-                bd   = "#1D4ED8" if is_s else "#f3f4f6"
-                bg   = "#eff6ff" if is_s else "#f9fafb"
-                tc   = "#1D4ED8" if is_s else "#374151"
-                st.markdown(f"""
-                <div style="background:{bg};border:2px solid {bd};border-radius:14px;
-                    padding:14px 8px 12px;display:flex;flex-direction:column;
-                    align-items:center;gap:8px;cursor:pointer;">
-                    <div style="width:38px;height:38px;border-radius:50%;background:{cor};
+        cols = st.columns(3)
+        for i, nome in enumerate(row):
+            with cols[i]:
+                cor = av_cor(nome)
+                ini = av_ini(nome)
+                is_sel = (sel == nome)
+
+                # Monta label HTML com avatar + nome
+                label_html = f"""<div style='display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none'>
+                    <div style='width:36px;height:36px;border-radius:50%;background:{cor};
                         display:flex;align-items:center;justify-content:center;
-                        font-size:13px;font-weight:700;color:#fff;">{ini}</div>
-                    <div style="font-size:.72rem;font-weight:600;color:{tc};line-height:1.2;text-align:center">{nome}</div>
-                </div>
-                """, unsafe_allow_html=True)
-                if st.button(nome, key=f"selop_{nome}", use_container_width=True):
+                        font-size:13px;font-weight:700;color:#fff;'>{ini}</div>
+                    <span style='font-size:.73rem;font-weight:{"700" if is_sel else "600"};'>{nome}</span>
+                </div>"""
+
+                # Injeta classe CSS via container
+                css_class = "op-btn-sel" if is_sel else "op-btn"
+                st.markdown(f'<div class="{css_class}">', unsafe_allow_html=True)
+                if st.button(nome, key=f"op_{nome}", use_container_width=True):
                     st.session_state["_sel_op"] = nome
                     st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
 
-    # Esconde texto dos botões, deixa área clicável
-    st.markdown("""
-    <style>
-    div[data-testid="stButton"] button span{font-size:0!important;}
-    div[data-testid="stButton"] button{
-        position:relative!important;
-        margin-top:-76px!important;
-        height:76px!important;
-        opacity:0!important;
-        border:none!important;
-        cursor:pointer!important;
-        background:transparent!important;
-        box-shadow:none!important;
-    }
-    </style>""", unsafe_allow_html=True)
+        # Preenche colunas vazias da última linha
+        for i in range(len(row), 3):
+            with cols[i]:
+                st.empty()
 
     st.markdown('<hr class="vi-hr">', unsafe_allow_html=True)
 
-    if sel:
-        st.markdown(f'<div class="vi-alert vi-inf" style="margin-bottom:10px">👤 Selecionado: <b>{sel}</b></div>', unsafe_allow_html=True)
+    sel_atual = st.session_state.get("_sel_op")
+    if sel_atual:
+        st.markdown(f'<div class="vi-alert vi-inf" style="margin-bottom:10px">👤 Selecionado: <b>{sel_atual}</b></div>', unsafe_allow_html=True)
 
     st.markdown('<div class="vi-btn-blue">', unsafe_allow_html=True)
     if st.button("→  Entrar no sistema", use_container_width=True, key="btn_entrar"):
-        if not sel:
+        if not sel_atual:
             st.markdown('<div class="vi-alert vi-err">⚠️ Selecione seu nome primeiro.</div>', unsafe_allow_html=True)
         else:
             st.session_state.update({
-                "_operador":    sel,
+                "_operador":     sel_atual,
                 "_turno_inicio": time.time(),
-                "_etapa_idx":   0,
-                "_flow":        "input",
-                "_pedido":      None,
-                "_ts_inicio":   None,
-                "_ts_fim":      None,
-                "_ask_mode":    None,
+                "_etapa_idx":    0,
+                "_flow":         "input",
+                "_pedido":       None,
+                "_ts_inicio":    None,
+                "_ts_fim":       None,
+                "_ask_mode":     None,
             })
             st.session_state.pop("_sel_op", None)
             st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown('</div></div>', unsafe_allow_html=True)  # body + card
+    st.markdown('</div></div>', unsafe_allow_html=True)
 
     # Link gerência
-    st.markdown('<div class="vi-footer">🔒 Acesso Gerência</div>', unsafe_allow_html=True)
-    if st.button("Acesso Gerência", use_container_width=False, key="btn_ger_link"):
+    st.markdown('<div class="vi-footer-link">', unsafe_allow_html=True)
+    if st.button("🔒 Acesso Gerência", use_container_width=False, key="btn_ger_link"):
         st.session_state["_modo"] = "gerencia"
         st.rerun()
-    st.markdown("""
-    <style>
-    div[data-testid="stButton"]:last-child button{
-        opacity:0!important;margin-top:-28px!important;height:28px!important;
-        border:none!important;background:transparent!important;cursor:pointer!important;
-    }
-    </style>""", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ════════════════════════════════════════════════════════════
-# TELA DO OPERADOR
+# TELA DO OPERADOR — máquina de estados
 # ════════════════════════════════════════════════════════════
 def tela_operador():
-    operador  = st.session_state.get("_operador","")
+    operador  = st.session_state.get("_operador", "")
     etapa_idx = st.session_state.get("_etapa_idx", 0)
-    flow      = st.session_state.get("_flow","input")
+    flow      = st.session_state.get("_flow", "input")
     pedido    = st.session_state.get("_pedido")
     ts_inicio = st.session_state.get("_ts_inicio")
     elapsed   = fmt_tempo(time.time() - ts_inicio) if ts_inicio and flow == "running" else None
@@ -363,16 +418,16 @@ def tela_operador():
     render_header(operador, etapa_idx)
     st.markdown('<div class="vi-body">', unsafe_allow_html=True)
 
-    # ── Botão de logout invisível sobreposto ao ícone ──
-    # (usamos um botão Streamlit separado abaixo do card)
-
-    # ══ INPUT ══════════════════════════════════════════
+    # ══ INPUT ══════════════════════════════════════════════
     if flow == "input":
 
         if etapa_idx == 0:
-            # Scan / digitar
-            SCAN_SVG = """<svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#c0bab4" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/>
+            SCAN_SVG = """<svg width="54" height="54" viewBox="0 0 24 24" fill="none"
+              stroke="#c8c2bb" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
+              <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+              <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
+              <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
               <line x1="7" y1="12" x2="17" y2="12"/>
               <line x1="12" y1="7" x2="12" y2="17"/>
             </svg>"""
@@ -386,15 +441,15 @@ def tela_operador():
 
             c_i, c_b = st.columns([4, 1])
             with c_i:
-                num_input = st.text_input("pedido", placeholder="Ex: 12345",
-                                          key="inp_num", label_visibility="collapsed")
+                st.text_input("pedido", placeholder="Ex: 12345",
+                              key="inp_num", label_visibility="collapsed")
             with c_b:
                 st.markdown('<div class="vi-btn-blue">', unsafe_allow_html=True)
                 go = st.button("→", use_container_width=True, key="btn_go")
                 st.markdown('</div>', unsafe_allow_html=True)
 
             if go:
-                num = st.session_state.get("inp_num","").strip()
+                num = st.session_state.get("inp_num", "").strip()
                 db  = carregar_pedidos()
                 if not num:
                     st.markdown('<div class="vi-alert vi-err">⚠️ Informe o número do pedido.</div>', unsafe_allow_html=True)
@@ -403,17 +458,16 @@ def tela_operador():
                 else:
                     st.session_state.update({"_pedido": num, "_flow": "confirm"})
                     st.rerun()
+
         else:
-            # Embalagem / Conferência
             render_stepper(etapa_idx)
             db         = carregar_pedidos()
             chave_op   = "op_emb" if etapa_idx == 1 else "op_conf"
             etapa_need = 1 if etapa_idx == 1 else 2
-            disponiveis= sorted([p for p, d in db.items()
-                                  if d.get("etapa") == etapa_need and chave_op not in d])
-
+            disponiveis = sorted([p for p, d in db.items()
+                                   if d.get("etapa") == etapa_need and chave_op not in d])
             if not disponiveis:
-                st.markdown(f'<div class="vi-alert vi-warn">⏳ Nenhum pedido disponível para {ETAPA_LABELS[etapa_idx]} ainda. Aguarde a etapa anterior.</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="vi-alert vi-warn">⏳ Nenhum pedido disponível para {ETAPA_LABELS[etapa_idx]}. Aguarde a etapa anterior.</div>', unsafe_allow_html=True)
                 if st.button("🔄 Verificar novamente", use_container_width=True, key="btn_recheck"):
                     st.rerun()
             else:
@@ -431,27 +485,30 @@ def tela_operador():
                         st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
 
-    # ══ CONFIRM ════════════════════════════════════════
+    # ══ CONFIRM ════════════════════════════════════════════
     elif flow == "confirm":
         render_stepper(etapa_idx)
         st.markdown(f'<div class="vi-num"><span>#</span>{pedido}</div>', unsafe_allow_html=True)
-        st.markdown('<div class="vi-btn-blue" style="margin-top:8px">', unsafe_allow_html=True)
-        if st.button(f"▶  INICIAR {ETAPA_LABELS[etapa_idx]}", use_container_width=True, key="btn_start_confirm"):
+        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+        st.markdown('<div class="vi-btn-blue">', unsafe_allow_html=True)
+        if st.button(f"▶  INICIAR {ETAPA_LABELS[etapa_idx]}", use_container_width=True, key="btn_start"):
             st.session_state.update({"_flow": "running", "_ts_inicio": time.time()})
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-        if st.button("← Alterar pedido", use_container_width=True, key="btn_back_confirm"):
+        if st.button("← Alterar pedido", use_container_width=True, key="btn_back"):
             st.session_state.update({"_flow": "input", "_pedido": None})
             st.rerun()
 
-    # ══ RUNNING ════════════════════════════════════════
+    # ══ RUNNING ════════════════════════════════════════════
     elif flow == "running":
         render_stepper(etapa_idx)
         st.markdown(f"""
         <div class="vi-num"><span>#</span>{pedido}</div>
         <div class="vi-timer">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2.2">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
             {elapsed}
         </div>
         """, unsafe_allow_html=True)
@@ -483,13 +540,12 @@ def tela_operador():
             st.session_state.update({"_ts_fim": ts_fim, "_flow": next_flow})
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
-
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-        if st.button("✕ Cancelar operação", use_container_width=True, key="btn_cancel_run"):
+        if st.button("✕ Cancelar operação", use_container_width=True, key="btn_cancel"):
             st.session_state.update({"_flow": "input", "_pedido": None, "_ts_inicio": None})
             st.rerun()
 
-    # ══ ASK_NEXT ═══════════════════════════════════════
+    # ══ ASK_NEXT ═══════════════════════════════════════════
     elif flow == "ask_next":
         prox_idx  = etapa_idx + 1
         prox_cor  = ETAPA_COLORS[prox_idx]
@@ -497,7 +553,7 @@ def tela_operador():
         ts_fim    = st.session_state.get("_ts_fim", time.time())
         dur       = fmt_tempo(ts_fim - ts_inicio) if ts_inicio else "--"
 
-        render_stepper(etapa_idx)  # mostra etapa atual como active (já rodou, mas mosramos onde estamos)
+        render_stepper(etapa_idx)
 
         st.markdown(f"""
         <div style="text-align:center;margin-bottom:10px">
@@ -514,7 +570,7 @@ def tela_operador():
         st.markdown(f"""
         <div class="vi-ask-card">
             <div class="vi-ask-title" style="color:{prox_cor};">
-                Próxima etapa: {prox_nome} — Quem vai realizar?
+                Próxima: {prox_nome} — Quem vai realizar?
             </div>
         """, unsafe_allow_html=True)
 
@@ -537,22 +593,24 @@ def tela_operador():
             st.markdown('<div class="vi-btn-blue" style="margin-top:8px">', unsafe_allow_html=True)
             if st.button("▶ Confirmar e Iniciar", use_container_width=True, key="btn_conf_outro"):
                 if outro == "— Selecione —":
-                    st.markdown('<div class="vi-alert vi-err">⚠️ Selecione.</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="vi-alert vi-err">⚠️ Selecione um operador.</div>', unsafe_allow_html=True)
                 else:
                     _avancar(etapa_idx, pedido, outro)
             st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown('</div>', unsafe_allow_html=True)  # ask-card
 
-    # ══ DONE ═══════════════════════════════════════════
+    # ══ DONE ═══════════════════════════════════════════════
     elif flow == "done":
         ts_fim = st.session_state.get("_ts_fim", time.time())
         dur    = fmt_tempo(ts_fim - ts_inicio) if ts_inicio else "--"
         st.markdown(f"""
         <div class="vi-done-card">
             <div style="font-size:2.8rem;margin-bottom:6px">🎉</div>
-            <div style="font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:900;color:#16a34a;margin-bottom:4px">Pedido Concluído!</div>
-            <div style="font-family:'DM Mono',monospace;font-size:2.2rem;font-weight:700;color:#111827;margin:8px 0">#{pedido}</div>
+            <div style="font-family:'Playfair Display',serif;font-size:1.4rem;
+                font-weight:900;color:#16a34a;margin-bottom:4px">Pedido Concluído!</div>
+            <div style="font-family:'DM Mono',monospace;font-size:2.2rem;
+                font-weight:700;color:#111827;margin:8px 0">#{pedido}</div>
             <div style="font-size:.7rem;color:#6b7280">Todas as etapas finalizadas · {dur}</div>
         </div>
         """, unsafe_allow_html=True)
@@ -569,7 +627,7 @@ def tela_operador():
     # fecha card
     st.markdown('</div></div>', unsafe_allow_html=True)
 
-    # botão de trocar operador fora do card
+    # botão fora do card
     st.markdown('<div style="height:12px"></div>', unsafe_allow_html=True)
     if st.button("⏏  Trocar Operador / Sair", use_container_width=True, key="btn_sair"):
         for k in list(st.session_state.keys()):
@@ -578,10 +636,9 @@ def tela_operador():
 
 
 def _avancar(etapa_atual, pedido, proximo_op):
-    prox = etapa_atual + 1
     st.session_state.update({
         "_operador":  proximo_op,
-        "_etapa_idx": prox,
+        "_etapa_idx": etapa_atual + 1,
         "_flow":      "confirm",
         "_pedido":    pedido,
         "_ts_inicio": None,
@@ -620,7 +677,7 @@ def tela_login_gerencia():
 
 
 # ════════════════════════════════════════════════════════════
-# TELA EXTRATO
+# TELA EXTRATO GERÊNCIA
 # ════════════════════════════════════════════════════════════
 def tela_extrato():
     conc = carregar_concluidos()
@@ -655,14 +712,14 @@ def tela_extrato():
             hoje = date.today()
             cf1,cf2,cf3,cf4 = st.columns(4)
             with cf1: di = st.date_input("Início",value=hoje-td(days=7),key="di",format="DD/MM/YYYY")
-            with cf2: df2 = st.date_input("Fim",value=hoje,key="df2",format="DD/MM/YYYY")
+            with cf2: df2_val = st.date_input("Fim",value=hoje,key="df2",format="DD/MM/YYYY")
             with cf3:
                 ops=["Todos"]+sorted(df["operador"].dropna().unique().tolist())
                 opf=st.selectbox("Func.",ops,key="hist_op")
             with cf4:
                 ets=["Todas"]+ETAPAS
                 etf=st.selectbox("Etapa",ets,key="hist_et")
-            mask=(df["_dt"]>=pd.Timestamp(di))&(df["_dt"]<=pd.Timestamp(df2))
+            mask=(df["_dt"]>=pd.Timestamp(di))&(df["_dt"]<=pd.Timestamp(df2_val))
             dff=df[mask].copy()
             if opf!="Todos": dff=dff[dff["operador"]==opf]
             if etf!="Todas": dff=dff[dff["etapa"]==etf]
