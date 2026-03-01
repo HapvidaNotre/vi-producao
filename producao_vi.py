@@ -1,19 +1,13 @@
+Python 3.14.3 (tags/v3.14.3:323c59a, Feb  3 2026, 16:04:56) [MSC v.1944 64 bit (AMD64)] on win32
+Enter "help" below or click "Help" above for more information.
 import streamlit as st
 import json
-import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
-from contextlib import contextmanager
-
 # ─── Config ───
 st.set_page_config(page_title="VI LINGERIE - Apontamento", page_icon="👙", layout="wide")
-
-# Arquivos
 DATA_FILE = "orders.json"
-LOCK_FILE = DATA_FILE + ".lock"
-
-# Operadores e etapas
 OPERATORS = [
     "LUCIVANIO", "ENÁGIO", "DANIEL", "ÍTALO",
     "CILDENIR", "SAMYA", "NEIDE", "EDUARDO", "TALYSON"
@@ -34,46 +28,15 @@ OPERATOR_COLORS = {
     "EDUARDO": "#DC2626",
     "TALYSON": "#7C5CBF",
 }
-
-# Logo no GitHub (pode usar direto por URL)
-LOGO_URL = "https://raw.githubusercontent.com/HapvidaNotre/vi-producao/main/logo_vi.png"
-
-# ─── File Lock (sem dependências) ───
-@contextmanager
-def file_lock(timeout=10, poll_interval=0.1):
-    start = time.time()
-    while True:
-        try:
-            fd = os.open(LOCK_FILE, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            os.close(fd)
-            break
-        except FileExistsError:
-            if time.time() - start > timeout:
-                raise TimeoutError("Timeout ao obter lock do arquivo de dados.")
-            time.sleep(poll_interval)
-    try:
-        yield
-    finally:
-        try:
-            os.remove(LOCK_FILE)
-        except FileNotFoundError:
-            pass
-
 # ─── Persistence ───
 def load_orders():
     if Path(DATA_FILE).exists():
-        with open(DATA_FILE, "r", encoding="utf-8") as f:
+        with open(DATA_FILE, "r") as f:
             return json.load(f)
     return []
-
 def save_orders(orders):
-    tmp = DATA_FILE + ".tmp"
-    with file_lock():
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(orders, f, indent=2, ensure_ascii=False)
-        os.replace(tmp, DATA_FILE)
-
-# ─── Utils ───
+    with open(DATA_FILE, "w") as f:
+        json.dump(orders, f, indent=2)
 def format_duration(seconds):
     if seconds is None:
         return "--:--:--"
@@ -81,127 +44,157 @@ def format_duration(seconds):
     m = int((seconds % 3600) // 60)
     s = int(seconds % 60)
     return f"{h:02d}:{m:02d}:{s:02d}"
-
-def step_index_by_key(step_key: str) -> int:
-    for i, s in enumerate(STEPS):
-        if s["key"] == step_key:
-            return i
-    return 0
-
-def next_step_index_from_order(order) -> int:
-    finished = len([s for s in order.get("steps", []) if s.get("endTime")])
-    return min(finished, len(STEPS) - 1)
-
-def find_open_order_by_number(orders, order_number: str):
-    candidates = [o for o in orders if o.get("orderNumber") == order_number and not o.get("completedAt")]
-    if not candidates:
-        return None
-    return sorted(candidates, key=lambda o: o.get("createdAt", 0))[-1]
-
-# ─── Global Style (Fundo branco + estética) ───
+# ─── Custom CSS ───
 st.markdown("""
 <style>
-/* Fundo branco em toda a aplicação */
-html, body, [data-testid="stAppViewContainer"] {
-    background: #FFFFFF !important;
-}
-
-/* Container principal com largura confortável */
-.block-container {
-    padding-top: 0.5rem;
-    padding-bottom: 3rem;
-    max-width: 1200px;
-}
-
-/* Barra superior com logo */
-.topbar {
-    position: sticky;
-    top: 0;
-    z-index: 999;
-    background: #FFFFFF;
-    border-bottom: 1px solid #E5E7EB;
-    padding: 0.4rem 0.2rem;
-}
-.topbar-inner {
-    display: flex; align-items: center; gap: 12px;
-}
-.topbar-logo {
-    height: 38px; /* ajuste fino aqui */
-}
-.topbar-title {
-    font-weight: 800;
-    letter-spacing: .08em;
-    font-size: 0.9rem;
-    color: #8B1A4A;
-    text-transform: uppercase;
-    margin: 0;
-}
-
-/* Badges de etapa */
-.step-badge {
-    display: inline-block;
-    padding: 6px 14px;
-    border-radius: 999px;
-    font-size: 0.78rem;
-    font-weight: 700;
-    margin: 0 4px;
-    border: 1px solid transparent;
-}
-.step-done {
-    background: #ECFDF5; color: #065F46; border-color: #A7F3D0;
-}
-.step-current {
-    background: #EFF6FF; color: #1D4ED8; border-color: #BFDBFE;
-}
-.step-pending {
-    background: #F9FAFB; color: #6B7280; border-color: #E5E7EB;
-}
-
-/* Timer */
-.timer-display {
-    font-size: 3rem;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    text-align: center;
-    padding: 0.5rem;
-    font-weight: 800;
-    color: #111827;
-}
-
-/* Número do pedido */
-.order-number {
-    font-size: 2.2rem;
-    font-weight: 900;
-    text-align: center;
-    margin: 0.4rem 0 0.8rem;
-    color: #111827;
-}
-
-/* Avatar operador */
-.avatar {
-    width: 40px; height: 40px; border-radius: 50%;
-    display:flex; align-items:center; justify-content:center;
-    font-weight:800; font-size:1.1rem;
-}
-
-/* Tipografia e textos auxiliares */
-h2, h3, h4, h5 { color:#111827; }
-.caption-muted { color:#6B7280; font-size:0.85rem; }
-
-/* Dataframes */
-[data-testid="stDataFrame"] {
-    border: 1px solid #E5E7EB;
-    border-radius: 12px;
-    overflow: hidden;
-}
-
-/* Divisores */
-hr, .stDivider { border-color: #F3F4F6 !important; }
-
-/* Botões: reforço leve de altura e fonte */
-button[kind="header"] { height: 2.2rem; }
+    /* Fundo branco global */
+    .stApp {
+        background-color: #FFFFFF;
+    }
+    
+    .main-header {
+        text-align: center;
+        padding: 2rem 0 1rem 0;
+        background: #FFFFFF;
+    }
+    
+    .main-header img {
+        max-width: 280px;
+        height: auto;
+        margin-bottom: 1rem;
+    }
+    
+    .main-header p {
+        color: #666;
+        font-size: 1rem;
+        margin: 0.5rem 0;
+    }
+    
+    .operator-btn {
+        border-radius: 12px;
+        padding: 12px;
+        text-align: center;
+        cursor: pointer;
+        font-weight: bold;
+        color: white;
+        margin: 4px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .operator-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .step-badge {
+        display: inline-block;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: bold;
+        margin: 0 6px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .step-done { 
+        background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); 
+        color: white; 
+    }
+    
+    .step-current { 
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); 
+        color: white;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.8; }
+    }
+    
+    .step-pending { 
+        background: #f3f4f6; 
+        color: #9ca3af;
+        border: 1px solid #e5e7eb;
+    }
+    
+    .timer-display {
+        font-size: 3.5rem;
+        font-family: 'Courier New', monospace;
+        text-align: center;
+        padding: 1.5rem;
+        font-weight: bold;
+        color: #1f2937;
+        background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+        border-radius: 16px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.07);
+        margin: 1rem 0;
+    }
+    
+    .order-number {
+        font-size: 3rem;
+        font-weight: 900;
+        text-align: center;
+        margin: 1.5rem 0;
+        color: #8B1A4A;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .metric-card {
+        background: #FFFFFF;
+        border: 2px solid #f3f4f6;
+        border-radius: 16px;
+        padding: 1.5rem;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    
+    .metric-value {
+        font-size: 2rem;
+        font-weight: 900;
+        color: #1f2937;
+    }
+    
+    .metric-label {
+        font-size: 0.8rem;
+        color: #6b7280;
+        text-transform: uppercase;
+        font-weight: bold;
+        letter-spacing: 0.5px;
+    }
+    
+    /* Melhorias nos botões */
+    .stButton > button {
+        border-radius: 12px;
+        font-weight: 600;
+        transition: all 0.2s;
+        border: none;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    /* Header do operador */
+    .operator-header {
+        background: #FFFFFF;
+        padding: 1rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        margin-bottom: 1.5rem;
+    }
+    
+    /* Divisor estilizado */
+    hr {
+        border: none;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, #e5e7eb, transparent);
+        margin: 2rem 0;
+    }
 </style>
 """, unsafe_allow_html=True)
-
 # ─── Session State Init ───
 if "page" not in st.session_state:
     st.session_state.page = "login"
@@ -217,37 +210,20 @@ if "start_time" not in st.session_state:
     st.session_state.start_time = None
 if "current_order" not in st.session_state:
     st.session_state.current_order = None
-
-# ─── Topbar (com logo) ───
-def render_topbar(extra_right=None):
-    with st.container():
-        cols = st.columns([8, 4])
-        with cols[0]:
-            st.markdown(
-                f"""
-                <div class="topbar">
-                    <div class="topbar-inner">
-                        <img class="topbar-logo" src="{LOGO_URL}" alt="VI LINGERIE">
-                        <p class="topbar-title">Apontamento de Produção</p>
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-        with cols[1]:
-            if extra_right:
-                extra_right()
-
 # ─── LOGIN PAGE ───
 def login_page():
-    render_topbar()
-
-    st.markdown("### 🧑 Quem é você?")
-    st.caption("Selecione seu nome para começar.")
-
+    st.markdown('''
+    <div class="main-header">
+        <img src="https://raw.githubusercontent.com/HapvidaNotre/vi-producao/main/logo_vi.png" alt="VI Lingerie Logo">
+        <p style="font-size:1.1rem; font-weight:600; color:#8B1A4A;">Apontamento de Produção</p>
+        <p style="font-size:0.85rem; color:#999;">Selecione seu nome para começar</p>
+    </div>
+    ''', unsafe_allow_html=True)
+    st.markdown("#### 🧑 QUEM É VOCÊ?")
     cols = st.columns(3)
     for i, op in enumerate(OPERATORS):
         col = cols[i % 3]
+        color = OPERATOR_COLORS.get(op, "#666")
         if col.button(op, key=f"op_{op}", use_container_width=True):
             st.session_state.operator = op
             st.session_state.page = "operator"
@@ -255,104 +231,67 @@ def login_page():
             st.session_state.current_step_idx = 0
             st.session_state.current_order = None
             st.rerun()
-
     st.divider()
     if st.button("🔒 Acesso Gerência", use_container_width=True):
         st.session_state.page = "manager"
         st.rerun()
-
 # ─── OPERATOR PAGE ───
 def operator_page():
-    if not st.session_state.operator:
-        st.session_state.page = "login"
-        st.rerun()
-
     operator = st.session_state.operator
     color = OPERATOR_COLORS.get(operator, "#666")
-
-    def right_header():
-        # Botão logout no cabeçalho
-        col_a, col_b = st.columns([5, 1])
-        with col_b:
-            if st.button("🚪", key="logout", help="Sair"):
-                st.session_state.page = "login"
-                st.session_state.operator = None
-                st.rerun()
-
-    render_topbar(extra_right=right_header)
-
-    # Header da estação
-    col1, col2 = st.columns([1, 9])
+    # Header
+    st.markdown('<div class="operator-header">', unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 3, 1])
     with col1:
-        st.markdown(
-            f'<div class="avatar" style="background:{color}; color:white;">{operator[0]}</div>',
-            unsafe_allow_html=True
-        )
+        st.markdown(f'<div style="background:{color}; color:white; width:50px; height:50px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:1.4rem; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">{operator[0]}</div>', unsafe_allow_html=True)
     with col2:
-        st.caption("ESTAÇÃO CENTRAL")
-        st.markdown(f"### {operator}")
-
-    # Estado atual
+        st.markdown(f"<p style='font-size:0.7rem; font-weight:bold; color:#999; letter-spacing:2px; margin:0; margin-top:8px;'>ESTAÇÃO CENTRAL</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='font-weight:bold; font-size:1.1rem; margin:0; color:#1f2937;'>{operator}</p>", unsafe_allow_html=True)
+    with col3:
+        if st.button("🚪 Sair", key="logout"):
+            st.session_state.page = "login"
+            st.session_state.operator = None
+            st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="height:3px; background:linear-gradient(90deg, {color}, {color}80); border-radius:2px; margin-bottom:1.5rem;"></div>', unsafe_allow_html=True)
     phase = st.session_state.phase
     step_idx = st.session_state.current_step_idx
-    current_step = STEPS[step_idx]
-
     # Step tracker
+    step_html = ""
+    for i, step in enumerate(STEPS):
+        if i < step_idx:
+            step_html += f'<span class="step-badge step-done">✓ {step["label"]}</span>'
+        elif i == step_idx:
+            step_html += f'<span class="step-badge step-current">● {step["label"]}</span>'
+        else:
+            step_html += f'<span class="step-badge step-pending">{step["label"]}</span>'
     if phase != "input":
-        step_html = ""
-        for i, step in enumerate(STEPS):
-            if i < step_idx:
-                step_html += f'<span class="step-badge step-done">✓ {step["label"]}</span>'
-            elif i == step_idx:
-                step_html += f'<span class="step-badge step-current">● {step["label"]}</span>'
-            else:
-                step_html += f'<span class="step-badge step-pending">{step["label"]}</span>'
-        st.markdown(f'<div style="text-align:center; margin:0.5rem 0 1rem;">{step_html}</div>', unsafe_allow_html=True)
-
+        st.markdown(f'<div style="text-align:center; margin:1rem 0;">{step_html}</div>', unsafe_allow_html=True)
+    current_step = STEPS[step_idx]
     # ─ INPUT PHASE ─
     if phase == "input":
-        st.markdown("<div style='text-align:center; font-size:3rem; opacity:0.25;'>📦</div>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align:center; font-weight:700;'>Bipar ou digitar pedido</p>", unsafe_allow_html=True)
-        st.caption("Insira o número do pedido para iniciar", help=None)
-
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<div style='text-align:center; font-size:3rem; opacity:0.3;'>📦</div>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align:center; font-weight:bold;'>Bipar ou digitar pedido</p>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align:center; font-size:0.85rem; color:#999;'>Insira o número do pedido para iniciar</p>", unsafe_allow_html=True)
         order_num = st.text_input("Número do pedido", placeholder="Ex: 12345", label_visibility="collapsed")
         if st.button("➡️ Confirmar Pedido", use_container_width=True, disabled=not order_num.strip()):
-            order_num = order_num.strip()
-            st.session_state.order_number = order_num
-
-            orders = load_orders()
-            existing = find_open_order_by_number(orders, order_num)
-
-            if existing:
-                # Verifica se há etapa aberta (sem endTime)
-                open_step = next((s for s in existing.get("steps", []) if s.get("endTime") is None), None)
-                if open_step:
-                    owner = open_step.get("operatorId", "—")
-                    st.error(f"Este pedido está com a etapa '{open_step['step'].upper()}' em andamento por {owner}. Aguarde a conclusão ou finalize na estação correta.")
-                    st.stop()
-
-                st.session_state.current_order = existing
-                st.session_state.current_step_idx = next_step_index_from_order(existing)
-                st.session_state.phase = "ready"
-                st.rerun()
-            else:
-                st.session_state.current_order = {
-                    "id": str(time.time()),
-                    "orderNumber": order_num,
-                    "steps": [],
-                    "createdAt": time.time(),
-                    "completedAt": None,
-                }
-                st.session_state.current_step_idx = 0
-                st.session_state.phase = "ready"
-                st.rerun()
-
+            st.session_state.order_number = order_num.strip()
+            st.session_state.current_order = {
+                "id": str(time.time()),
+                "orderNumber": order_num.strip(),
+                "steps": [],
+                "createdAt": time.time(),
+                "completedAt": None,
+            }
+            st.session_state.phase = "ready"
+            st.rerun()
     # ─ READY PHASE ─
     elif phase == "ready":
         st.markdown(f'<div class="order-number">#{st.session_state.order_number}</div>', unsafe_allow_html=True)
-        if st.button(f"▶️ Iniciar {current_step['label']}", use_container_width=True, type="primary"):
+        if st.button(f"▶️ INICIAR {current_step['label']}", use_container_width=True, type="primary"):
+            st.session_state.start_time = time.time()
             now = time.time()
-            st.session_state.start_time = now
             order = st.session_state.current_order
             order["steps"].append({
                 "step": current_step["key"],
@@ -363,49 +302,41 @@ def operator_page():
             st.session_state.current_order = order
             st.session_state.phase = "running"
             st.rerun()
-
     # ─ RUNNING PHASE ─
     elif phase == "running":
         st.markdown(f'<div class="order-number">#{st.session_state.order_number}</div>', unsafe_allow_html=True)
-        elapsed = time.time() - (st.session_state.start_time or time.time())
+        elapsed = time.time() - st.session_state.start_time
         st.markdown(f'<div class="timer-display">⏱ {format_duration(elapsed)}</div>', unsafe_allow_html=True)
-
-        if st.button(f"⏹️ Concluir {current_step['label']}", use_container_width=True, type="primary"):
+        if st.button(f"⏹️ CONCLUIR {current_step['label']}", use_container_width=True, type="primary"):
             now = time.time()
             order = st.session_state.current_order
-
-            # Finaliza etapa atual
-            for s in reversed(order["steps"]):
+            # Close current step
+            for s in order["steps"]:
                 if s["step"] == current_step["key"] and s["endTime"] is None:
                     s["endTime"] = now
                     break
-
             is_last = step_idx == len(STEPS) - 1
-            orders = load_orders()
-
-            # Atualiza/adiciona no JSON
-            existing_idx = next((i for i, o in enumerate(orders) if o["id"] == order["id"]), None)
-            if existing_idx is not None:
-                orders[existing_idx] = order
-            else:
-                orders.append(order)
-
             if is_last:
                 order["completedAt"] = now
-                orders[existing_idx if existing_idx is not None else len(orders) - 1] = order
+                orders = load_orders()
+                orders.append(order)
                 save_orders(orders)
                 st.session_state.phase = "done"
             else:
+                orders = load_orders()
+                # Update or append
+                existing = [i for i, o in enumerate(orders) if o["id"] == order["id"]]
+                if existing:
+                    orders[existing[0]] = order
+                else:
+                    orders.append(order)
                 save_orders(orders)
                 st.session_state.current_order = order
                 st.session_state.phase = "transition"
-
             st.rerun()
-
-        # Atualiza timer a cada 1s
+        # Auto-refresh timer
         time.sleep(1)
         st.rerun()
-
     # ─ TRANSITION PHASE ─
     elif phase == "transition":
         st.markdown(f'<div class="order-number">#{st.session_state.order_number}</div>', unsafe_allow_html=True)
@@ -420,20 +351,20 @@ def operator_page():
                 st.rerun()
         with col2:
             if st.button("👥 Outro operador", use_container_width=True):
+                # Save and go back to login
                 orders = load_orders()
                 order = st.session_state.current_order
-                existing_idx = next((i for i, o in enumerate(orders) if o["id"] == order["id"]), None)
-                if existing_idx is not None:
-                    orders[existing_idx] = order
+                existing = [i for i, o in enumerate(orders) if o["id"] == order["id"]]
+                if existing:
+                    orders[existing[0]] = order
                 else:
                     orders.append(order)
                 save_orders(orders)
-
+                st.session_state.current_step_idx = step_idx + 1
                 st.session_state.page = "login"
                 st.session_state.operator = None
                 st.session_state.phase = "input"
                 st.rerun()
-
     # ─ DONE PHASE ─
     elif phase == "done":
         st.markdown(f'<div class="order-number">#{st.session_state.order_number}</div>', unsafe_allow_html=True)
@@ -444,43 +375,41 @@ def operator_page():
             st.session_state.current_step_idx = 0
             st.session_state.current_order = None
             st.rerun()
-
 # ─── MANAGER PAGE ───
 def manager_page():
-    def right_header():
-        col_a, col_b = st.columns([5, 1])
-        with col_b:
-            if st.button("⬅️", help="Voltar"):
-                st.session_state.page = "login"
-                st.rerun()
-
-    render_topbar(extra_right=right_header)
-    st.markdown("### Painel de Gerência")
-
+    # Header com logo
+    st.markdown('''
+    <div style="text-align:center; padding:1rem 0; background:#FFFFFF; border-radius:12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom:1.5rem;">
+        <img src="https://raw.githubusercontent.com/HapvidaNotre/vi-producao/main/logo_vi.png" alt="VI Lingerie Logo" style="max-width:200px; height:auto;">
+        <p style="font-size:1.1rem; font-weight:600; color:#8B1A4A; margin:0.5rem 0 0 0;">Painel de Gerência</p>
+    </div>
+    ''', unsafe_allow_html=True)
+    
+    if st.button("⬅️ Voltar ao Login", key="back_to_login"):
+        st.session_state.page = "login"
+        st.rerun()
     orders = load_orders()
     completed = [o for o in orders if o.get("completedAt")]
-
     # Summary cards
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("📦 Pedidos concluídos", len(completed))
+        st.metric("📦 PEDIDOS CONCLUÍDOS", len(completed))
     with col2:
         if completed:
             avg = sum((o["completedAt"] - o["createdAt"]) for o in completed) / len(completed)
-            st.metric("⏱ Tempo médio total", format_duration(avg))
+            st.metric("⏱ TEMPO MÉDIO", format_duration(avg))
         else:
-            st.metric("⏱ Tempo médio total", "--:--:--")
+            st.metric("⏱ TEMPO MÉDIO", "--:--:--")
     with col3:
-        since = time.time() - 8 * 3600
         active_ops = set()
         for o in orders:
             for s in o.get("steps", []):
-                if s.get("endTime") and s["endTime"] >= since:
+                if s.get("endTime"):
                     active_ops.add(s["operatorId"])
-        st.metric("👥 Operadores ativos (8h)", len(active_ops))
-
+        st.metric("👥 OPERADORES ATIVOS", len(active_ops))
+    # Operator performance
     st.markdown("---")
-    st.markdown("#### Desempenho por operador")
+    st.markdown("##### DESEMPENHO POR OPERADOR")
     op_stats = []
     for op in OPERATORS:
         steps = []
@@ -494,40 +423,40 @@ def manager_page():
             op_stats.append({
                 "Operador": op,
                 "Etapas": len(steps),
-                "Tempo Total": format_duration(total_time),
-                "Média por etapa": format_duration(avg_time),
-            })
-    if op_stats:
-        st.dataframe(op_stats, use_container_width=True, hide_index=True)
-    else:
-        st.info("Nenhum dado de operador ainda.")
-
-    st.markdown("---")
-    st.markdown("#### Pedidos recentes")
-    if orders:
-        table_data = []
-        for o in reversed(orders[-20:]):
-            row = {"Pedido": f"#{o['orderNumber']}"}
-            for step_def in STEPS:
-                step = next((s for s in o["steps"] if s["step"] == step_def["key"]), None)
-                if step and step.get("endTime"):
-                    dur = format_duration(step["endTime"] - step["startTime"])
-                    row[step_def["label"]] = f"{step['operatorId']} ({dur})"
-                elif step:
-                    row[step_def["label"]] = f"{step['operatorId']} (…)".replace("..", "…")
-                else:
-                    row[step_def["label"]] = "—"
-            row["Status"] = "✅ Concluído" if o.get("completedAt") else "🔄 Em andamento"
-            table_data.append(row)
-        st.dataframe(table_data, use_container_width=True, hide_index=True)
-    else:
-        st.info("Nenhum pedido registrado ainda.")
-
-# ─── ROUTER ───
-page = st.session_state.page
-if page == "login":
-    login_page()
-elif page == "operator":
-    operator_page()
-elif page == "manager":
-    manager_page()
+...                 "Tempo Total": format_duration(total_time),
+...                 "Média": format_duration(avg_time),
+...             })
+...     if op_stats:
+...         st.dataframe(op_stats, use_container_width=True, hide_index=True)
+...     else:
+...         st.info("Nenhum dado de operador ainda.")
+...     # Recent orders
+...     st.markdown("---")
+...     st.markdown("##### PEDIDOS RECENTES")
+...     if orders:
+...         table_data = []
+...         for o in reversed(orders[-20:]):
+...             row = {"Pedido": f"#{o['orderNumber']}"}
+...             for step_def in STEPS:
+...                 step = next((s for s in o["steps"] if s["step"] == step_def["key"]), None)
+...                 if step and step.get("endTime"):
+...                     dur = format_duration(step["endTime"] - step["startTime"])
+...                     row[step_def["label"]] = f"{step['operatorId']} ({dur})"
+...                 elif step:
+...                     row[step_def["label"]] = f"{step['operatorId']} (...)"
+...                 else:
+...                     row[step_def["label"]] = "—"
+...             row["Status"] = "✅ Concluído" if o.get("completedAt") else "🔄 Em andamento"
+...             table_data.append(row)
+...         st.dataframe(table_data, use_container_width=True, hide_index=True)
+...     else:
+...         st.info("Nenhum pedido registrado ainda.")
+... # ─── ROUTER ───
+... page = st.session_state.page
+... if page == "login":
+...     login_page()
+... elif page == "operator":
+...     operator_page()
+... elif page == "manager":
+...     manager_page()
+... 
