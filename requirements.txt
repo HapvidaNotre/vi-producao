@@ -3,3 +3,5 @@ pandas
 openpyxl
 flask
 reportlab
+fpdf2
+sqlalchemy
