@@ -119,56 +119,58 @@ logo_src = f"data:image/png;base64,{b64}" if b64 else ""
 
 st.markdown(f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Mono:wght@400;500&display=swap');
 
 html, body, [data-testid="stAppViewContainer"] {{
     background: #F7F5F2 !important;
-    font-family: 'DM Sans', sans-serif !important;
+    font-family: 'Nunito', sans-serif !important;
 }}
 [data-testid="stHeader"], [data-testid="stSidebar"], footer, #MainMenu {{ display:none !important; }}
 .block-container {{ padding-top:1.8rem !important; padding-bottom:2rem !important; max-width:640px !important; }}
 
 .logo-box {{ text-align:center; margin-bottom:1.6rem; }}
-.logo-box img {{ height:54px; object-fit:contain; }}
+.logo-box img {{ height:56px; object-fit:contain; }}
 
 .section-label {{
-    font-size:11px; font-weight:600; letter-spacing:2px; text-transform:uppercase;
-    color:#8C8480; margin-bottom:1.2rem; text-align:center;
+    font-size:11px; font-weight:800; letter-spacing:2.5px; text-transform:uppercase;
+    color:#9C9490; margin-bottom:1.2rem; text-align:center;
 }}
 
 /* ── AVATAR GRID ── */
 .ops-grid {{
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 14px 18px;
+    gap: 16px 20px;
     margin-bottom: 1.5rem;
 }}
 .op-wrap {{
     display: flex; flex-direction: column;
-    align-items: center; gap: 9px;
-    text-decoration: none;
+    align-items: center; gap: 10px;
+    text-decoration: none !important;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
 }}
+.op-wrap:visited, .op-wrap:link, .op-wrap:hover, .op-wrap:active {{
+    text-decoration: none !important;
+}}
 .avatar {{
-    width: 72px; height: 72px; border-radius: 50%;
+    width: 74px; height: 74px; border-radius: 50%;
     background: linear-gradient(145deg, #D9617A 0%, #A84055 55%, #7A2D3E 100%);
     box-shadow:
         0 6px 0 rgba(80,10,25,0.50),
         0 10px 24px rgba(158,63,82,0.38),
         inset 0 2px 5px rgba(255,255,255,0.20);
     display: flex; align-items: center; justify-content: center;
-    font-size: 26px; font-weight: 700; color: #fff;
-    text-shadow: 0 1px 4px rgba(0,0,0,0.28);
+    font-size: 28px; font-weight: 900; color: #fff;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.30);
     transition: transform 0.20s ease, box-shadow 0.20s ease;
     position: relative; overflow: hidden;
     user-select: none;
 }}
-/* gloss */
 .avatar::after {{
     content:''; position:absolute;
     top:8px; left:14px; width:36px; height:19px;
-    background: radial-gradient(ellipse, rgba(255,255,255,0.24) 0%, transparent 75%);
+    background: radial-gradient(ellipse, rgba(255,255,255,0.26) 0%, transparent 75%);
     border-radius:50%; pointer-events:none;
 }}
 .op-wrap:hover .avatar {{
@@ -187,84 +189,179 @@ html, body, [data-testid="stAppViewContainer"] {{
     transition: transform 0.07s ease, box-shadow 0.07s ease !important;
 }}
 .op-name {{
-    font-size: 12px; font-weight: 600; color: #1A1714;
+    font-size: 13px; font-weight: 700; color: #2C2826;
     text-align: center; line-height: 1.3;
-    text-decoration: none;
+    text-decoration: none !important;
+    letter-spacing: 0.1px;
 }}
 
 /* ── STEPPER ── */
-.stepper {{ display:flex; align-items:flex-start; margin-bottom:1.4rem; }}
-.step {{ flex:1; display:flex; flex-direction:column; align-items:center; gap:5px; }}
+.stepper {{ display:flex; align-items:flex-start; margin-bottom:1.6rem; }}
+.step {{ flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; }}
 .sdot {{
-    width:28px; height:28px; border-radius:50%;
-    border:2px solid #E8E3DC; background:#F0EDE8;
+    width:32px; height:32px; border-radius:50%;
+    border:2px solid #E0DBD4; background:#EDE9E4;
     display:flex; align-items:center; justify-content:center;
-    font-size:11px; font-weight:700; color:#8C8480;
+    font-size:13px; font-weight:800; color:#A09890;
 }}
-.sdot.active {{ background:#C8566A; border-color:#C8566A; color:#fff; box-shadow:0 0 0 4px rgba(200,86,106,0.15); }}
+.sdot.active {{ background:#C8566A; border-color:#C8566A; color:#fff; box-shadow:0 0 0 5px rgba(200,86,106,0.14); }}
 .sdot.done   {{ background:#4A7C59; border-color:#4A7C59; color:#fff; }}
-.slbl {{ font-size:10px; font-weight:600; letter-spacing:.8px; text-transform:uppercase; color:#8C8480; text-align:center; }}
+.slbl {{ font-size:10px; font-weight:800; letter-spacing:1px; text-transform:uppercase; color:#A09890; text-align:center; }}
 .slbl.active {{ color:#C8566A; }} .slbl.done {{ color:#4A7C59; }}
-.sline {{ flex:1; height:2px; background:#E8E3DC; margin-top:13px; }}
+.sline {{ flex:1; height:2px; background:#E0DBD4; margin-top:14px; }}
 .sline.done {{ background:#4A7C59; }}
 
 /* ── CARD ── */
 .vi-card {{
-    background:#fff; border:1.5px solid #E8E3DC; border-radius:14px;
-    padding:24px; box-shadow:0 2px 14px rgba(0,0,0,0.05); margin-bottom:1rem;
+    background:#fff; border:1.5px solid #E8E3DC; border-radius:16px;
+    padding:28px; box-shadow:0 4px 20px rgba(0,0,0,0.06); margin-bottom:1rem;
 }}
 
 /* ── BADGE ── */
 .badge-op {{
-    display:inline-flex; align-items:center; gap:6px;
-    padding:5px 14px; border-radius:100px;
-    background:#F5E8EB; color:#C8566A; font-size:12px; font-weight:600;
-    margin-bottom:1rem;
+    display:inline-flex; align-items:center; gap:7px;
+    padding:6px 16px; border-radius:100px;
+    background:#F5E8EB; color:#C8566A;
+    font-size:13px; font-weight:800; margin-bottom:1.2rem;
+    letter-spacing:0.2px;
 }}
 
-/* ── TIMER ── */
-.timer-num {{
-    font-family:'DM Mono',monospace; font-size:58px; font-weight:500;
-    color:#C8566A; letter-spacing:-2px; line-height:1; text-align:center; padding:12px 0;
+/* ── ETAPA LABEL ── */
+.etapa-info {{
+    background: #F5E8EB;
+    border-left: 4px solid #C8566A;
+    border-radius: 0 10px 10px 0;
+    padding: 10px 16px;
+    margin-bottom: 20px;
+    font-size: 14px; font-weight: 700; color: #1A1714;
 }}
-.pedido-lbl {{ font-size:11px; font-weight:600; color:#8C8480; text-align:center; letter-spacing:1px; text-transform:uppercase; }}
-.pedido-num {{ font-family:'DM Mono',monospace; font-size:22px; font-weight:500; color:#1A1714; text-align:center; margin-bottom:14px; }}
-.etapa-lbl  {{ font-size:13px; color:#8C8480; text-align:center; margin-bottom:18px; }}
-
-/* ── BUTTONS ── */
-.stButton > button {{
-    font-family:'DM Sans',sans-serif !important; font-weight:700 !important;
-    border-radius:10px !important; transition:all .18s !important;
-    height:50px !important; font-size:15px !important; letter-spacing:.4px !important;
-}}
-.btn-primary > button  {{ background:#C8566A !important; color:#fff !important; border:none !important; box-shadow:0 4px 14px rgba(200,86,106,.25) !important; }}
-.btn-primary > button:hover {{ background:#b04560 !important; transform:translateY(-1px) !important; }}
-.btn-dark > button    {{ background:#1A1714 !important; color:#fff !important; border:none !important; }}
-.btn-dark > button:hover {{ background:#333 !important; }}
-.btn-outline > button {{ background:transparent !important; color:#1A1714 !important; border:1.5px solid #E8E3DC !important; }}
-.btn-outline > button:hover {{ border-color:#C8566A !important; color:#C8566A !important; }}
-.btn-sm > button {{ height:38px !important; font-size:12px !important; }}
-
-/* ── ADMIN ── */
-.stat-box {{ background:#fff; border:1.5px solid #E8E3DC; border-radius:12px; padding:16px; text-align:center; }}
-.stat-num {{ font-family:'DM Mono',monospace; font-size:30px; font-weight:500; color:#C8566A; }}
-.stat-lbl {{ font-size:11px; font-weight:600; color:#8C8480; letter-spacing:.5px; margin-top:4px; }}
-table {{ width:100%; border-collapse:collapse; font-size:13px; }}
-th {{ text-align:left; padding:9px 10px; font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:#8C8480; border-bottom:1.5px solid #E8E3DC; }}
-td {{ padding:10px 10px; border-bottom:1px solid #F0EDE8; color:#1A1714; }}
-.tag {{ display:inline-block; padding:2px 8px; border-radius:100px; font-size:10px; font-weight:700; }}
-.tag-sep {{ background:#EBF0FB; color:#3B5EC6; }}
-.tag-conf {{ background:#FBF2E6; color:#C47B2A; }}
-.tag-emb  {{ background:#E8F2EC; color:#4A7C59; }}
 
 /* ── INPUT ── */
 .stTextInput > div > div > input {{
-    border:1.5px solid #E8E3DC !important; border-radius:10px !important;
-    background:#F7F5F2 !important; font-family:'DM Sans',sans-serif !important;
-    font-size:15px !important; padding:14px 16px !important; color:#1A1714 !important;
+    border: 2px solid #E0DBD4 !important;
+    border-radius: 12px !important;
+    background: #FFFFFF !important;
+    font-family: 'Nunito', sans-serif !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    padding: 16px 18px !important;
+    color: #1A1714 !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important;
+    transition: border-color .2s, box-shadow .2s !important;
+    height: 56px !important;
 }}
-.stTextInput > div > div > input:focus {{ border-color:#C8566A !important; box-shadow:none !important; }}
-label {{ font-size:12px !important; font-weight:600 !important; color:#8C8480 !important; letter-spacing:.5px !important; }}
+.stTextInput > div > div > input:focus {{
+    border-color: #C8566A !important;
+    box-shadow: 0 0 0 4px rgba(200,86,106,0.12) !important;
+}}
+.stTextInput > div > div > input::placeholder {{
+    color: #C0BAB4 !important; font-weight: 600 !important;
+}}
+label {{
+    font-family: 'Nunito', sans-serif !important;
+    font-size: 11px !important; font-weight: 800 !important;
+    color: #9C9490 !important; letter-spacing: 1.5px !important;
+    text-transform: uppercase !important;
+}}
+
+/* ── BUTTONS ── */
+.stButton > button {{
+    font-family: 'Nunito', sans-serif !important;
+    font-weight: 800 !important;
+    border-radius: 12px !important;
+    transition: all .18s ease !important;
+    height: 54px !important;
+    font-size: 15px !important;
+    letter-spacing: .5px !important;
+}}
+/* INICIAR — verde escuro elegante */
+.btn-iniciar > button {{
+    background: linear-gradient(135deg, #2C6E49, #1E4D35) !important;
+    color: #fff !important; border: none !important;
+    box-shadow: 0 5px 0 rgba(20,50,30,0.45), 0 8px 20px rgba(44,110,73,0.30) !important;
+}}
+.btn-iniciar > button:hover {{
+    background: linear-gradient(135deg, #357a54, #266040) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 0 rgba(20,50,30,0.40), 0 14px 28px rgba(44,110,73,0.35) !important;
+}}
+.btn-iniciar > button:active {{
+    transform: translateY(2px) !important;
+    box-shadow: 0 2px 0 rgba(20,50,30,0.45), 0 3px 8px rgba(44,110,73,0.20) !important;
+}}
+/* VOLTAR — cinza quente */
+.btn-voltar > button {{
+    background: #FFFFFF !important;
+    color: #5C5450 !important;
+    border: 2px solid #DDD8D2 !important;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.10), 0 4px 12px rgba(0,0,0,0.07) !important;
+}}
+.btn-voltar > button:hover {{
+    border-color: #C8566A !important; color: #C8566A !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 5px 0 rgba(0,0,0,0.08), 0 8px 16px rgba(200,86,106,0.12) !important;
+}}
+/* FINALIZAR — vermelho */
+.btn-finalizar > button {{
+    background: linear-gradient(135deg, #C8566A, #9E3F52) !important;
+    color: #fff !important; border: none !important;
+    box-shadow: 0 5px 0 rgba(100,20,35,0.45), 0 8px 20px rgba(200,86,106,0.32) !important;
+}}
+.btn-finalizar > button:hover {{
+    background: linear-gradient(135deg, #d9617a, #b04560) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 0 rgba(100,20,35,0.40), 0 14px 28px rgba(200,86,106,0.38) !important;
+}}
+.btn-finalizar > button:active {{
+    transform: translateY(2px) !important;
+    box-shadow: 0 2px 0 rgba(100,20,35,0.45) !important;
+}}
+/* PRIMARY (reutilizado) */
+.btn-primary > button {{
+    background: linear-gradient(135deg, #C8566A, #9E3F52) !important;
+    color: #fff !important; border: none !important;
+    box-shadow: 0 5px 0 rgba(100,20,35,0.40), 0 8px 18px rgba(200,86,106,0.28) !important;
+}}
+.btn-primary > button:hover {{
+    background: linear-gradient(135deg, #d9617a, #b04560) !important;
+    transform: translateY(-2px) !important;
+}}
+.btn-outline > button {{
+    background: #fff !important; color: #5C5450 !important;
+    border: 2px solid #DDD8D2 !important;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.08) !important;
+}}
+.btn-outline > button:hover {{ border-color:#C8566A !important; color:#C8566A !important; }}
+.btn-sm > button {{ height:40px !important; font-size:12px !important; }}
+
+/* ── TIMER ── */
+.timer-wrap {{
+    background: linear-gradient(135deg, #fff, #fdf5f7);
+    border: 2px solid #F0E0E4;
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 20px rgba(200,86,106,0.08);
+}}
+.timer-num {{
+    font-family:'DM Mono',monospace; font-size:62px; font-weight:500;
+    color:#C8566A; letter-spacing:-2px; line-height:1;
+}}
+.pedido-lbl {{ font-size:10px; font-weight:800; color:#9C9490; text-align:center; letter-spacing:2px; text-transform:uppercase; margin-bottom:4px; }}
+.pedido-num {{ font-family:'DM Mono',monospace; font-size:24px; font-weight:500; color:#1A1714; text-align:center; margin-bottom:6px; }}
+
+/* ── ADMIN ── */
+.stat-box {{ background:#fff; border:1.5px solid #E8E3DC; border-radius:14px; padding:18px; text-align:center; box-shadow:0 2px 12px rgba(0,0,0,0.05); }}
+.stat-num {{ font-family:'DM Mono',monospace; font-size:32px; font-weight:500; color:#C8566A; }}
+.stat-lbl {{ font-size:11px; font-weight:800; color:#9C9490; letter-spacing:.8px; margin-top:5px; text-transform:uppercase; }}
+table {{ width:100%; border-collapse:collapse; font-size:13px; }}
+th {{ text-align:left; padding:10px 12px; font-size:10px; font-weight:800; letter-spacing:1.2px; text-transform:uppercase; color:#9C9490; border-bottom:2px solid #EDE9E4; }}
+td {{ padding:11px 12px; border-bottom:1px solid #F2EEE9; color:#2C2826; font-weight:600; }}
+.tag {{ display:inline-block; padding:3px 10px; border-radius:100px; font-size:10px; font-weight:800; letter-spacing:.5px; }}
+.tag-sep {{ background:#EBF0FB; color:#3B5EC6; }}
+.tag-conf {{ background:#FBF2E6; color:#C47B2A; }}
+.tag-emb  {{ background:#E8F2EC; color:#4A7C59; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -335,14 +432,15 @@ def tela_producao():
 
     # ── Input de pedido ──
     if not st.session_state.rodando and st.session_state.acum == 0 and not st.session_state.modal:
-        st.markdown(f'<div style="font-size:13px;color:#8C8480;margin-bottom:8px;">Etapa atual: <strong>{etapa_lbl}</strong></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="etapa-info">📋 Etapa atual: {etapa_lbl}</div>', unsafe_allow_html=True)
         pedido_inp = st.text_input("NÚMERO DO PEDIDO", value=st.session_state.pedido or "", placeholder="Ex: #00123")
         if st.session_state.erro_pedido:
-            st.markdown('<span style="color:#C8566A;font-size:12px;">⚠ Digite o número do pedido.</span>', unsafe_allow_html=True)
+            st.markdown('<span style="color:#C8566A;font-size:13px;font-weight:700;">⚠ Digite o número do pedido.</span>', unsafe_allow_html=True)
 
+        st.markdown("<br>", unsafe_allow_html=True)
         c1, c2 = st.columns([3, 1])
         with c1:
-            st.markdown('<div class="btn-primary">', unsafe_allow_html=True)
+            st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
             if st.button("▶  INICIAR", use_container_width=True):
                 if not pedido_inp.strip():
                     st.session_state.erro_pedido = True; st.rerun()
@@ -354,7 +452,7 @@ def tela_producao():
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
         with c2:
-            st.markdown('<div class="btn-outline">', unsafe_allow_html=True)
+            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
             if st.button("← Voltar", use_container_width=True):
                 st.session_state.tela = "home"; st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
@@ -363,11 +461,15 @@ def tela_producao():
     elif st.session_state.rodando:
         elapsed = get_elapsed()
         h, rem = divmod(elapsed, 3600); m, s = divmod(rem, 60)
-        st.markdown(f'<div class="pedido-lbl">PEDIDO</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="pedido-num">{st.session_state.pedido}</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="timer-num">{h:02d}:{m:02d}:{s:02d}</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="etapa-lbl">Etapa: <strong>{etapa_lbl}</strong></div>', unsafe_allow_html=True)
-        st.markdown('<div class="btn-dark">', unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="timer-wrap">
+            <div class="pedido-lbl">PEDIDO</div>
+            <div class="pedido-num">{st.session_state.pedido}</div>
+            <div class="timer-num">{h:02d}:{m:02d}:{s:02d}</div>
+            <div style="font-size:12px;font-weight:700;color:#9C9490;margin-top:10px;letter-spacing:.5px;">Etapa: {etapa_lbl}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown('<div class="btn-finalizar">', unsafe_allow_html=True)
         if st.button("■  FINALIZAR", use_container_width=True):
             tempo = get_elapsed()
             st.session_state.acum = tempo; st.session_state.rodando = False; st.session_state.inicio = None
