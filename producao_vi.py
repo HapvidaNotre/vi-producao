@@ -5,6 +5,7 @@ import base64
 import os
 from datetime import datetime
 from pathlib import Path
+import streamlit.components.v1 as components
 
 # ─────────────────────────────────────
 #  CONFIG
@@ -133,27 +134,7 @@ footer { display: none !important; }
 .logo-box { text-align: center; margin-bottom: 2rem; }
 .logo-box img { height: 58px; object-fit: contain; }
 
-/* ── OPERADOR GRID ── */
-.ops-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 8px; }
-.op-card {
-    background: #FFFFFF;
-    border: 1.5px solid #E8E3DC;
-    border-radius: 14px;
-    padding: 18px 10px 14px;
-    cursor: pointer;
-    display: flex; flex-direction: column; align-items: center; gap: 10px;
-    transition: all .2s ease;
-    box-shadow: 0 2px 14px rgba(0,0,0,0.05);
-    text-decoration: none;
-}
-.op-card:hover { border-color: #C8566A; transform: translateY(-2px); box-shadow: 0 10px 28px rgba(200,86,106,0.12); }
-.op-avatar {
-    width: 50px; height: 50px; border-radius: 50%;
-    background: linear-gradient(135deg, #C8566A, #9E3F52);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 20px; font-weight: 700; color: #fff;
-}
-.op-name { font-size: 12.5px; font-weight: 600; color: #1A1714; text-align: center; }
+/* ── OPERADOR GRID (handled via component) ── */
 
 /* ── SECTION LABEL ── */
 .section-label {
@@ -335,42 +316,184 @@ def tela_home():
         etapa_restore = st.session_state.etapa_proximo
         st.info(f"📦 Pedido **{pedido_restore}** aguardando: **{ETAPAS_LABEL[etapa_restore]}**")
 
-    cols_per_row = 3
-    ops = OPERADORES
-    for row_start in range(0, len(ops), cols_per_row):
-        cols = st.columns(cols_per_row)
-        for col_idx, op in enumerate(ops[row_start:row_start + cols_per_row]):
-            with cols[col_idx]:
-                initial = op[0].upper()
-                st.markdown(f"""
-                <div style="background:#fff;border:1.5px solid #E8E3DC;border-radius:14px;
-                     padding:18px 10px 14px;text-align:center;
-                     box-shadow:0 2px 14px rgba(0,0,0,0.05);margin-bottom:4px;">
-                  <div style="width:50px;height:50px;border-radius:50%;
-                       background:linear-gradient(135deg,#C8566A,#9E3F52);
-                       display:flex;align-items:center;justify-content:center;
-                       font-size:20px;font-weight:700;color:#fff;margin:0 auto 10px;">
-                    {initial}
-                  </div>
-                  <div style="font-size:12.5px;font-weight:600;color:#1A1714;">{op}</div>
-                </div>
-                """, unsafe_allow_html=True)
-                if st.button("Selecionar", key=f"op_{op}", use_container_width=True):
-                    st.session_state.operador = op
-                    # If pending pedido for next step
-                    if st.session_state.pedido_proximo:
-                        st.session_state.pedido = st.session_state.pedido_proximo
-                        st.session_state.etapa_idx = st.session_state.etapa_proximo
-                        st.session_state.pedido_proximo = None
-                        st.session_state.etapa_proximo = None
-                    else:
-                        st.session_state.pedido = None
-                        st.session_state.etapa_idx = 0
-                    st.session_state.rodando = False
-                    st.session_state.inicio = None
-                    st.session_state.tempo_acumulado = 0
-                    st.session_state.tela = "producao"
-                    st.rerun()
+    # Build operators JSON for the component
+    ops_json = str(OPERADORES).replace("'", '"')
+
+    # Render interactive 3D avatar grid via HTML component
+    clicked = components.html(f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+      * {{ margin:0; padding:0; box-sizing:border-box; }}
+      body {{
+        font-family: 'DM Sans', sans-serif;
+        background: transparent;
+        display: flex; flex-direction: column; align-items: center;
+        padding: 4px 0 12px;
+      }}
+      .grid {{
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+        width: 100%;
+        max-width: 520px;
+      }}
+      .op-wrap {{
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 9px;
+        cursor: pointer;
+        perspective: 600px;
+      }}
+      .avatar {{
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        background: linear-gradient(145deg, #D9617A, #9E3F52);
+        box-shadow:
+          0 6px 0 #7a2d3e,
+          0 8px 16px rgba(158,63,82,0.45),
+          inset 0 2px 4px rgba(255,255,255,0.25),
+          inset 0 -2px 4px rgba(0,0,0,0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 26px;
+        font-weight: 700;
+        color: #fff;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.25);
+        transition:
+          transform 0.18s cubic-bezier(.34,1.56,.64,1),
+          box-shadow 0.18s ease,
+          background 0.15s ease;
+        transform-style: preserve-3d;
+        user-select: none;
+        position: relative;
+        overflow: hidden;
+      }}
+      /* shine overlay */
+      .avatar::before {{
+        content: '';
+        position: absolute;
+        top: -30%;
+        left: -20%;
+        width: 60%;
+        height: 60%;
+        background: radial-gradient(ellipse, rgba(255,255,255,0.35) 0%, transparent 70%);
+        border-radius: 50%;
+        pointer-events: none;
+        transition: opacity 0.2s;
+      }}
+      .op-wrap:hover .avatar {{
+        transform: translateY(-6px) rotateX(12deg) scale(1.08);
+        box-shadow:
+          0 12px 0 #7a2d3e,
+          0 18px 32px rgba(158,63,82,0.55),
+          inset 0 2px 6px rgba(255,255,255,0.35),
+          inset 0 -2px 4px rgba(0,0,0,0.15);
+        background: linear-gradient(145deg, #E06B82, #B04A5E);
+      }}
+      .op-wrap:active .avatar {{
+        transform: translateY(2px) rotateX(4deg) scale(0.96);
+        box-shadow:
+          0 2px 0 #7a2d3e,
+          0 4px 10px rgba(158,63,82,0.4),
+          inset 0 2px 6px rgba(0,0,0,0.2);
+        background: linear-gradient(145deg, #B04A5E, #8B3347);
+        transition: transform 0.08s ease, box-shadow 0.08s ease;
+      }}
+      /* ripple */
+      .ripple {{
+        position: absolute;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.4);
+        transform: scale(0);
+        animation: ripple-anim 0.5s linear;
+        pointer-events: none;
+      }}
+      @keyframes ripple-anim {{
+        to {{ transform: scale(3.5); opacity: 0; }}
+      }}
+      .op-name {{
+        font-size: 12px;
+        font-weight: 600;
+        color: #1A1714;
+        text-align: center;
+        letter-spacing: 0.2px;
+        line-height: 1.2;
+      }}
+    </style>
+    </head>
+    <body>
+    <div class="grid" id="grid"></div>
+    <script>
+      const OPERADORES = {ops_json};
+      const grid = document.getElementById('grid');
+
+      OPERADORES.forEach(op => {{
+        const wrap = document.createElement('div');
+        wrap.className = 'op-wrap';
+
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        avatar.textContent = op[0].toUpperCase();
+
+        const name = document.createElement('div');
+        name.className = 'op-name';
+        name.textContent = op;
+
+        // Ripple effect on click
+        avatar.addEventListener('click', function(e) {{
+          // ripple
+          const ripple = document.createElement('span');
+          ripple.className = 'ripple';
+          const rect = avatar.getBoundingClientRect();
+          const size = Math.max(rect.width, rect.height);
+          ripple.style.width = ripple.style.height = size + 'px';
+          ripple.style.left = (e.clientX - rect.left - size/2) + 'px';
+          ripple.style.top = (e.clientY - rect.top - size/2) + 'px';
+          avatar.appendChild(ripple);
+          setTimeout(() => ripple.remove(), 600);
+
+          // Send to Streamlit after short delay for animation
+          setTimeout(() => {{
+            window.parent.postMessage({{
+              type: 'streamlit:setComponentValue',
+              value: op
+            }}, '*');
+          }}, 120);
+        }});
+
+        wrap.appendChild(avatar);
+        wrap.appendChild(name);
+        grid.appendChild(wrap);
+      }});
+    </script>
+    </body>
+    </html>
+    """, height=320)
+
+    # Handle click from component
+    if clicked and isinstance(clicked, str) and clicked in OPERADORES:
+        op = clicked
+        st.session_state.operador = op
+        if st.session_state.pedido_proximo:
+            st.session_state.pedido = st.session_state.pedido_proximo
+            st.session_state.etapa_idx = st.session_state.etapa_proximo
+            st.session_state.pedido_proximo = None
+            st.session_state.etapa_proximo = None
+        else:
+            st.session_state.pedido = None
+            st.session_state.etapa_idx = 0
+        st.session_state.rodando = False
+        st.session_state.inicio = None
+        st.session_state.tempo_acumulado = 0
+        st.session_state.tela = "producao"
+        st.rerun()
 
 # ─────────────────────────────────────
 #  TELA: PRODUCAO
