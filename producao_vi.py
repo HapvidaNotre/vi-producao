@@ -126,7 +126,7 @@ html, body, [data-testid="stAppViewContainer"] {{
     font-family: 'Nunito', sans-serif !important;
 }}
 [data-testid="stHeader"], [data-testid="stSidebar"], footer, #MainMenu {{ display:none !important; }}
-.block-container {{ padding-top:1.8rem !important; padding-bottom:2rem !important; max-width:640px !important; }}
+.block-container {{ padding-top:1.8rem !important; padding-bottom:2rem !important; max-width:600px !important; margin: 0 auto !important; }}
 
 .logo-box {{ text-align:center; margin-bottom:1.6rem; }}
 .logo-box img {{ height:56px; object-fit:contain; }}
@@ -428,7 +428,7 @@ def tela_producao():
     etapa_idx = st.session_state.etapa_idx
     etapa_lbl = ETAPAS_LBL[etapa_idx]
 
-    st.markdown(f'<div class="badge-op">● {op}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="text-align:center;margin-bottom:1rem;"><span class="badge-op">● {op}</span></div>', unsafe_allow_html=True)
 
     # ── Input de pedido ──
     if not st.session_state.rodando and st.session_state.acum == 0 and not st.session_state.modal:
@@ -439,6 +439,7 @@ def tela_producao():
             border-radius: 18px;
             padding: 20px 28px;
             margin-bottom: 24px;
+            text-align: center;
             box-shadow: 0 8px 0 rgba(100,20,35,0.30), 0 14px 32px rgba(200,86,106,0.30);
         ">
             <div style="font-size:10px;font-weight:800;letter-spacing:2.5px;color:rgba(255,255,255,0.65);text-transform:uppercase;margin-bottom:5px;">Etapa Atual</div>
@@ -446,15 +447,14 @@ def tela_producao():
         </div>
         """, unsafe_allow_html=True)
 
-        # Label grande
         st.markdown("""
         <div style="font-size:14px;font-weight:800;letter-spacing:1.5px;color:#5C5450;
-                    text-transform:uppercase;margin-bottom:8px;">
+                    text-transform:uppercase;margin-bottom:8px;text-align:center;">
             Número do Pedido
         </div>
         """, unsafe_allow_html=True)
 
-        _, col_inp, _ = st.columns([0.3, 5, 0.3])
+        _, col_inp, _ = st.columns([0.5, 4, 0.5])
         with col_inp:
             st.markdown("""
             <style>
@@ -488,7 +488,7 @@ def tela_producao():
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        _, c1, gap, c2, _ = st.columns([0.3, 3.5, 0.4, 1.5, 0.3])
+        _, c1, gap, c2, _ = st.columns([0.3, 3, 0.3, 1.5, 0.3])
         with c1:
             st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
             if st.button("▶  INICIAR CRONÔMETRO", use_container_width=True):
