@@ -436,22 +436,62 @@ def tela_producao():
         st.markdown(f"""
         <div style="
             background: linear-gradient(135deg, #C8566A 0%, #9E3F52 100%);
-            border-radius: 18px;
-            padding: 20px 28px;
+            border-radius: 20px;
+            padding: 0;
             margin-bottom: 24px;
-            text-align: center;
-            box-shadow: 0 8px 0 rgba(100,20,35,0.30), 0 14px 32px rgba(200,86,106,0.30);
+            box-shadow: 0 8px 0 rgba(100,20,35,0.28), 0 16px 36px rgba(200,86,106,0.28);
+            overflow: hidden;
+            position: relative;
         ">
-            <div style="font-size:10px;font-weight:800;letter-spacing:2.5px;color:rgba(255,255,255,0.60);text-transform:uppercase;margin-bottom:6px;">Etapa Atual</div>
-            <div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:0.2px;margin-bottom:12px;">{etapa_lbl}</div>
+            <!-- Círculo decorativo de fundo -->
             <div style="
-                display:inline-flex; align-items:center; gap:7px;
-                background:rgba(255,255,255,0.15);
-                border:1.5px solid rgba(255,255,255,0.25);
-                border-radius:100px; padding:6px 18px;
+                position:absolute; right:-30px; top:-30px;
+                width:140px; height:140px; border-radius:50%;
+                background:rgba(255,255,255,0.07);
+            "></div>
+            <div style="
+                position:absolute; right:30px; bottom:-40px;
+                width:100px; height:100px; border-radius:50%;
+                background:rgba(255,255,255,0.05);
+            "></div>
+
+            <div style="
+                display: flex; align-items: center;
+                justify-content: space-between;
+                padding: 22px 28px;
+                position: relative; z-index:1;
             ">
-                <div style="width:8px;height:8px;border-radius:50%;background:#fff;opacity:0.9;"></div>
-                <span style="font-size:13px;font-weight:800;color:#fff;letter-spacing:0.5px;">{op}</span>
+                <!-- Lado esquerdo: etapa -->
+                <div>
+                    <div style="font-size:9px;font-weight:800;letter-spacing:2.5px;
+                                color:rgba(255,255,255,0.55);text-transform:uppercase;margin-bottom:4px;">
+                        Etapa Atual
+                    </div>
+                    <div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:-0.3px;line-height:1.1;">
+                        {etapa_lbl}
+                    </div>
+                </div>
+
+                <!-- Divider vertical -->
+                <div style="width:1.5px;height:48px;background:rgba(255,255,255,0.2);border-radius:2px;margin:0 20px;flex-shrink:0;"></div>
+
+                <!-- Lado direito: operador -->
+                <div style="text-align:right;">
+                    <div style="font-size:9px;font-weight:800;letter-spacing:2.5px;
+                                color:rgba(255,255,255,0.55);text-transform:uppercase;margin-bottom:4px;">
+                        Operador
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;">
+                        <div style="
+                            width:32px;height:32px;border-radius:50%;
+                            background:rgba(255,255,255,0.20);
+                            border:2px solid rgba(255,255,255,0.35);
+                            display:flex;align-items:center;justify-content:center;
+                            font-size:14px;font-weight:900;color:#fff;
+                        ">{op[0].upper()}</div>
+                        <span style="font-size:17px;font-weight:800;color:#fff;">{op}</span>
+                    </div>
+                </div>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -523,16 +563,31 @@ def tela_producao():
         st.markdown(f"""
         <div style="
             background: linear-gradient(135deg, #C8566A 0%, #9E3F52 100%);
-            border-radius: 20px;
-            padding: 28px 24px 24px;
-            text-align: center;
-            box-shadow: 0 8px 0 rgba(100,20,35,0.30), 0 16px 36px rgba(200,86,106,0.32);
-            margin-bottom: 20px;
+            border-radius: 20px; padding: 0; margin-bottom: 20px;
+            box-shadow: 0 8px 0 rgba(100,20,35,0.28), 0 16px 36px rgba(200,86,106,0.28);
+            overflow: hidden; position: relative;
         ">
-            <div style="font-size:10px;font-weight:800;letter-spacing:3px;color:rgba(255,255,255,0.60);text-transform:uppercase;margin-bottom:4px;">Pedido</div>
-            <div style="font-family:'DM Mono',monospace;font-size:26px;font-weight:500;color:#fff;margin-bottom:16px;letter-spacing:1px;">{st.session_state.pedido}</div>
-            <div style="font-family:'DM Mono',monospace;font-size:68px;font-weight:500;color:#fff;letter-spacing:-3px;line-height:1;">{h:02d}:{m:02d}:{s:02d}</div>
-            <div style="font-size:11px;font-weight:800;color:rgba(255,255,255,0.55);margin-top:14px;letter-spacing:2px;text-transform:uppercase;">Etapa: {etapa_lbl}</div>
+            <div style="position:absolute;right:-30px;top:-30px;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,0.06);"></div>
+            <div style="position:absolute;left:-20px;bottom:-40px;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,0.04);"></div>
+
+            <!-- Header: pedido + etapa + operador -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 28px 0;position:relative;z-index:1;">
+                <div>
+                    <div style="font-size:9px;font-weight:800;letter-spacing:2px;color:rgba(255,255,255,0.55);text-transform:uppercase;margin-bottom:2px;">Pedido</div>
+                    <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:500;color:#fff;">{st.session_state.pedido}</div>
+                </div>
+                <div style="width:1.5px;height:36px;background:rgba(255,255,255,0.2);border-radius:2px;margin:0 16px;flex-shrink:0;"></div>
+                <div style="text-align:right;">
+                    <div style="font-size:9px;font-weight:800;letter-spacing:2px;color:rgba(255,255,255,0.55);text-transform:uppercase;margin-bottom:2px;">Etapa · Operador</div>
+                    <div style="font-size:15px;font-weight:800;color:#fff;">{etapa_lbl} · {op}</div>
+                </div>
+            </div>
+
+            <!-- Timer grande centralizado -->
+            <div style="text-align:center;padding:18px 24px 24px;position:relative;z-index:1;">
+                <div style="font-family:'DM Mono',monospace;font-size:70px;font-weight:500;color:#fff;letter-spacing:-3px;line-height:1;">{h:02d}:{m:02d}:{s:02d}</div>
+                <div style="font-size:10px;font-weight:800;color:rgba(255,255,255,0.45);letter-spacing:2px;text-transform:uppercase;margin-top:8px;">cronômetro em execução</div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
         _, col_fin, _ = st.columns([0.5, 5, 0.5])
