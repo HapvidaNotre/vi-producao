@@ -569,21 +569,36 @@ def tela_producao():
     # ── Modal: próxima etapa? ──
     elif st.session_state.modal == "proxima":
         next_lbl = ETAPAS_LBL[etapa_idx + 1]
-        st.markdown(f"""<div class="vi-card" style="text-align:center;">
-          <div style="font-size:38px;margin-bottom:10px;">✅</div>
-          <div style="font-size:18px;font-weight:700;margin-bottom:8px;">Etapa Concluída!</div>
-          <div style="font-size:14px;color:#8C8480;line-height:1.6;">
-            <strong>{etapa_lbl}</strong> finalizada em <strong>{fmt(st.session_state.acum)}</strong>.<br>
-            Deseja ir para <strong>{next_lbl}</strong>?
-          </div></div>""", unsafe_allow_html=True)
+        tempo_fmt = fmt(st.session_state.acum)
+        components.html(f"""
+        <!DOCTYPE html><html><head>
+        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+        <style>* {{margin:0;padding:0;box-sizing:border-box;}}</style>
+        </head><body style="background:transparent;font-family:Nunito,sans-serif;">
+        <div style="background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);border:1.5px solid #EDE9E4;">
+            <div style="background:linear-gradient(135deg,#4A7C59,#2d5c3e);padding:24px;text-align:center;">
+                <div style="width:56px;height:56px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;border:2px solid rgba(255,255,255,0.35);">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
+                <div style="font-size:20px;font-weight:900;color:#fff;margin-bottom:4px;">Etapa Concluída!</div>
+                <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.65);letter-spacing:1px;">{etapa_lbl} · {tempo_fmt}</div>
+            </div>
+            <div style="padding:24px;text-align:center;">
+                <div style="font-size:11px;font-weight:800;letter-spacing:2px;color:#9C9490;text-transform:uppercase;margin-bottom:8px;">Próxima etapa</div>
+                <div style="font-size:22px;font-weight:900;color:#1A1714;">{next_lbl}</div>
+                <div style="font-size:13px;font-weight:600;color:#9C9490;margin-top:6px;">Deseja continuar com esta etapa?</div>
+            </div>
+        </div>
+        </body></html>
+        """, height=230, scrolling=False)
         c1, c2 = st.columns(2)
         with c1:
-            st.markdown('<div class="btn-primary">', unsafe_allow_html=True)
-            if st.button(f"Sim → {next_lbl}", use_container_width=True):
+            st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
+            if st.button(f"✓  Sim, continuar", use_container_width=True):
                 st.session_state.modal = "quem"; st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
         with c2:
-            st.markdown('<div class="btn-outline">', unsafe_allow_html=True)
+            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
             if st.button("Encerrar pedido", use_container_width=True):
                 st.session_state.modal = None; st.session_state.pedido = None
                 st.session_state.etapa_idx = 0; st.session_state.acum = 0
@@ -593,20 +608,34 @@ def tela_producao():
     # ── Modal: quem faz? ──
     elif st.session_state.modal == "quem":
         next_lbl = ETAPAS_LBL[etapa_idx + 1]
-        st.markdown(f"""<div class="vi-card" style="text-align:center;">
-          <div style="font-size:38px;margin-bottom:10px;">👤</div>
-          <div style="font-size:18px;font-weight:700;margin-bottom:8px;">Quem faz a próxima etapa?</div>
-          <div style="font-size:14px;color:#8C8480;">{etapa_lbl} → <strong>{next_lbl}</strong></div>
-        </div>""", unsafe_allow_html=True)
+        components.html(f"""
+        <!DOCTYPE html><html><head>
+        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+        <style>* {{margin:0;padding:0;box-sizing:border-box;}}</style>
+        </head><body style="background:transparent;font-family:Nunito,sans-serif;">
+        <div style="background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);border:1.5px solid #EDE9E4;">
+            <div style="background:linear-gradient(135deg,#C8566A,#9E3F52);padding:24px;text-align:center;">
+                <div style="width:56px;height:56px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;border:2px solid rgba(255,255,255,0.35);">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                </div>
+                <div style="font-size:20px;font-weight:900;color:#fff;margin-bottom:4px;">Quem faz a próxima etapa?</div>
+                <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.65);letter-spacing:1px;">{etapa_lbl} → {next_lbl}</div>
+            </div>
+            <div style="padding:20px 24px;text-align:center;">
+                <div style="font-size:13px;font-weight:600;color:#9C9490;">Selecione quem irá executar <strong style="color:#1A1714;">{next_lbl}</strong></div>
+            </div>
+        </div>
+        </body></html>
+        """, height=210, scrolling=False)
         c1, c2 = st.columns(2)
         with c1:
-            st.markdown('<div class="btn-primary">', unsafe_allow_html=True)
+            st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
             if st.button("Eu mesmo", use_container_width=True):
                 st.session_state.etapa_idx += 1; st.session_state.acum = 0
                 st.session_state.modal = None; st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
         with c2:
-            st.markdown('<div class="btn-outline">', unsafe_allow_html=True)
+            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
             if st.button("Outro operador", use_container_width=True):
                 st.session_state.pedido_prox = st.session_state.pedido
                 st.session_state.etapa_prox  = etapa_idx + 1
@@ -617,15 +646,39 @@ def tela_producao():
 
     # ── Modal: concluído ──
     elif st.session_state.modal == "concluido":
-        st.markdown(f"""<div class="vi-card" style="text-align:center;">
-          <div style="font-size:42px;margin-bottom:10px;">🎉</div>
-          <div style="font-size:18px;font-weight:700;margin-bottom:8px;">Pedido Concluído!</div>
-          <div style="font-size:14px;color:#8C8480;line-height:1.6;">
-            Pedido <strong>{st.session_state.pedido}</strong> finalizado!<br>
-            Embalagem: <strong>{fmt(st.session_state.acum)}</strong>
-          </div></div>""", unsafe_allow_html=True)
-        st.markdown('<div class="btn-primary">', unsafe_allow_html=True)
-        if st.button("Voltar ao início", use_container_width=True):
+        pedido_val = st.session_state.pedido
+        tempo_fmt = fmt(st.session_state.acum)
+        components.html(f"""
+        <!DOCTYPE html><html><head>
+        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+        <style>* {{margin:0;padding:0;box-sizing:border-box;}}</style>
+        </head><body style="background:transparent;font-family:Nunito,sans-serif;">
+        <div style="background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);border:1.5px solid #EDE9E4;">
+            <div style="background:linear-gradient(135deg,#C8566A 0%,#9E3F52 100%);padding:28px;text-align:center;position:relative;overflow:hidden;">
+                <div style="position:absolute;right:-20px;top:-20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,0.07);"></div>
+                <div style="position:absolute;left:-10px;bottom:-30px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,0.05);"></div>
+                <div style="width:60px;height:60px;background:rgba(255,255,255,0.18);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;border:2px solid rgba(255,255,255,0.35);position:relative;z-index:1;">
+                    <span style="font-size:28px;">🎉</span>
+                </div>
+                <div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:4px;position:relative;z-index:1;">Pedido Concluído!</div>
+                <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.65);letter-spacing:1px;position:relative;z-index:1;">Todas as etapas finalizadas</div>
+            </div>
+            <div style="padding:22px 28px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;background:#F7F5F2;border-radius:12px;padding:14px 18px;margin-bottom:10px;">
+                    <span style="font-size:11px;font-weight:800;letter-spacing:1.5px;color:#9C9490;text-transform:uppercase;">Pedido</span>
+                    <span style="font-family:monospace;font-size:17px;font-weight:800;color:#1A1714;">{pedido_val}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;background:#F0F7F3;border-radius:12px;padding:14px 18px;">
+                    <span style="font-size:11px;font-weight:800;letter-spacing:1.5px;color:#4A7C59;text-transform:uppercase;">Embalagem</span>
+                    <span style="font-family:monospace;font-size:17px;font-weight:800;color:#4A7C59;">{tempo_fmt}</span>
+                </div>
+            </div>
+        </div>
+        </body></html>
+        """, height=280, scrolling=False)
+        st.markdown("<br style='line-height:0.2'>", unsafe_allow_html=True)
+        st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
+        if st.button("← Voltar ao Início", use_container_width=True):
             st.session_state.modal = None; st.session_state.pedido = None
             st.session_state.etapa_idx = 0; st.session_state.acum = 0
             st.session_state.tela = "home"; st.rerun()
