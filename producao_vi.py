@@ -590,7 +590,7 @@ def tela_producao():
             </div>
         </div>
         </body></html>
-        """, height=230, scrolling=False)
+        """, height=290, scrolling=False)
         c1, c2 = st.columns(2)
         with c1:
             st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
@@ -626,7 +626,7 @@ def tela_producao():
             </div>
         </div>
         </body></html>
-        """, height=210, scrolling=False)
+        """, height=255, scrolling=False)
         c1, c2 = st.columns(2)
         with c1:
             st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
@@ -675,7 +675,7 @@ def tela_producao():
             </div>
         </div>
         </body></html>
-        """, height=280, scrolling=False)
+        """, height=300, scrolling=False)
         st.markdown("<br style='line-height:0.2'>", unsafe_allow_html=True)
         st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
         if st.button("← Voltar ao Início", use_container_width=True):
