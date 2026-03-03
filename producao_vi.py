@@ -1,156 +1,251 @@
 import streamlit as st
 import pandas as pd
 import time
-from datetime import datetime
 import sqlite3
+from datetime import datetime
 from fpdf import FPDF
 import base64
 
-# Importar funções do banco de dados
-import database
+# ==========================================
+# 1. ARQUITETURA DE BANCO DE DATAS (EMBUTIDA)
+# ==========================================
+DB_NAME = "vi_producao.db"
 
-# Configuração da página
-st.set_page_config(page_title="Vi Lingerie - Produção", page_icon="👙", layout="wide")
+def init_db():
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS producao (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            operador TEXT NOT NULL,
+            pedido TEXT NOT NULL,
+            etapa TEXT NOT NULL,
+            inicio TIMESTAMP NOT NULL,
+            fim TIMESTAMP,
+            duracao_segundos INTEGER
+        )
+    """)
+    conn.commit()
+    conn.close()
 
-# Inicializar banco de dados
-database.init_db()
+def db_salvar_inicio(operador, pedido, etapa):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    inicio = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute(
+        "INSERT INTO producao (operador, pedido, etapa, inicio) VALUES (?, ?, ?, ?)",
+        (operador, pedido, etapa, inicio)
+    )
+    last_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return last_id
 
-# --- ESTILIZAÇÃO CSS (Clean & Minimalist) ---
-st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
-    
-    html, body, [class*="css"] {
-        font-family: 'Inter', sans-serif;
-        background-color: #FAFAFA;
-        color: #333;
-    }
-    
-    .main {
-        background-color: #FAFAFA;
-    }
-    
-    .stButton>button {
-        width: 100%;
-        border-radius: 8px;
-        height: 3em;
-        background-color: #FFFFFF;
-        color: #333;
-        border: 1px solid #DDD;
-        transition: all 0.3s;
-        font-weight: 600;
-    }
-    
-    .stButton>button:hover {
-        border-color: #000;
-        background-color: #F0F0F0;
-    }
-    
-    .btn-proximo {
-        background-color: #000 !important;
-        color: #FFF !important;
-    }
-    
-    .avatar-circle {
-        width: 80px;
-        height: 80px;
-        background-color: #EEE;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 10px auto;
-        font-size: 24px;
-        font-weight: 600;
-        color: #555;
-        border: 2px solid #DDD;
-        cursor: pointer;
-        transition: transform 0.2s;
-    }
-    
-    .avatar-circle:hover {
-        transform: scale(1.05);
-        border-color: #999;
-    }
-    
-    .centered-content {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-    }
-    
-    .logo-img {
-        display: block;
-        margin-left: auto;
-        margin-right: auto;
-        width: 250px;
-        margin-bottom: 30px;
-    }
-    
-    /* Remover barras de rolagem e focar no centro */
-    section.main {
-        overflow: hidden;
-    }
-    
-    div.block-container {
-        padding-top: 2rem;
-        padding-bottom: 0rem;
-        max-width: 800px;
-    }
-    
-    .footer {
-        position: fixed;
-        left: 0;
-        bottom: 0;
-        width: 100%;
-        padding: 10px;
-        text-align: center;
-    }
-    </style>
+def db_finalizar_etapa(registro_id):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    fim = datetime.now()
+    fim_str = fim.strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute("SELECT inicio FROM producao WHERE id = ?", (registro_id,))
+    row = cursor.fetchone()
+    if row:
+        inicio = datetime.strptime(row[0], "%Y-%m-%d %H:%M:%S")
+        duracao = int((fim - inicio).total_seconds())
+        cursor.execute(
+            "UPDATE producao SET fim = ?, duracao_segundos = ? WHERE id = ?",
+            (fim_str, duracao, registro_id)
+        )
+    conn.commit()
+    conn.close()
+
+def db_get_stats():
+    conn = sqlite3.connect(DB_NAME)
+    df = pd.read_sql_query("SELECT * FROM producao WHERE fim IS NOT NULL", conn)
+    conn.close()
+    return df
+
+# ==========================================
+# 2. DESIGN SYSTEM & UX (CUSTOM CSS)
+# ==========================================
+st.set_page_config(page_title="Vi Lingerie | Sistema de Produção", page_icon="👙", layout="wide")
+init_db()
+
+def inject_custom_css():
+    st.markdown("""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Montserrat:wght@300;400;600&display=swap');
+        
+        /* Reset e Base */
+        html, body, [class*="css"] {
+            font-family: 'Inter', sans-serif;
+            background-color: #FDFDFD;
+            color: #2D3436;
+        }
+        
+        .main {
+            background-color: #FDFDFD;
+        }
+
+        /* Container Principal Centralizado */
+        div.block-container {
+            padding-top: 3rem;
+            padding-bottom: 2rem;
+            max-width: 900px;
+            margin: auto;
+        }
+
+        /* Logo e Títulos */
+        .logo-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 40px;
+        }
+        .logo-img {
+            width: 220px;
+            filter: drop-shadow(0px 4px 10px rgba(0,0,0,0.05));
+        }
+        h1, h2, h3 {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 300;
+            text-align: center;
+            letter-spacing: -0.5px;
+        }
+
+        /* Cards de Operador */
+        .op-card {
+            background: #FFFFFF;
+            border: 1px solid #F1F2F6;
+            border-radius: 16px;
+            padding: 25px;
+            text-align: center;
+            transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+        .op-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.08);
+            border-color: #E2E8F0;
+        }
+        .avatar-initial {
+            width: 65px;
+            height: 65px;
+            background: linear-gradient(135deg, #F8F9FA 0%, #E9ECEF 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px auto;
+            font-size: 22px;
+            font-weight: 600;
+            color: #2D3436;
+            border: 1px solid #DEE2E6;
+        }
+
+        /* Botões Profissionais */
+        .stButton>button {
+            width: 100%;
+            border-radius: 12px;
+            height: 3.5em;
+            background-color: #FFFFFF;
+            color: #2D3436;
+            border: 1px solid #E2E8F0;
+            font-weight: 500;
+            font-size: 16px;
+            transition: all 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .stButton>button:hover {
+            background-color: #2D3436;
+            color: #FFFFFF !important;
+            border-color: #2D3436;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        }
+        
+        /* Botão Primário (Ação) */
+        div[data-testid="stVerticalBlock"] > div:nth-child(2) .stButton>button {
+            background-color: #2D3436;
+            color: #FFFFFF;
+        }
+
+        /* Inputs Clean */
+        .stTextInput>div>div>input {
+            border-radius: 12px;
+            height: 55px;
+            border: 1px solid #E2E8F0;
+            background-color: #F8FAFC;
+            text-align: center;
+            font-size: 18px;
+        }
+
+        /* Status & Timer */
+        .timer-display {
+            font-family: 'Inter', sans-serif;
+            font-size: 64px;
+            font-weight: 200;
+            color: #2D3436;
+            text-align: center;
+            margin: 20px 0;
+            letter-spacing: -2px;
+        }
+        .etapa-badge {
+            background: #F1F2F6;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #636E72;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Footer */
+        .footer-admin {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            opacity: 0.5;
+            transition: opacity 0.3s;
+        }
+        .footer-admin:hover {
+            opacity: 1;
+        }
+        
+        /* Esconder Elementos Streamlit */
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+        </style>
     """, unsafe_allow_html=True)
 
-# --- ESTADO DA SESSÃO ---
-if 'page' not in st.session_state:
-    st.session_state.page = 'home'
-if 'operador' not in st.session_state:
-    st.session_state.operador = None
-if 'etapa' not in st.session_state:
-    st.session_state.etapa = 'Separação'
-if 'pedido' not in st.session_state:
-    st.session_state.pedido = ""
-if 'start_time' not in st.session_state:
-    st.session_state.start_time = None
-if 'registro_id' not in st.session_state:
-    st.session_state.registro_id = None
+# ==========================================
+# 3. LÓGICA DE NAVEGAÇÃO E ESTADO
+# ==========================================
+if 'page' not in st.session_state: st.session_state.page = 'home'
+if 'operador' not in st.session_state: st.session_state.operador = None
+if 'etapa' not in st.session_state: st.session_state.etapa = 'Separação'
+if 'pedido' not in st.session_state: st.session_state.pedido = ""
+if 'start_time' not in st.session_state: st.session_state.start_time = None
+if 'registro_id' not in st.session_state: st.session_state.registro_id = None
 
-# --- FUNÇÕES DE NAVEGAÇÃO ---
-def ir_para_home():
-    st.session_state.page = 'home'
-    st.session_state.operador = None
-    st.session_state.etapa = 'Separação'
-    st.session_state.pedido = ""
-    st.session_state.start_time = None
+def navigate(to, **kwargs):
+    for key, value in kwargs.items():
+        st.session_state[key] = value
+    st.session_state.page = to
     st.rerun()
 
-def ir_para_producao(operador):
-    st.session_state.operador = operador
-    st.session_state.page = 'producao'
-    st.rerun()
+# ==========================================
+# 4. COMPONENTES DE INTERFACE (TELAS)
+# ==========================================
 
-def ir_para_admin():
-    st.session_state.page = 'admin'
-    st.rerun()
+def show_logo():
+    st.markdown('<div class="logo-container"><img src="https://raw.githubusercontent.com/HapvidaNotre/vi-producao/main/logo_vi.png" class="logo-img"></div>', unsafe_allow_html=True)
 
-# --- COMPONENTES DA INTERFACE ---
-
-def header():
-    st.markdown(f'<img src="https://raw.githubusercontent.com/HapvidaNotre/vi-producao/main/logo_vi.png" class="logo-img">', unsafe_allow_html=True)
-
-def tela_selecao_operador():
-    header()
-    st.markdown("<h3 style='text-align: center; font-weight: 300; margin-bottom: 30px;'>Selecione seu Perfil</h3>", unsafe_allow_html=True)
+def tela_home():
+    show_logo()
+    st.markdown("<h3>Controle de Produção</h3>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #636E72; margin-bottom: 40px;'>Selecione seu perfil para iniciar</p>", unsafe_allow_html=True)
     
     operadores = ["Lucivanio", "Enagio", "Daniel", "Italo", "Cildenir", "Samya", "Neide", "Eduardo", "Talyson"]
     
@@ -158,185 +253,173 @@ def tela_selecao_operador():
     for i, nome in enumerate(operadores):
         with cols[i % 3]:
             st.markdown(f"""
-                <div class="centered-content">
-                    <div class="avatar-circle">{nome[0]}</div>
+                <div class="op-card">
+                    <div class="avatar-initial">{nome[0]}</div>
+                    <div style="font-weight: 500; font-size: 15px;">{nome}</div>
                 </div>
             """, unsafe_allow_html=True)
-            if st.button(nome, key=f"btn_{nome}"):
-                ir_para_producao(nome)
+            if st.button("Acessar", key=f"btn_{nome}"):
+                navigate('producao', operador=nome, etapa='Separação', pedido="", start_time=None)
 
 def tela_producao():
-    header()
+    show_logo()
     
-    st.markdown(f"<h4 style='text-align: center;'>Operador: <b>{st.session_state.operador}</b></h4>", unsafe_allow_html=True)
-    st.markdown(f"<p style='text-align: center; color: #888;'>Etapa Atual: {st.session_state.etapa}</p>", unsafe_allow_html=True)
+    # Header de Status
+    st.markdown(f"""
+        <div style="text-align: center; margin-bottom: 30px;">
+            <span class="etapa-badge">{st.session_state.etapa}</span>
+            <h2 style="margin-top: 15px;">{st.session_state.operador}</h2>
+        </div>
+    """, unsafe_allow_html=True)
     
-    with st.container():
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            if st.session_state.start_time is None:
-                # Fase de Início
-                pedido_input = st.text_input("Número do Pedido", value=st.session_state.pedido, placeholder="Digite o número...", key="pedido_input")
-                st.session_state.pedido = pedido_input
-                
-                if st.button("INICIAR", key="btn_iniciar"):
-                    if st.session_state.pedido:
-                        st.session_state.start_time = time.time()
-                        # Salvar no banco
-                        st.session_state.registro_id = database.salvar_inicio(
-                            st.session_state.operador, 
-                            st.session_state.pedido, 
-                            st.session_state.etapa
-                        )
-                        st.rerun()
-                    else:
-                        st.error("Por favor, insira o número do pedido.")
-            else:
-                # Fase em andamento
-                st.markdown(f"<h2 style='text-align: center; color: #555;'>Pedido: {st.session_state.pedido}</h2>", unsafe_allow_html=True)
-                
-                # Timer dinâmico (visual apenas)
-                placeholder = st.empty()
-                duracao_atual = int(time.time() - st.session_state.start_time)
-                minutos = duracao_atual // 60
-                segundos = duracao_atual % 60
-                placeholder.markdown(f"<h1 style='text-align: center; font-weight: 300;'>{minutos:02d}:{segundos:02d}</h1>", unsafe_allow_html=True)
-                
-                if st.button("FINALIZAR", key="btn_finalizar"):
-                    database.finalizar_etapa(st.session_state.registro_id)
-                    st.session_state.page = 'pos_producao'
+    col_l, col_c, col_r = st.columns([1, 4, 1])
+    
+    with col_c:
+        if st.session_state.start_time is None:
+            # Fase de Entrada de Dados
+            pedido = st.text_input("Número do Pedido", placeholder="Ex: 45092", label_visibility="collapsed")
+            st.session_state.pedido = pedido
+            
+            st.markdown("<div style='margin-top: 20px;'>", unsafe_allow_html=True)
+            if st.button("INICIAR ETAPA"):
+                if st.session_state.pedido:
+                    st.session_state.start_time = time.time()
+                    st.session_state.registro_id = db_salvar_inicio(
+                        st.session_state.operador, 
+                        st.session_state.pedido, 
+                        st.session_state.etapa
+                    )
                     st.rerun()
-
-def tela_pos_producao():
-    header()
-    st.markdown("<h3 style='text-align: center;'>Etapa concluída com sucesso!</h3>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center;'>Deseja ir para a próxima etapa?</p>", unsafe_allow_html=True)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        if st.button("SIM"):
-            st.session_state.page = 'decisao_proxima'
-            st.rerun()
+                else:
+                    st.error("Insira o número do pedido para continuar.")
+            st.markdown("</div>", unsafe_allow_html=True)
             
-    with col2:
-        if st.button("NÃO / NOVO PEDIDO"):
-            ir_para_home()
+            if st.button("← Voltar", key="back_home"):
+                navigate('home')
+        else:
+            # Fase de Cronômetro Ativo
+            st.markdown(f"<p style='text-align: center; color: #636E72;'>Monitorando Pedido: <b>{st.session_state.pedido}</b></p>", unsafe_allow_html=True)
+            
+            # Timer (Visual)
+            placeholder = st.empty()
+            duracao = int(time.time() - st.session_state.start_time)
+            placeholder.markdown(f'<div class="timer-display">{duracao // 60:02d}:{duracao % 60:02d}</div>', unsafe_allow_html=True)
+            
+            if st.button("FINALIZAR AGORA"):
+                db_finalizar_etapa(st.session_state.registro_id)
+                navigate('conclusao')
 
-def tela_decisao_proxima():
-    header()
+def tela_conclusao():
+    show_logo()
+    st.markdown("<h2 style='color: #27AE60;'>✓ Etapa Concluída</h2>", unsafe_allow_html=True)
+    st.markdown(f"<p style='text-align: center;'>Pedido <b>{st.session_state.pedido}</b> finalizado na fase de <b>{st.session_state.etapa}</b>.</p>", unsafe_allow_html=True)
     
-    # Lógica de transição de etapas
+    st.markdown("<br>", unsafe_allow_html=True)
+    
     etapas = ["Separação", "Conferência", "Embalagem"]
-    current_idx = etapas.index(st.session_state.etapa)
+    curr_idx = etapas.index(st.session_state.etapa)
     
-    if current_idx < len(etapas) - 1:
-        proxima_etapa = etapas[current_idx + 1]
-    else:
-        st.warning("Todas as etapas deste pedido foram concluídas.")
-        if st.button("Voltar ao Início"):
-            ir_para_home()
-        return
-
-    st.markdown(f"<h4 style='text-align: center;'>Próxima Etapa: <b>{proxima_etapa}</b></h4>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center;'>Quem executará a próxima fase?</p>", unsafe_allow_html=True)
+    if curr_idx < len(etapas) - 1:
+        proxima = etapas[curr_idx + 1]
+        st.markdown(f"<p style='text-align: center; font-size: 14px;'>Deseja avançar para <b>{proxima}</b>?</p>", unsafe_allow_html=True)
+        
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("SIM, EU MESMO"):
+                navigate('producao', etapa=proxima, start_time=None)
+        with c2:
+            if st.button("SIM, OUTRO OPERADOR"):
+                navigate('home')
     
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        if st.button("VOCÊ MESMO"):
-            st.session_state.etapa = proxima_etapa
-            st.session_state.start_time = None
-            st.session_state.page = 'producao'
-            st.rerun()
-            
-    with col2:
-        if st.button("OUTRO OPERADOR"):
-            ir_para_home()
-
-def gerar_pdf(df):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", "B", 16)
-    pdf.cell(190, 10, "Relatório de Produtividade - Vi Lingerie", ln=True, align="C")
-    pdf.ln(10)
-    
-    pdf.set_font("Arial", "B", 10)
-    pdf.cell(30, 10, "Operador", 1)
-    pdf.cell(30, 10, "Pedido", 1)
-    pdf.cell(40, 10, "Etapa", 1)
-    pdf.cell(50, 10, "Início", 1)
-    pdf.cell(40, 10, "Duração (s)", 1)
-    pdf.ln()
-    
-    pdf.set_font("Arial", "", 10)
-    for _, row in df.iterrows():
-        pdf.cell(30, 10, str(row['operador']), 1)
-        pdf.cell(30, 10, str(row['pedido']), 1)
-        pdf.cell(40, 10, str(row['etapa']), 1)
-        pdf.cell(50, 10, str(row['inicio']), 1)
-        pdf.cell(40, 10, str(row['duracao_segundos']), 1)
-        pdf.ln()
-    
-    # Removendo caracteres especiais para evitar erro de codificação no latin-1 básico
-    return pdf.output(dest="S").encode("latin-1", "ignore")
+    if st.button("FINALIZAR PEDIDO / NOVO PEDIDO", key="finish_all"):
+        navigate('home')
 
 def tela_admin():
-    header()
-    st.markdown("<h3 style='text-align: center;'>Painel Administrativo</h3>", unsafe_allow_html=True)
+    show_logo()
+    st.markdown("<h3>Painel de Gestão</h3>", unsafe_allow_html=True)
     
-    if st.button("← Voltar"):
-        ir_para_home()
-        
-    df = database.get_stats()
+    if st.button("← Sair do Painel"): navigate('home')
+    
+    df = db_get_stats()
     
     if df.empty:
-        st.info("Nenhum dado registrado ainda.")
+        st.info("Aguardando primeiros registros de produção...")
     else:
-        # Métricas Rápidas
+        # Métricas Enterprise
         m1, m2, m3 = st.columns(3)
-        m1.metric("Total de Etapas", len(df))
-        m2.metric("Pedidos Únicos", df['pedido'].nunique())
-        m3.metric("Tempo Médio (s)", int(df['duracao_segundos'].mean()))
+        with m1:
+            st.metric("Total de Etapas", len(df))
+        with m2:
+            st.metric("Pedidos Atendidos", df['pedido'].nunique())
+        with m3:
+            avg_time = int(df['duracao_segundos'].mean())
+            st.metric("Tempo Médio", f"{avg_time // 60}m {avg_time % 60}s")
         
-        # Tabelas
-        st.markdown("#### Desempenho por Operador")
-        stats_op = df.groupby('operador').agg({
-            'pedido': 'count',
-            'duracao_segundos': 'mean'
-        }).rename(columns={'pedido': 'Qtd Etapas', 'duracao_segundos': 'Tempo Médio (s)'})
-        st.table(stats_op)
+        # Visualizações
+        tab1, tab2 = st.tabs(["📊 Performance", "📋 Histórico Completo"])
         
-        st.markdown("#### Lista de Concluídos")
-        st.dataframe(df[['operador', 'pedido', 'etapa', 'inicio', 'duracao_segundos']], use_container_width=True)
-        
-        # PDF
-        pdf_bytes = gerar_pdf(df)
-        st.download_button(
-            label="Gerar Relatório em PDF",
-            data=pdf_bytes,
-            file_name=f"relatorio_vi_lingerie_{datetime.now().strftime('%Y%m%d')}.pdf",
-            mime="application/pdf"
-        )
+        with tab1:
+            st.markdown("#### Eficiência por Operador")
+            perf = df.groupby('operador').agg({'duracao_segundos': ['count', 'mean']})
+            perf.columns = ['Etapas Concluídas', 'Média (seg)']
+            st.dataframe(perf.style.highlight_max(axis=0, color='#F1F2F6'), use_container_width=True)
+            
+            st.markdown("#### Gargalos por Etapa")
+            etapa_perf = df.groupby('etapa')['duracao_segundos'].mean()
+            st.bar_chart(etapa_perf)
+            
+        with tab2:
+            st.dataframe(df.sort_values('fim', ascending=False), use_container_width=True)
+            
+            # Exportação PDF
+            if st.button("Gerar Relatório Executivo (PDF)"):
+                pdf = FPDF()
+                pdf.add_page()
+                pdf.set_font("Arial", "B", 16)
+                pdf.cell(190, 15, "Relatório de Produtividade - Vi Lingerie", ln=True, align="C")
+                pdf.set_font("Arial", "", 10)
+                pdf.cell(190, 10, f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M')}", ln=True, align="C")
+                pdf.ln(10)
+                
+                # Header Tabela
+                pdf.set_fill_color(240, 240, 240)
+                pdf.set_font("Arial", "B", 9)
+                cols = [("Operador", 35), ("Pedido", 25), ("Etapa", 35), ("Início", 45), ("Duração", 30)]
+                for col_name, width in cols:
+                    pdf.cell(width, 10, col_name, 1, 0, 'C', True)
+                pdf.ln()
+                
+                # Dados
+                pdf.set_font("Arial", "", 8)
+                for _, row in df.iterrows():
+                    pdf.cell(35, 8, str(row['operador']), 1)
+                    pdf.cell(25, 8, str(row['pedido']), 1)
+                    pdf.cell(35, 8, str(row['etapa']), 1)
+                    pdf.cell(45, 8, str(row['inicio']), 1)
+                    pdf.cell(30, 8, f"{row['duracao_segundos']}s", 1)
+                    pdf.ln()
+                
+                pdf_output = pdf.output(dest="S").encode("latin-1", "ignore")
+                b64 = base64.b64encode(pdf_output).decode()
+                href = f'<a href="data:application/pdf;base64,{b64}" download="relatorio_vi.pdf" style="text-decoration:none; color:white; background:#2D3436; padding:10px 20px; border-radius:8px;">Clique aqui para baixar o PDF</a>'
+                st.markdown(href, unsafe_allow_html=True)
 
-# --- ROTEAMENTO ---
+# ==========================================
+# 5. ROTEAMENTO PRINCIPAL
+# ==========================================
+inject_custom_css()
+
 if st.session_state.page == 'home':
-    tela_selecao_operador()
+    tela_home()
 elif st.session_state.page == 'producao':
     tela_producao()
-elif st.session_state.page == 'pos_producao':
-    tela_pos_producao()
-elif st.session_state.page == 'decisao_proxima':
-    tela_decisao_proxima()
+elif st.session_state.page == 'conclusao':
+    tela_conclusao()
 elif st.session_state.page == 'admin':
     tela_admin()
 
-# Rodapé Discreto
-st.markdown("""
-    <div class="footer">
-        <hr style="margin: 20px 0 10px 0; opacity: 0.1;">
-    </div>
-    """, unsafe_allow_html=True)
-
-if st.button("Painel Administrativo", key="admin_btn", help="Acesso restrito"):
-    ir_para_admin()
+# Botão de Gestão Discreto
+st.markdown('<div class="footer-admin">', unsafe_allow_html=True)
+if st.button("⚙️ Gestão", key="admin_access"):
+    navigate('admin')
+st.markdown('</div>', unsafe_allow_html=True)
