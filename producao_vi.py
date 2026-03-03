@@ -433,56 +433,73 @@ def tela_producao():
     # ── Input de pedido ──
     if not st.session_state.rodando and st.session_state.acum == 0 and not st.session_state.modal:
 
-        # Etapa badge centralizado
         st.markdown(f"""
-        <div style="text-align:center; margin-bottom:28px;">
-            <div style="
-                display:inline-flex; align-items:center; gap:10px;
-                background:#fff; border:2px solid #EDD0D6;
-                border-radius:14px; padding:14px 28px;
-                box-shadow: 0 4px 16px rgba(200,86,106,0.10);
-            ">
-                <span style="font-size:22px;">📋</span>
-                <div>
-                    <div style="font-size:10px;font-weight:800;letter-spacing:2px;color:#9C9490;text-transform:uppercase;margin-bottom:2px;">Etapa Atual</div>
-                    <div style="font-size:18px;font-weight:900;color:#C8566A;">{etapa_lbl}</div>
-                </div>
+        <div style="
+            background: linear-gradient(135deg, #C8566A 0%, #9E3F52 100%);
+            border-radius: 18px;
+            padding: 22px 28px;
+            margin-bottom: 28px;
+            box-shadow: 0 8px 0 rgba(100,20,35,0.30), 0 14px 32px rgba(200,86,106,0.30);
+            display: flex; align-items: center; justify-content: space-between;
+        ">
+            <div>
+                <div style="font-size:10px;font-weight:800;letter-spacing:2.5px;color:rgba(255,255,255,0.65);text-transform:uppercase;margin-bottom:5px;">Etapa Atual</div>
+                <div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:0.2px;">{etapa_lbl}</div>
             </div>
+            <div style="
+                background:rgba(255,255,255,0.18);
+                border-radius:14px; padding:12px 16px;
+                font-size:13px; font-weight:800; color:#fff;
+                letter-spacing:0.3px; border:1.5px solid rgba(255,255,255,0.25);
+            ">Operador: {op}</div>
         </div>
         """, unsafe_allow_html=True)
 
-        # Input centralizado
+        # Input label manual
         st.markdown("""
-        <style>
-        .pedido-input-wrap { max-width: 380px; margin: 0 auto 8px; }
-        .pedido-input-wrap label {
-            display: block; text-align: center;
-            font-size: 10px !important; font-weight: 800 !important;
-            letter-spacing: 2px !important; color: #9C9490 !important;
-            text-transform: uppercase !important; margin-bottom: 8px !important;
-        }
-        .pedido-input-wrap input {
-            text-align: center !important;
-            font-size: 20px !important;
-            font-weight: 800 !important;
-            letter-spacing: 1px !important;
-        }
-        </style>
+        <div style="font-size:10px;font-weight:800;letter-spacing:2px;color:#9C9490;
+                    text-transform:uppercase;margin-bottom:8px;">
+            Número do Pedido
+        </div>
         """, unsafe_allow_html=True)
 
-        _, col_inp, _ = st.columns([1, 4, 1])
+        _, col_inp, _ = st.columns([0.3, 5, 0.3])
         with col_inp:
-            pedido_inp = st.text_input("Número do Pedido", value=st.session_state.pedido or "", placeholder="#00123", label_visibility="visible")
-            if st.session_state.erro_pedido:
-                st.markdown('<div style="text-align:center;color:#C8566A;font-size:13px;font-weight:700;margin-top:4px;">⚠ Digite o número do pedido.</div>', unsafe_allow_html=True)
+            st.markdown("""
+            <style>
+            div[data-testid="stTextInput"] label { display:none !important; }
+            div[data-testid="stTextInput"] input {
+                text-align: center !important;
+                font-size: 22px !important;
+                font-weight: 900 !important;
+                letter-spacing: 2px !important;
+                color: #1A1714 !important;
+                height: 64px !important;
+                border: 2.5px solid #E0DBD4 !important;
+                border-radius: 14px !important;
+                background: #fff !important;
+                box-shadow: 0 4px 16px rgba(0,0,0,0.06) !important;
+            }
+            div[data-testid="stTextInput"] input:focus {
+                border-color: #C8566A !important;
+                box-shadow: 0 0 0 5px rgba(200,86,106,0.12), 0 4px 16px rgba(0,0,0,0.06) !important;
+            }
+            div[data-testid="stTextInput"] input::placeholder {
+                color: #CCC6BF !important; font-weight:700 !important; letter-spacing:1px !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+            pedido_inp = st.text_input("_", value=st.session_state.pedido or "", placeholder="# Digite o número do pedido")
+
+        if st.session_state.erro_pedido:
+            st.markdown('<div style="text-align:center;color:#C8566A;font-size:13px;font-weight:800;margin-top:6px;">⚠ Digite o número do pedido.</div>', unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Botões centralizados
-        _, c1, gap, c2, _ = st.columns([0.5, 3, 0.4, 1.5, 0.5])
+        _, c1, gap, c2, _ = st.columns([0.3, 3.5, 0.4, 1.5, 0.3])
         with c1:
             st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
-            if st.button("▶  INICIAR", use_container_width=True):
+            if st.button("▶  INICIAR CRONÔMETRO", use_container_width=True):
                 if not pedido_inp.strip():
                     st.session_state.erro_pedido = True; st.rerun()
                 st.session_state.erro_pedido = False
@@ -503,17 +520,24 @@ def tela_producao():
         elapsed = get_elapsed()
         h, rem = divmod(elapsed, 3600); m, s = divmod(rem, 60)
         st.markdown(f"""
-        <div class="timer-wrap">
-            <div class="pedido-lbl">PEDIDO</div>
-            <div class="pedido-num">{st.session_state.pedido}</div>
-            <div class="timer-num">{h:02d}:{m:02d}:{s:02d}</div>
-            <div style="font-size:12px;font-weight:700;color:#9C9490;margin-top:10px;letter-spacing:.5px;">Etapa: {etapa_lbl}</div>
+        <div style="
+            background: linear-gradient(135deg, #C8566A 0%, #9E3F52 100%);
+            border-radius: 20px;
+            padding: 28px 24px 24px;
+            text-align: center;
+            box-shadow: 0 8px 0 rgba(100,20,35,0.30), 0 16px 36px rgba(200,86,106,0.32);
+            margin-bottom: 20px;
+        ">
+            <div style="font-size:10px;font-weight:800;letter-spacing:3px;color:rgba(255,255,255,0.60);text-transform:uppercase;margin-bottom:4px;">Pedido</div>
+            <div style="font-family:'DM Mono',monospace;font-size:26px;font-weight:500;color:#fff;margin-bottom:16px;letter-spacing:1px;">{st.session_state.pedido}</div>
+            <div style="font-family:'DM Mono',monospace;font-size:68px;font-weight:500;color:#fff;letter-spacing:-3px;line-height:1;">{h:02d}:{m:02d}:{s:02d}</div>
+            <div style="font-size:11px;font-weight:800;color:rgba(255,255,255,0.55);margin-top:14px;letter-spacing:2px;text-transform:uppercase;">Etapa: {etapa_lbl}</div>
         </div>
         """, unsafe_allow_html=True)
         _, col_fin, _ = st.columns([0.5, 5, 0.5])
         with col_fin:
             st.markdown('<div class="btn-finalizar">', unsafe_allow_html=True)
-            if st.button("■  FINALIZAR", use_container_width=True):
+            if st.button("■  FINALIZAR ETAPA", use_container_width=True):
                 tempo = get_elapsed()
                 st.session_state.acum = tempo; st.session_state.rodando = False; st.session_state.inicio = None
                 salvar(st.session_state.pedido, op, ETAPAS[etapa_idx], etapa_idx, tempo)
