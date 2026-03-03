@@ -437,27 +437,18 @@ def tela_producao():
         <div style="
             background: linear-gradient(135deg, #C8566A 0%, #9E3F52 100%);
             border-radius: 18px;
-            padding: 22px 28px;
-            margin-bottom: 28px;
+            padding: 20px 28px;
+            margin-bottom: 24px;
             box-shadow: 0 8px 0 rgba(100,20,35,0.30), 0 14px 32px rgba(200,86,106,0.30);
-            display: flex; align-items: center; justify-content: space-between;
         ">
-            <div>
-                <div style="font-size:10px;font-weight:800;letter-spacing:2.5px;color:rgba(255,255,255,0.65);text-transform:uppercase;margin-bottom:5px;">Etapa Atual</div>
-                <div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:0.2px;">{etapa_lbl}</div>
-            </div>
-            <div style="
-                background:rgba(255,255,255,0.18);
-                border-radius:14px; padding:12px 16px;
-                font-size:13px; font-weight:800; color:#fff;
-                letter-spacing:0.3px; border:1.5px solid rgba(255,255,255,0.25);
-            ">Operador: {op}</div>
+            <div style="font-size:10px;font-weight:800;letter-spacing:2.5px;color:rgba(255,255,255,0.65);text-transform:uppercase;margin-bottom:5px;">Etapa Atual</div>
+            <div style="font-size:24px;font-weight:900;color:#fff;letter-spacing:0.2px;">{etapa_lbl}</div>
         </div>
         """, unsafe_allow_html=True)
 
-        # Input label manual
+        # Label grande
         st.markdown("""
-        <div style="font-size:10px;font-weight:800;letter-spacing:2px;color:#9C9490;
+        <div style="font-size:14px;font-weight:800;letter-spacing:1.5px;color:#5C5450;
                     text-transform:uppercase;margin-bottom:8px;">
             Número do Pedido
         </div>
@@ -470,26 +461,27 @@ def tela_producao():
             div[data-testid="stTextInput"] label { display:none !important; }
             div[data-testid="stTextInput"] input {
                 text-align: center !important;
-                font-size: 22px !important;
-                font-weight: 900 !important;
+                font-size: 18px !important;
+                font-weight: 800 !important;
                 letter-spacing: 2px !important;
                 color: #1A1714 !important;
-                height: 64px !important;
-                border: 2.5px solid #E0DBD4 !important;
-                border-radius: 14px !important;
+                height: 50px !important;
+                border: 2px solid #E0DBD4 !important;
+                border-radius: 12px !important;
                 background: #fff !important;
-                box-shadow: 0 4px 16px rgba(0,0,0,0.06) !important;
+                box-shadow: 0 3px 10px rgba(0,0,0,0.05) !important;
+                padding: 0 16px !important;
             }
             div[data-testid="stTextInput"] input:focus {
                 border-color: #C8566A !important;
-                box-shadow: 0 0 0 5px rgba(200,86,106,0.12), 0 4px 16px rgba(0,0,0,0.06) !important;
+                box-shadow: 0 0 0 4px rgba(200,86,106,0.12), 0 3px 10px rgba(0,0,0,0.05) !important;
             }
             div[data-testid="stTextInput"] input::placeholder {
-                color: #CCC6BF !important; font-weight:700 !important; letter-spacing:1px !important;
+                color: #CCC6BF !important; font-weight:600 !important; font-size:15px !important; letter-spacing:1px !important;
             }
             </style>
             """, unsafe_allow_html=True)
-            pedido_inp = st.text_input("_", value=st.session_state.pedido or "", placeholder="# Digite o número do pedido")
+            pedido_inp = st.text_input("_", value=st.session_state.pedido or "", placeholder="Ex: #00123")
 
         if st.session_state.erro_pedido:
             st.markdown('<div style="text-align:center;color:#C8566A;font-size:13px;font-weight:800;margin-top:6px;">⚠ Digite o número do pedido.</div>', unsafe_allow_html=True)
