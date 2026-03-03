@@ -319,7 +319,7 @@ def tela_home():
     # Build operators JSON for the component
     ops_json = str(OPERADORES).replace("'", '"')
 
-    # Render interactive 3D avatar grid via HTML component
+    # Render interactive avatar grid via HTML component
     clicked = components.html(f"""
     <!DOCTYPE html>
     <html>
@@ -328,103 +328,83 @@ def tela_home():
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;600;700&display=swap" rel="stylesheet">
     <style>
       * {{ margin:0; padding:0; box-sizing:border-box; }}
-      body {{
+      html, body {{
         font-family: 'DM Sans', sans-serif;
         background: transparent;
-        display: flex; flex-direction: column; align-items: center;
-        padding: 4px 0 12px;
+        overflow-x: hidden;
+      }}
+      body {{
+        padding: 8px 4px 16px;
       }}
       .grid {{
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 18px;
+        gap: 10px 14px;
         width: 100%;
-        max-width: 520px;
       }}
       .op-wrap {{
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 9px;
+        gap: 8px;
         cursor: pointer;
-        perspective: 600px;
+        padding: 4px 2px 2px;
       }}
       .avatar {{
-        width: 72px;
-        height: 72px;
+        width: 68px;
+        height: 68px;
         border-radius: 50%;
-        background: linear-gradient(145deg, #D9617A, #9E3F52);
+        background: linear-gradient(150deg, #D9617A 0%, #A84055 60%, #8B3347 100%);
         box-shadow:
-          0 6px 0 #7a2d3e,
-          0 8px 16px rgba(158,63,82,0.45),
-          inset 0 2px 4px rgba(255,255,255,0.25),
-          inset 0 -2px 4px rgba(0,0,0,0.15);
+          0 5px 0 rgba(100,20,35,0.5),
+          0 8px 20px rgba(158,63,82,0.38),
+          inset 0 2px 5px rgba(255,255,255,0.22);
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 26px;
+        font-size: 24px;
         font-weight: 700;
         color: #fff;
-        text-shadow: 0 1px 3px rgba(0,0,0,0.25);
-        transition:
-          transform 0.18s cubic-bezier(.34,1.56,.64,1),
-          box-shadow 0.18s ease,
-          background 0.15s ease;
-        transform-style: preserve-3d;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
         user-select: none;
         position: relative;
         overflow: hidden;
+        flex-shrink: 0;
       }}
-      /* shine overlay */
-      .avatar::before {{
+      /* top gloss */
+      .avatar::after {{
         content: '';
         position: absolute;
-        top: -30%;
-        left: -20%;
-        width: 60%;
-        height: 60%;
-        background: radial-gradient(ellipse, rgba(255,255,255,0.35) 0%, transparent 70%);
+        top: 6px; left: 14px;
+        width: 40px; height: 22px;
+        background: radial-gradient(ellipse, rgba(255,255,255,0.28) 0%, transparent 80%);
         border-radius: 50%;
         pointer-events: none;
-        transition: opacity 0.2s;
       }}
       .op-wrap:hover .avatar {{
-        transform: translateY(-6px) rotateX(12deg) scale(1.08);
+        transform: translateY(-5px) scale(1.06);
         box-shadow:
-          0 12px 0 #7a2d3e,
-          0 18px 32px rgba(158,63,82,0.55),
-          inset 0 2px 6px rgba(255,255,255,0.35),
-          inset 0 -2px 4px rgba(0,0,0,0.15);
-        background: linear-gradient(145deg, #E06B82, #B04A5E);
+          0 10px 0 rgba(100,20,35,0.45),
+          0 16px 28px rgba(158,63,82,0.45),
+          inset 0 2px 5px rgba(255,255,255,0.25);
       }}
       .op-wrap:active .avatar {{
-        transform: translateY(2px) rotateX(4deg) scale(0.96);
+        transform: translateY(1px) scale(0.97);
         box-shadow:
-          0 2px 0 #7a2d3e,
-          0 4px 10px rgba(158,63,82,0.4),
-          inset 0 2px 6px rgba(0,0,0,0.2);
-        background: linear-gradient(145deg, #B04A5E, #8B3347);
-        transition: transform 0.08s ease, box-shadow 0.08s ease;
-      }}
-      /* ripple */
-      .ripple {{
-        position: absolute;
-        border-radius: 50%;
-        background: rgba(255,255,255,0.4);
-        transform: scale(0);
-        animation: ripple-anim 0.5s linear;
-        pointer-events: none;
-      }}
-      @keyframes ripple-anim {{
-        to {{ transform: scale(3.5); opacity: 0; }}
+          0 2px 0 rgba(100,20,35,0.5),
+          0 4px 10px rgba(158,63,82,0.35),
+          inset 0 3px 6px rgba(0,0,0,0.18);
+        transition: transform 0.07s ease, box-shadow 0.07s ease;
       }}
       .op-name {{
-        font-size: 12px;
+        font-size: 11.5px;
         font-weight: 600;
         color: #1A1714;
         text-align: center;
-        letter-spacing: 0.2px;
-        line-height: 1.2;
+        line-height: 1.3;
+        word-break: break-word;
+        max-width: 80px;
       }}
     </style>
     </head>
@@ -446,26 +426,18 @@ def tela_home():
         name.className = 'op-name';
         name.textContent = op;
 
-        // Ripple effect on click
-        avatar.addEventListener('click', function(e) {{
-          // ripple
-          const ripple = document.createElement('span');
-          ripple.className = 'ripple';
-          const rect = avatar.getBoundingClientRect();
-          const size = Math.max(rect.width, rect.height);
-          ripple.style.width = ripple.style.height = size + 'px';
-          ripple.style.left = (e.clientX - rect.left - size/2) + 'px';
-          ripple.style.top = (e.clientY - rect.top - size/2) + 'px';
-          avatar.appendChild(ripple);
-          setTimeout(() => ripple.remove(), 600);
+        wrap.addEventListener('click', function() {{
+          avatar.style.transition = 'transform 0.07s ease, box-shadow 0.07s ease';
+          setTimeout(() => {{
+            avatar.style.transition = '';
+          }}, 200);
 
-          // Send to Streamlit after short delay for animation
           setTimeout(() => {{
             window.parent.postMessage({{
               type: 'streamlit:setComponentValue',
               value: op
             }}, '*');
-          }}, 120);
+          }}, 130);
         }});
 
         wrap.appendChild(avatar);
@@ -475,7 +447,7 @@ def tela_home():
     </script>
     </body>
     </html>
-    """, height=320)
+    """, height=370, scrolling=False)
 
     # Handle click from component
     if clicked and isinstance(clicked, str) and clicked in OPERADORES:
