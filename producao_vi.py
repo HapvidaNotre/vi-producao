@@ -432,13 +432,54 @@ def tela_producao():
 
     # ── Input de pedido ──
     if not st.session_state.rodando and st.session_state.acum == 0 and not st.session_state.modal:
-        st.markdown(f'<div class="etapa-info">📋 Etapa atual: {etapa_lbl}</div>', unsafe_allow_html=True)
-        pedido_inp = st.text_input("NÚMERO DO PEDIDO", value=st.session_state.pedido or "", placeholder="Ex: #00123")
-        if st.session_state.erro_pedido:
-            st.markdown('<span style="color:#C8566A;font-size:13px;font-weight:700;">⚠ Digite o número do pedido.</span>', unsafe_allow_html=True)
+
+        # Etapa badge centralizado
+        st.markdown(f"""
+        <div style="text-align:center; margin-bottom:28px;">
+            <div style="
+                display:inline-flex; align-items:center; gap:10px;
+                background:#fff; border:2px solid #EDD0D6;
+                border-radius:14px; padding:14px 28px;
+                box-shadow: 0 4px 16px rgba(200,86,106,0.10);
+            ">
+                <span style="font-size:22px;">📋</span>
+                <div>
+                    <div style="font-size:10px;font-weight:800;letter-spacing:2px;color:#9C9490;text-transform:uppercase;margin-bottom:2px;">Etapa Atual</div>
+                    <div style="font-size:18px;font-weight:900;color:#C8566A;">{etapa_lbl}</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Input centralizado
+        st.markdown("""
+        <style>
+        .pedido-input-wrap { max-width: 380px; margin: 0 auto 8px; }
+        .pedido-input-wrap label {
+            display: block; text-align: center;
+            font-size: 10px !important; font-weight: 800 !important;
+            letter-spacing: 2px !important; color: #9C9490 !important;
+            text-transform: uppercase !important; margin-bottom: 8px !important;
+        }
+        .pedido-input-wrap input {
+            text-align: center !important;
+            font-size: 20px !important;
+            font-weight: 800 !important;
+            letter-spacing: 1px !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        _, col_inp, _ = st.columns([1, 4, 1])
+        with col_inp:
+            pedido_inp = st.text_input("Número do Pedido", value=st.session_state.pedido or "", placeholder="#00123", label_visibility="visible")
+            if st.session_state.erro_pedido:
+                st.markdown('<div style="text-align:center;color:#C8566A;font-size:13px;font-weight:700;margin-top:4px;">⚠ Digite o número do pedido.</div>', unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
-        c1, c2 = st.columns([3, 1])
+
+        # Botões centralizados
+        _, c1, gap, c2, _ = st.columns([0.5, 3, 0.4, 1.5, 0.5])
         with c1:
             st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
             if st.button("▶  INICIAR", use_container_width=True):
@@ -469,14 +510,16 @@ def tela_producao():
             <div style="font-size:12px;font-weight:700;color:#9C9490;margin-top:10px;letter-spacing:.5px;">Etapa: {etapa_lbl}</div>
         </div>
         """, unsafe_allow_html=True)
-        st.markdown('<div class="btn-finalizar">', unsafe_allow_html=True)
-        if st.button("■  FINALIZAR", use_container_width=True):
-            tempo = get_elapsed()
-            st.session_state.acum = tempo; st.session_state.rodando = False; st.session_state.inicio = None
-            salvar(st.session_state.pedido, op, ETAPAS[etapa_idx], etapa_idx, tempo)
-            st.session_state.modal = "proxima" if etapa_idx < 2 else "concluido"
-            st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+        _, col_fin, _ = st.columns([0.5, 5, 0.5])
+        with col_fin:
+            st.markdown('<div class="btn-finalizar">', unsafe_allow_html=True)
+            if st.button("■  FINALIZAR", use_container_width=True):
+                tempo = get_elapsed()
+                st.session_state.acum = tempo; st.session_state.rodando = False; st.session_state.inicio = None
+                salvar(st.session_state.pedido, op, ETAPAS[etapa_idx], etapa_idx, tempo)
+                st.session_state.modal = "proxima" if etapa_idx < 2 else "concluido"
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
         time.sleep(1); st.rerun()
 
     # ── Modal: próxima etapa? ──
