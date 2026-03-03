@@ -428,7 +428,7 @@ def tela_producao():
     etapa_idx = st.session_state.etapa_idx
     etapa_lbl = ETAPAS_LBL[etapa_idx]
 
-    st.markdown(f'<div style="text-align:center;margin-bottom:1rem;"><span class="badge-op">● {op}</span></div>', unsafe_allow_html=True)
+    st.markdown("<br style='line-height:0.5'>", unsafe_allow_html=True)
 
     # ── Input de pedido ──
     if not st.session_state.rodando and st.session_state.acum == 0 and not st.session_state.modal:
@@ -442,8 +442,17 @@ def tela_producao():
             text-align: center;
             box-shadow: 0 8px 0 rgba(100,20,35,0.30), 0 14px 32px rgba(200,86,106,0.30);
         ">
-            <div style="font-size:10px;font-weight:800;letter-spacing:2.5px;color:rgba(255,255,255,0.65);text-transform:uppercase;margin-bottom:5px;">Etapa Atual</div>
-            <div style="font-size:24px;font-weight:900;color:#fff;letter-spacing:0.2px;">{etapa_lbl}</div>
+            <div style="font-size:10px;font-weight:800;letter-spacing:2.5px;color:rgba(255,255,255,0.60);text-transform:uppercase;margin-bottom:6px;">Etapa Atual</div>
+            <div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:0.2px;margin-bottom:12px;">{etapa_lbl}</div>
+            <div style="
+                display:inline-flex; align-items:center; gap:7px;
+                background:rgba(255,255,255,0.15);
+                border:1.5px solid rgba(255,255,255,0.25);
+                border-radius:100px; padding:6px 18px;
+            ">
+                <div style="width:8px;height:8px;border-radius:50%;background:#fff;opacity:0.9;"></div>
+                <span style="font-size:13px;font-weight:800;color:#fff;letter-spacing:0.5px;">{op}</span>
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
