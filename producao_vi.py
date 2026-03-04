@@ -944,32 +944,218 @@ def tela_admin_login():
 # ─────────────────────────────────────
 #  TELA: ADMIN PANEL
 # ─────────────────────────────────────
+def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg):
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+        leftMargin=2*cm, rightMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
+
+    ROSA      = colors.HexColor("#C8566A")
+    ESCURO    = colors.HexColor("#1A1714")
+    CLARO     = colors.HexColor("#F7F5F2")
+    CINZA     = colors.HexColor("#8C8480")
+    VERDE     = colors.HexColor("#4A7C59")
+    BEGE      = colors.HexColor("#EDE9E4")
+    BRANCO    = colors.white
+
+    styles = getSampleStyleSheet()
+
+    def sty(name, **kw):
+        s = ParagraphStyle(name, **kw)
+        return s
+
+    S_TITLE    = sty("t", fontName="Helvetica-Bold", fontSize=22, textColor=ESCURO, spaceAfter=2)
+    S_SUB      = sty("s", fontName="Helvetica",      fontSize=10, textColor=CINZA,  spaceAfter=0)
+    S_SECTION  = sty("sc",fontName="Helvetica-Bold", fontSize=9,  textColor=CINZA,
+                     spaceAfter=6, spaceBefore=16, letterSpacing=1.5)
+    S_FOOTER   = sty("f", fontName="Helvetica",      fontSize=8,  textColor=CINZA, alignment=TA_CENTER)
+
+    story = []
+    now_str = datetime.now().strftime("%d/%m/%Y às %H:%M")
+
+    # ── Header ──
+    header_data = [[
+        Paragraph("<b><font color='#C8566A' size='18'>Vi</font> LINGERIE</b>", styles["Normal"]),
+        Paragraph(f"<font color='#8C8480' size='8'>Gerado em {now_str}</font>", ParagraphStyle("r", alignment=TA_RIGHT))
+    ]]
+    header_tbl = Table(header_data, colWidths=["60%","40%"])
+    header_tbl.setStyle(TableStyle([
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 10),
+    ]))
+    story.append(header_tbl)
+    story.append(HRFlowable(width="100%", thickness=2, color=ROSA, spaceAfter=14))
+
+    story.append(Paragraph("Relatório de Produção", S_TITLE))
+    story.append(Paragraph("Desempenho de operadores por etapa do processo produtivo", S_SUB))
+    story.append(Spacer(1, 18))
+
+    # ── KPI cards ──
+    story.append(Paragraph("RESUMO GERAL", S_SECTION))
+    kpi_data = [
+        [Paragraph(f"<b><font size='22' color='#C8566A'>{len(ped_comp)}</font></b><br/><font size='8' color='#8C8480'>PEDIDOS CONCLUÍDOS</font>", styles["Normal"]),
+         Paragraph(f"<b><font size='22' color='#C8566A'>{len(ops_ativ)}</font></b><br/><font size='8' color='#8C8480'>OPERADORES ATIVOS</font>", styles["Normal"]),
+         Paragraph(f"<b><font size='22' color='#C8566A'>{avg}m</font></b><br/><font size='8' color='#8C8480'>TEMPO MÉDIO</font>", styles["Normal"]),
+         Paragraph(f"<b><font size='22' color='#C8566A'>{len(regs)}</font></b><br/><font size='8' color='#8C8480'>REGISTROS TOTAIS</font>", styles["Normal"])],
+    ]
+    kpi_tbl = Table(kpi_data, colWidths=["25%","25%","25%","25%"])
+    kpi_tbl.setStyle(TableStyle([
+        ("BACKGROUND",    (0,0), (-1,-1), CLARO),
+        ("ROWBACKGROUNDS",(0,0), (-1,-1), [CLARO]),
+        ("BOX",           (0,0), (0,0),   0.8, BEGE),
+        ("BOX",           (1,0), (1,0),   0.8, BEGE),
+        ("BOX",           (2,0), (2,0),   0.8, BEGE),
+        ("BOX",           (3,0), (3,0),   0.8, BEGE),
+        ("ROUNDEDCORNERS",(0,0), (-1,-1), 6),
+        ("TOPPADDING",    (0,0), (-1,-1), 14),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 14),
+        ("LEFTPADDING",   (0,0), (-1,-1), 14),
+        ("ALIGN",         (0,0), (-1,-1), "CENTER"),
+        ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+    ]))
+    story.append(kpi_tbl)
+    story.append(Spacer(1, 20))
+
+    # ── Operator performance ──
+    if op_map:
+        story.append(Paragraph("DESEMPENHO POR OPERADOR", S_SECTION))
+        op_header = [
+            Paragraph("<b>OPERADOR</b>", ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO)),
+            Paragraph("<b>PEDIDOS</b>",  ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>SEPARAÇÃO</b>",ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>CONFERÊNCIA</b>",ParagraphStyle("h",fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>EMBALAGEM</b>",ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+        ]
+        op_rows = [op_header]
+        for i, (op, d) in enumerate(op_map.items()):
+            bg = CLARO if i % 2 == 0 else BRANCO
+            op_rows.append([
+                Paragraph(f"<b>{op}</b>", ParagraphStyle("o", fontName="Helvetica-Bold", fontSize=9, textColor=ESCURO)),
+                Paragraph(str(len(d["p"])), ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
+                Paragraph(fmt(media(d["sep"])) if d["sep"] else "—", ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
+                Paragraph(fmt(media(d["conf"])) if d["conf"] else "—", ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
+                Paragraph(fmt(media(d["emb"])) if d["emb"] else "—", ParagraphStyle("c", fontSize=9, textColor=VERDE, alignment=TA_CENTER, fontName="Helvetica-Bold")),
+            ])
+
+        op_tbl = Table(op_rows, colWidths=["30%","14%","18%","20%","18%"])
+        row_bgs = [ROSA] + [CLARO if i%2==0 else BRANCO for i in range(len(op_rows)-1)]
+        op_tbl.setStyle(TableStyle([
+            ("BACKGROUND",    (0,0), (-1,0), ROSA),
+            ("ROWBACKGROUNDS",(0,1), (-1,-1), [CLARO, BRANCO]),
+            ("GRID",          (0,0), (-1,-1), 0.4, BEGE),
+            ("TOPPADDING",    (0,0), (-1,-1), 9),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 9),
+            ("LEFTPADDING",   (0,0), (-1,-1), 10),
+            ("RIGHTPADDING",  (0,0), (-1,-1), 10),
+            ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+            ("LINEBELOW",     (0,0), (-1,0), 0, colors.transparent),
+        ]))
+        story.append(op_tbl)
+        story.append(Spacer(1, 20))
+
+    # ── History ──
+    if regs:
+        story.append(Paragraph("HISTÓRICO DE PEDIDOS", S_SECTION))
+        ETAPA_CORES = {"Separacao": colors.HexColor("#3B5EC6"),
+                       "Conferencia": colors.HexColor("#C47B2A"),
+                       "Embalagem": colors.HexColor("#4A7C59")}
+        ETAPA_NOMES = {"Separacao":"Separação","Conferencia":"Conferência","Embalagem":"Embalagem"}
+        hist_header = [
+            Paragraph("<b>PEDIDO</b>",   ParagraphStyle("h",fontName="Helvetica-Bold",fontSize=8,textColor=BRANCO)),
+            Paragraph("<b>OPERADOR</b>", ParagraphStyle("h",fontName="Helvetica-Bold",fontSize=8,textColor=BRANCO)),
+            Paragraph("<b>ETAPA</b>",    ParagraphStyle("h",fontName="Helvetica-Bold",fontSize=8,textColor=BRANCO,alignment=TA_CENTER)),
+            Paragraph("<b>TEMPO</b>",    ParagraphStyle("h",fontName="Helvetica-Bold",fontSize=8,textColor=BRANCO,alignment=TA_CENTER)),
+            Paragraph("<b>DATA</b>",     ParagraphStyle("h",fontName="Helvetica-Bold",fontSize=8,textColor=BRANCO,alignment=TA_CENTER)),
+        ]
+        hist_rows = [hist_header]
+        for i, r in enumerate(regs[:80]):
+            cor_etapa = ETAPA_CORES.get(r[3], CINZA)
+            hist_rows.append([
+                Paragraph(f"<font name='Courier-Bold' size='8'>{r[1]}</font>", styles["Normal"]),
+                Paragraph(f"<font size='8'>{r[2]}</font>", styles["Normal"]),
+                Paragraph(ETAPA_NOMES.get(r[3], r[3]), styles["Normal"]),
+                Paragraph(f"<font name='Courier' size='8'>{fmt(r[5])}</font>", ParagraphStyle("c",fontSize=8,alignment=TA_CENTER)),
+                Paragraph(f"<font size='7' color='#8C8480'>{r[6]}</font>", ParagraphStyle("c",fontSize=7,alignment=TA_CENTER)),
+            ])
+
+        hist_tbl = Table(hist_rows, colWidths=["18%","22%","22%","16%","22%"])
+        hist_tbl.setStyle(TableStyle([
+            ("BACKGROUND",    (0,0), (-1,0), ESCURO),
+            ("ROWBACKGROUNDS",(0,1), (-1,-1), [CLARO, BRANCO]),
+            ("GRID",          (0,0), (-1,-1), 0.3, BEGE),
+            ("TOPPADDING",    (0,0), (-1,-1), 7),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 7),
+            ("LEFTPADDING",   (0,0), (-1,-1), 8),
+            ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+        ]))
+        story.append(hist_tbl)
+
+    story.append(Spacer(1, 24))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=BEGE, spaceAfter=8))
+    story.append(Paragraph(f"Vi Lingerie · Relatório gerado automaticamente em {now_str} · Sistema de Produção", S_FOOTER))
+
+    doc.build(story)
+    return buf.getvalue()
+
+
 def tela_admin():
     render_logo()
+
+    # ── Header bar ──
     c1, c2 = st.columns([3, 1])
     with c1:
-        st.markdown('<div class="section-label" style="text-align:left;margin-bottom:2px;">Painel Administrativo</div>', unsafe_allow_html=True)
-        st.markdown('<div style="font-size:20px;font-weight:700;margin-bottom:1rem;">Visão Geral</div>', unsafe_allow_html=True)
+        st.markdown("""
+        <div style="margin-bottom:1.2rem;">
+            <div style="font-size:10px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;color:#9C9490;margin-bottom:4px;">Painel Administrativo</div>
+            <div style="font-size:24px;font-weight:900;color:#1A1714;letter-spacing:-0.3px;">Visão Geral da Produção</div>
+        </div>
+        """, unsafe_allow_html=True)
     with c2:
-        st.markdown('<div class="btn-outline btn-sm">', unsafe_allow_html=True)
-        if st.button("← Voltar"):
+        st.markdown('<div class="btn-voltar btn-sm">', unsafe_allow_html=True)
+        if st.button("← Sair", use_container_width=True):
             st.session_state.tela = "home"; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    regs = buscar()
-    ped_comp  = list({r[1] for r in regs if r[4] == 2})
-    ops_ativ  = list({r[2] for r in regs})
-    avg       = media([r[5] for r in regs]) // 60 if regs else 0
+    regs     = buscar()
+    ped_comp = list({r[1] for r in regs if r[4] == 2})
+    ops_ativ = list({r[2] for r in regs})
+    avg      = media([r[5] for r in regs]) // 60 if regs else 0
+    total_r  = len(regs)
 
-    for col, num, lbl in zip(st.columns(3),
-        [len(ped_comp), len(ops_ativ), f"{avg}m"],
-        ["Pedidos Concluídos","Operadores Ativos","Tempo Médio"]):
+    # ── KPI Cards ──
+    kpi_data = [
+        (len(ped_comp), "Pedidos Concluídos", "📦", "#C8566A"),
+        (len(ops_ativ), "Operadores Ativos",  "👥", "#4A7C59"),
+        (f"{avg}m",     "Tempo Médio",        "⏱", "#3B5EC6"),
+        (total_r,       "Total Registros",    "📊", "#C47B2A"),
+    ]
+    cols = st.columns(4)
+    for col, (num, lbl, icon, cor) in zip(cols, kpi_data):
         with col:
-            st.markdown(f'<div class="stat-box"><div class="stat-num">{num}</div><div class="stat-lbl">{lbl}</div></div>', unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background:#fff;border-radius:16px;padding:18px 16px 16px;
+                        border:1.5px solid #EDE9E4;
+                        box-shadow:0 2px 12px rgba(0,0,0,0.05);
+                        position:relative;overflow:hidden;">
+                <div style="position:absolute;top:-10px;right:-10px;font-size:48px;opacity:0.07;">{icon}</div>
+                <div style="font-size:10px;font-weight:800;letter-spacing:1.5px;
+                            text-transform:uppercase;color:#9C9490;margin-bottom:6px;">{lbl}</div>
+                <div style="font-size:30px;font-weight:900;color:{cor};
+                            font-family:'DM Mono',monospace;letter-spacing:-1px;">{num}</div>
+                <div style="height:3px;background:{cor};border-radius:2px;
+                            margin-top:12px;opacity:0.25;"></div>
+            </div>
+            """, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown('<div style="font-size:13px;font-weight:700;margin-bottom:8px;">Desempenho por Operador</div>', unsafe_allow_html=True)
 
+    # ── Operator performance table ──
     op_map = {}
     for r in regs:
         op = r[2]
@@ -979,30 +1165,177 @@ def tela_admin():
         if r[4]==1: op_map[op]["conf"].append(r[5])
         if r[4]==2: op_map[op]["emb"].append(r[5])
 
-    rows = "".join(f"<tr><td><b>{op}</b></td><td>{len(d['p'])}</td><td>{fmt(media(d['sep'])) if d['sep'] else '—'}</td><td>{fmt(media(d['conf'])) if d['conf'] else '—'}</td><td>{fmt(media(d['emb'])) if d['emb'] else '—'}</td></tr>"
-        for op, d in op_map.items()) or '<tr><td colspan="5" style="text-align:center;color:#ccc;padding:20px">Sem dados</td></tr>'
+    st.markdown("""
+    <div style="font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
+                color:#9C9490;margin-bottom:10px;">Desempenho por Operador</div>
+    """, unsafe_allow_html=True)
 
-    st.markdown(f'<div class="vi-card"><table><thead><tr><th>Operador</th><th>Pedidos</th><th>Separação</th><th>Conferência</th><th>Embalagem</th></tr></thead><tbody>{rows}</tbody></table></div>', unsafe_allow_html=True)
+    if op_map:
+        rows_html = ""
+        for op, d in op_map.items():
+            sep_t  = fmt(media(d["sep"]))  if d["sep"]  else "—"
+            conf_t = fmt(media(d["conf"])) if d["conf"] else "—"
+            emb_t  = fmt(media(d["emb"]))  if d["emb"]  else "—"
+            initial = op[0].upper()
+            rows_html += f"""
+            <tr>
+              <td>
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <div style="width:34px;height:34px;border-radius:50%;
+                       background:linear-gradient(135deg,#D9617A,#9E3F52);
+                       display:flex;align-items:center;justify-content:center;
+                       font-size:14px;font-weight:900;color:#fff;flex-shrink:0;">{initial}</div>
+                  <span style="font-weight:800;font-size:14px;color:#1A1714;">{op}</span>
+                </div>
+              </td>
+              <td style="text-align:center;">
+                <span style="background:#F5E8EB;color:#C8566A;font-weight:800;
+                       font-size:13px;padding:4px 12px;border-radius:100px;">{len(d["p"])}</span>
+              </td>
+              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:13px;color:#3B5EC6;font-weight:600;">{sep_t}</td>
+              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:13px;color:#C47B2A;font-weight:600;">{conf_t}</td>
+              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:13px;color:#4A7C59;font-weight:700;">{emb_t}</td>
+            </tr>"""
+
+        st.markdown(f"""
+        <div style="background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;
+                    overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);margin-bottom:6px;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="background:#1A1714;">
+                <th style="padding:12px 16px;font-size:10px;font-weight:800;letter-spacing:1.5px;
+                           text-transform:uppercase;color:rgba(255,255,255,0.5);text-align:left;">Operador</th>
+                <th style="padding:12px 10px;font-size:10px;font-weight:800;letter-spacing:1.5px;
+                           text-transform:uppercase;color:rgba(255,255,255,0.5);text-align:center;">Pedidos</th>
+                <th style="padding:12px 10px;font-size:10px;font-weight:800;letter-spacing:1.5px;
+                           text-transform:uppercase;color:#7B9FE0;text-align:center;">Separação</th>
+                <th style="padding:12px 10px;font-size:10px;font-weight:800;letter-spacing:1.5px;
+                           text-transform:uppercase;color:#D4A45A;text-align:center;">Conferência</th>
+                <th style="padding:12px 10px;font-size:10px;font-weight:800;letter-spacing:1.5px;
+                           text-transform:uppercase;color:#7AB895;text-align:center;">Embalagem</th>
+              </tr>
+            </thead>
+            <tbody style="font-family:'Nunito',sans-serif;">
+              {rows_html}
+            </tbody>
+          </table>
+        </div>
+        <style>
+        tbody tr {{ border-bottom: 1px solid #F2EEE9; transition: background .15s; }}
+        tbody tr:last-child {{ border-bottom: none; }}
+        tbody tr:hover {{ background: #FDFAF9 !important; }}
+        tbody td {{ padding: 13px 16px; vertical-align: middle; }}
+        </style>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div style="background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;
+                    padding:40px;text-align:center;color:#9C9490;font-size:14px;font-weight:600;">
+            Nenhum registro ainda.
+        </div>
+        """, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── History ──
     h1, h2 = st.columns([3, 1])
-    with h1: st.markdown('<div style="font-size:13px;font-weight:700;margin-bottom:8px;">Histórico de Pedidos</div>', unsafe_allow_html=True)
+    with h1:
+        st.markdown("""
+        <div style="font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
+                    color:#9C9490;margin-bottom:10px;">Histórico de Pedidos</div>
+        """, unsafe_allow_html=True)
     with h2:
-        if st.button("🗑 Limpar"): limpar(); st.rerun()
+        st.markdown('<div class="btn-sm">', unsafe_allow_html=True)
+        if st.button("🗑 Limpar dados", use_container_width=True):
+            limpar(); st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    tag_cls = ["tag-sep","tag-conf","tag-emb"]
-    hist = "".join(f"<tr><td style=\"font-family:'DM Mono',monospace;font-size:12px\">{r[1]}</td><td>{r[2]}</td><td><span class=\"tag {tag_cls[r[4]]}\">{r[3]}</span></td><td style=\"font-family:'DM Mono',monospace;font-size:12px\">{fmt(r[5])}</td><td style=\"color:#8C8480;font-size:12px\">{r[6]}</td></tr>"
-        for r in regs[:60]) or '<tr><td colspan="5" style="text-align:center;color:#ccc;padding:20px">Sem dados</td></tr>'
-
-    st.markdown(f'<div class="vi-card"><table><thead><tr><th>Pedido</th><th>Operador</th><th>Etapa</th><th>Tempo</th><th>Data</th></tr></thead><tbody>{hist}</tbody></table></div>', unsafe_allow_html=True)
+    tag_map = {
+        0: ("<span style='background:#EBF0FB;color:#3B5EC6;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;'>Separação</span>"),
+        1: ("<span style='background:#FBF2E6;color:#C47B2A;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;'>Conferência</span>"),
+        2: ("<span style='background:#E8F2EC;color:#4A7C59;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;'>Embalagem</span>"),
+    }
 
     if regs:
-        st.markdown("<br>", unsafe_allow_html=True)
-        buf = io.StringIO()
-        csv.writer(buf).writerows([["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data"]] + list(regs))
-        st.download_button("⬇  Exportar CSV", buf.getvalue().encode(),
-            f"vi_producao_{datetime.now().strftime('%Y%m%d_%H%M')}.csv", "text/csv", use_container_width=True)
+        hist_rows = ""
+        for r in regs[:80]:
+            hist_rows += f"""
+            <tr>
+              <td style="font-family:'DM Mono',monospace;font-size:12px;font-weight:600;color:#1A1714;">{r[1]}</td>
+              <td style="font-size:13px;font-weight:700;color:#1A1714;">{r[2]}</td>
+              <td>{tag_map.get(r[4], r[3])}</td>
+              <td style="font-family:'DM Mono',monospace;font-size:12px;font-weight:600;color:#4A7C59;text-align:center;">{fmt(r[5])}</td>
+              <td style="font-size:11px;color:#9C9490;text-align:center;">{r[6]}</td>
+            </tr>"""
 
+        st.markdown(f"""
+        <div style="background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;
+                    overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="background:#1A1714;">
+                <th style="padding:12px 16px;font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.5);text-align:left;">Pedido</th>
+                <th style="padding:12px 10px;font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.5);text-align:left;">Operador</th>
+                <th style="padding:12px 10px;font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.5);">Etapa</th>
+                <th style="padding:12px 10px;font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.5);text-align:center;">Tempo</th>
+                <th style="padding:12px 10px;font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.5);text-align:center;">Data</th>
+              </tr>
+            </thead>
+            <tbody>{hist_rows}</tbody>
+          </table>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div style="background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;
+                    padding:40px;text-align:center;color:#9C9490;font-size:14px;font-weight:600;">
+            Nenhum registro ainda.
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Export buttons ──
+    if regs:
+        c1, c2 = st.columns(2)
+        with c1:
+            # CSV
+            buf_csv = io.StringIO()
+            csv.writer(buf_csv).writerows(
+                [["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data"]] + list(regs))
+            st.download_button(
+                label="⬇  Exportar CSV",
+                data=buf_csv.getvalue().encode(),
+                file_name=f"vi_producao_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                mime="text/csv",
+                use_container_width=True,
+            )
+        with c2:
+            # PDF
+            st.markdown("""
+            <style>
+            .btn-pdf > button {
+                background: linear-gradient(135deg,#C8566A,#9E3F52) !important;
+                color:#fff !important; border:none !important;
+                box-shadow: 0 5px 0 rgba(100,20,35,0.40), 0 8px 20px rgba(200,86,106,0.28) !important;
+                font-weight:800 !important; letter-spacing:.5px !important;
+            }
+            .btn-pdf > button:hover {
+                transform:translateY(-2px) !important;
+                box-shadow: 0 8px 0 rgba(100,20,35,0.38), 0 14px 28px rgba(200,86,106,0.35) !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+            st.markdown('<div class="btn-pdf">', unsafe_allow_html=True)
+            pdf_bytes = gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg)
+            st.download_button(
+                label="📄  Exportar Relatório PDF",
+                data=pdf_bytes,
+                file_name=f"vi_relatorio_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
+            st.markdown('</div>', unsafe_allow_html=True)
 # ─────────────────────────────────────
 #  ROUTER
 # ─────────────────────────────────────
