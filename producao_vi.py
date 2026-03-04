@@ -1328,11 +1328,25 @@ def tela_admin():
 
     # ── Export buttons ──
     if regs:
+        st.markdown("""
+        <style>
+        .btn-pdf > button {
+            background: linear-gradient(135deg,#C8566A,#9E3F52) !important;
+            color:#fff !important; border:none !important;
+            box-shadow: 0 5px 0 rgba(100,20,35,0.40), 0 8px 20px rgba(200,86,106,0.28) !important;
+            font-weight:800 !important; height:54px !important;
+        }
+        .btn-pdf > button:hover { transform:translateY(-2px) !important; }
+        </style>
+        """, unsafe_allow_html=True)
+
+        buf_csv = io.StringIO()
+        csv.writer(buf_csv).writerows(
+            [["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data"]] + list(regs))
+        pdf_bytes = gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg)
+
         c1, c2 = st.columns(2)
         with c1:
-            buf_csv = io.StringIO()
-            csv.writer(buf_csv).writerows(
-                [["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data"]] + list(regs))
             st.download_button(
                 label="⬇  Exportar CSV",
                 data=buf_csv.getvalue().encode(),
@@ -1341,19 +1355,7 @@ def tela_admin():
                 use_container_width=True,
             )
         with c2:
-            st.markdown("""
-            <style>
-            .btn-pdf > button {
-                background: linear-gradient(135deg,#C8566A,#9E3F52) !important;
-                color:#fff !important; border:none !important;
-                box-shadow: 0 5px 0 rgba(100,20,35,0.40), 0 8px 20px rgba(200,86,106,0.28) !important;
-                font-weight:800 !important;
-            }
-            .btn-pdf > button:hover { transform:translateY(-2px) !important; }
-            </style>
-            """, unsafe_allow_html=True)
             st.markdown('<div class="btn-pdf">', unsafe_allow_html=True)
-            pdf_bytes = gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg)
             st.download_button(
                 label="📄  Exportar Relatório PDF",
                 data=pdf_bytes,
