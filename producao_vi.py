@@ -688,117 +688,259 @@ def tela_producao():
 #  TELA: ADMIN LOGIN
 # ─────────────────────────────────────
 def tela_admin_login():
-    # ── Hero header ──
-    components.html(f"""
-    <!DOCTYPE html><html><head>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
-    <style>* {{margin:0;padding:0;box-sizing:border-box;}}</style>
-    </head><body style="background:transparent;font-family:Nunito,sans-serif;">
-    <div style="background:linear-gradient(135deg,#1A1714 0%,#2e2825 100%);border-radius:20px;padding:0;overflow:hidden;position:relative;box-shadow:0 8px 0 rgba(0,0,0,0.35),0 16px 40px rgba(0,0,0,0.25);">
-        <div style="position:absolute;right:-40px;top:-40px;width:180px;height:180px;border-radius:50%;background:rgba(200,86,106,0.08);"></div>
-        <div style="position:absolute;left:-20px;bottom:-50px;width:140px;height:140px;border-radius:50%;background:rgba(200,86,106,0.05);"></div>
-        <div style="padding:32px 28px;position:relative;z-index:1;display:flex;align-items:center;gap:20px;">
-            <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#C8566A,#9E3F52);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(200,86,106,0.40);flex-shrink:0;">
-                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                </svg>
-            </div>
-            <div>
-                <div style="font-size:10px;font-weight:800;letter-spacing:2.5px;color:rgba(255,255,255,0.45);text-transform:uppercase;margin-bottom:4px;">Acesso Restrito</div>
-                <div style="font-size:20px;font-weight:900;color:#fff;letter-spacing:-0.3px;">Painel Administrativo</div>
-            </div>
+    render_logo()
+
+    erro = st.session_state.erro_senha
+
+    # Full premium admin login via components.html
+    components.html("""
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+      *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+      body { background:transparent; font-family:'Inter',sans-serif; }
+
+      .card {
+        background: linear-gradient(145deg, #1c1917 0%, #292524 50%, #1c1917 100%);
+        border-radius: 24px;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.06);
+        box-shadow:
+          0 2px 0 rgba(255,255,255,0.04) inset,
+          0 -1px 0 rgba(0,0,0,0.5) inset,
+          0 20px 60px rgba(0,0,0,0.5),
+          0 8px 20px rgba(0,0,0,0.3);
+        position: relative;
+      }
+
+      /* Animated glow orb */
+      .orb {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(60px);
+        opacity: 0.15;
+        animation: pulse 4s ease-in-out infinite;
+      }
+      .orb-1 { width:220px; height:220px; background:#C8566A; top:-60px; right:-60px; animation-delay:0s; }
+      .orb-2 { width:160px; height:160px; background:#9E3F52; bottom:-40px; left:-40px; animation-delay:2s; }
+      @keyframes pulse {
+        0%, 100% { opacity: 0.12; transform: scale(1); }
+        50% { opacity: 0.22; transform: scale(1.1); }
+      }
+
+      .card-inner { position: relative; z-index: 1; padding: 36px 32px 32px; }
+
+      /* Icon */
+      .icon-wrap {
+        width: 64px; height: 64px; border-radius: 18px;
+        background: linear-gradient(145deg, #C8566A, #7A2D3E);
+        display: flex; align-items: center; justify-content: center;
+        margin: 0 auto 22px;
+        box-shadow:
+          0 0 0 1px rgba(200,86,106,0.3),
+          0 8px 24px rgba(200,86,106,0.4),
+          inset 0 1px 0 rgba(255,255,255,0.15);
+        animation: icon-glow 3s ease-in-out infinite;
+      }
+      @keyframes icon-glow {
+        0%, 100% { box-shadow: 0 0 0 1px rgba(200,86,106,0.3), 0 8px 24px rgba(200,86,106,0.4), inset 0 1px 0 rgba(255,255,255,0.15); }
+        50% { box-shadow: 0 0 0 4px rgba(200,86,106,0.15), 0 8px 32px rgba(200,86,106,0.6), inset 0 1px 0 rgba(255,255,255,0.15); }
+      }
+
+      .title-area { text-align: center; margin-bottom: 28px; }
+      .eyebrow {
+        font-size: 10px; font-weight: 700; letter-spacing: 3px;
+        text-transform: uppercase; color: rgba(255,255,255,0.35);
+        margin-bottom: 6px;
+      }
+      .title {
+        font-size: 26px; font-weight: 800; color: #fff;
+        letter-spacing: -0.5px; line-height: 1.1;
+      }
+      .subtitle { font-size: 13px; color: rgba(255,255,255,0.4); margin-top: 6px; font-weight: 500; }
+
+      /* Divider */
+      .divider {
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(200,86,106,0.4), rgba(255,255,255,0.08), transparent);
+        margin-bottom: 24px;
+      }
+
+      /* Status bar */
+      .status-bar {
+        display: flex; align-items: center; justify-content: center; gap: 20px;
+        padding: 12px 0 4px;
+      }
+      .status-item { display:flex; align-items:center; gap:6px; }
+      .dot {
+        width: 7px; height: 7px; border-radius: 50%;
+        animation: blink 2s ease-in-out infinite;
+      }
+      .dot-green { background: #4ade80; box-shadow: 0 0 8px #4ade80; }
+      .dot-amber { background: #C8566A; animation-delay: 1s; }
+      @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
+      }
+      .status-text { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.35); letter-spacing: 0.5px; }
+
+      /* Scan line effect */
+      .scanline {
+        position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+        background: repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 2px,
+          rgba(255,255,255,0.01) 2px,
+          rgba(255,255,255,0.01) 4px
+        );
+        pointer-events: none; border-radius: 24px; z-index: 0;
+      }
+    </style>
+    </head>
+    <body>
+    <div class="card">
+      <div class="scanline"></div>
+      <div class="orb orb-1"></div>
+      <div class="orb orb-2"></div>
+      <div class="card-inner">
+        <div class="icon-wrap">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
         </div>
-        <div style="height:1px;background:linear-gradient(90deg,rgba(200,86,106,0.6),rgba(200,86,106,0.1),transparent);"></div>
-        <div style="padding:16px 28px 20px;display:flex;gap:24px;">
-            <div style="display:flex;align-items:center;gap:8px;">
-                <div style="width:6px;height:6px;border-radius:50%;background:#4A7C59;box-shadow:0 0 6px #4A7C59;"></div>
-                <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.45);">Sistema Online</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;">
-                <div style="width:6px;height:6px;border-radius:50%;background:#C8566A;"></div>
-                <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.45);">Vi Lingerie · Produção</span>
-            </div>
+        <div class="title-area">
+          <div class="eyebrow">Acesso Restrito</div>
+          <div class="title">Painel Administrativo</div>
+          <div class="subtitle">Vi Lingerie · Sistema de Produção</div>
         </div>
+        <div class="divider"></div>
+        <div class="status-bar">
+          <div class="status-item">
+            <div class="dot dot-green"></div>
+            <span class="status-text">Sistema Online</span>
+          </div>
+          <div class="status-item">
+            <div class="dot dot-amber"></div>
+            <span class="status-text">Autenticação Necessária</span>
+          </div>
+        </div>
+      </div>
     </div>
-    </body></html>
-    """, height=175, scrolling=False)
+    </body>
+    </html>
+    """, height=330, scrolling=False)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ── Senha ──
-    erro = st.session_state.erro_senha
+    # Password field styling
+    border_color = "#C8566A" if erro else "#E0DBD4"
+    shadow = "0 0 0 4px rgba(200,86,106,0.12)" if erro else "0 3px 12px rgba(0,0,0,0.06)"
 
     st.markdown(f"""
     <style>
     div[data-testid="stTextInput"] label {{ display:none !important; }}
     div[data-testid="stTextInput"] input {{
         text-align: center !important;
-        font-size: 20px !important;
-        font-weight: 800 !important;
-        letter-spacing: 6px !important;
+        font-size: 22px !important;
+        font-weight: 700 !important;
+        letter-spacing: 8px !important;
         color: #1A1714 !important;
-        height: 58px !important;
-        border: {"2px solid #C8566A" if erro else "2px solid #E0DBD4"} !important;
+        height: 62px !important;
+        border: 2px solid {border_color} !important;
         border-radius: 14px !important;
         background: #fff !important;
-        box-shadow: {"0 0 0 4px rgba(200,86,106,0.10)" if erro else "0 3px 12px rgba(0,0,0,0.06)"} !important;
+        box-shadow: {shadow} !important;
         padding: 0 20px !important;
+        font-family: 'DM Mono', monospace !important;
+        transition: all .2s ease !important;
     }}
     div[data-testid="stTextInput"] input:focus {{
-        border-color: #C8566A !important;
-        box-shadow: 0 0 0 4px rgba(200,86,106,0.12), 0 3px 12px rgba(0,0,0,0.06) !important;
+        border-color: #1A1714 !important;
+        box-shadow: 0 0 0 4px rgba(26,23,20,0.08), 0 4px 16px rgba(0,0,0,0.08) !important;
     }}
     div[data-testid="stTextInput"] input::placeholder {{
-        color: #C8C0B8 !important; font-weight:600 !important; letter-spacing:2px !important; font-size:14px !important;
+        color: #D0CAC4 !important;
+        font-weight: 500 !important;
+        letter-spacing: 4px !important;
+        font-size: 18px !important;
     }}
     </style>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div style="font-size:11px;font-weight:800;letter-spacing:2px;color:#9C9490;text-transform:uppercase;margin-bottom:8px;text-align:center;">Digite sua senha</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div style="font-size:10px;font-weight:700;letter-spacing:2.5px;color:#9C9490;
+                text-transform:uppercase;margin-bottom:10px;text-align:center;">
+        Senha de Acesso
+    </div>
+    """, unsafe_allow_html=True)
 
     _, col_inp, _ = st.columns([0.3, 5, 0.3])
     with col_inp:
-        senha = st.text_input("_", type="password", placeholder="••••••••")
+        senha = st.text_input("_", type="password", placeholder="· · · · · · · ·")
 
     if erro:
-        st.markdown('<div style="text-align:center;color:#C8566A;font-size:13px;font-weight:800;margin-top:6px;">⚠ Senha incorreta. Tente novamente.</div>', unsafe_allow_html=True)
+        st.markdown("""
+        <div style="text-align:center;margin-top:8px;">
+          <span style="display:inline-flex;align-items:center;gap:6px;background:#FEF2F2;
+                 border:1px solid #FECACA;border-radius:8px;padding:6px 14px;
+                 color:#C8566A;font-size:12px;font-weight:700;">
+            ⚠ Credenciais inválidas. Tente novamente.
+          </span>
+        </div>
+        """, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    _, c1, gap, c2, _ = st.columns([0.3, 1.5, 0.3, 3, 0.3])
+    _, c1, gap, c2, _ = st.columns([0.3, 1.4, 0.3, 3, 0.3])
     with c1:
-        st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+        st.markdown("""
+        <style>
+        .btn-ghost > button {
+            background: transparent !important;
+            color: #5C5450 !important;
+            border: 1.5px solid #DDD8D2 !important;
+            font-size: 13px !important;
+        }
+        .btn-ghost > button:hover { border-color: #9C9490 !important; color: #1A1714 !important; }
+        </style>
+        """, unsafe_allow_html=True)
+        st.markdown('<div class="btn-ghost">', unsafe_allow_html=True)
         if st.button("← Voltar", use_container_width=True):
             st.session_state.erro_senha = False; st.session_state.tela = "home"; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
     with c2:
         st.markdown("""
         <style>
-        .btn-admin-enter > button {
-            background: linear-gradient(135deg,#1A1714,#2e2825) !important;
+        .btn-admin-dark > button {
+            background: linear-gradient(135deg, #1c1917, #292524) !important;
             color: #fff !important; border: none !important;
-            box-shadow: 0 5px 0 rgba(0,0,0,0.40), 0 8px 20px rgba(0,0,0,0.20) !important;
-            font-size: 15px !important; letter-spacing: 1px !important;
+            box-shadow: 0 5px 0 rgba(0,0,0,0.50), 0 10px 24px rgba(0,0,0,0.25) !important;
+            font-size: 14px !important; letter-spacing: 0.8px !important;
+            border-top: 1px solid rgba(255,255,255,0.08) !important;
         }
-        .btn-admin-enter > button:hover {
-            background: linear-gradient(135deg,#2e2825,#3d3530) !important;
+        .btn-admin-dark > button:hover {
+            background: linear-gradient(135deg, #292524, #3d3530) !important;
             transform: translateY(-2px) !important;
+            box-shadow: 0 8px 0 rgba(0,0,0,0.45), 0 16px 32px rgba(0,0,0,0.30) !important;
         }
-        .btn-admin-enter > button:active {
-            transform: translateY(2px) !important;
-            box-shadow: 0 2px 0 rgba(0,0,0,0.40) !important;
+        .btn-admin-dark > button:active {
+            transform: translateY(3px) !important;
+            box-shadow: 0 2px 0 rgba(0,0,0,0.50) !important;
         }
         </style>
         """, unsafe_allow_html=True)
-        st.markdown('<div class="btn-admin-enter">', unsafe_allow_html=True)
+        st.markdown('<div class="btn-admin-dark">', unsafe_allow_html=True)
         if st.button("🔓  Acessar Painel", use_container_width=True):
             if senha == ADMIN_SENHA:
                 st.session_state.erro_senha = False; st.session_state.tela = "admin"; st.rerun()
             else:
                 st.session_state.erro_senha = True; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
-
 # ─────────────────────────────────────
 #  TELA: ADMIN PANEL
 # ─────────────────────────────────────
