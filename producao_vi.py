@@ -1107,7 +1107,6 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg):
 def tela_admin():
     render_logo()
 
-    # ── Header bar ──
     c1, c2 = st.columns([3, 1])
     with c1:
         st.markdown("""
@@ -1128,170 +1127,202 @@ def tela_admin():
     avg      = media([r[5] for r in regs]) // 60 if regs else 0
     total_r  = len(regs)
 
-    # ── KPI Cards ──
-    kpi_data = [
-        (len(ped_comp), "Pedidos Concluídos", "📦", "#C8566A"),
-        (len(ops_ativ), "Operadores Ativos",  "👥", "#4A7C59"),
-        (f"{avg}m",     "Tempo Médio",        "⏱", "#3B5EC6"),
-        (total_r,       "Total Registros",    "📊", "#C47B2A"),
-    ]
-    cols = st.columns(4)
-    for col, (num, lbl, icon, cor) in zip(cols, kpi_data):
-        with col:
-            st.markdown(f"""
-            <div style="background:#fff;border-radius:16px;padding:18px 16px 16px;
-                        border:1.5px solid #EDE9E4;
-                        box-shadow:0 2px 12px rgba(0,0,0,0.05);
-                        position:relative;overflow:hidden;">
-                <div style="position:absolute;top:-10px;right:-10px;font-size:48px;opacity:0.07;">{icon}</div>
-                <div style="font-size:10px;font-weight:800;letter-spacing:1.5px;
-                            text-transform:uppercase;color:#9C9490;margin-bottom:6px;">{lbl}</div>
-                <div style="font-size:30px;font-weight:900;color:{cor};
-                            font-family:'DM Mono',monospace;letter-spacing:-1px;">{num}</div>
-                <div style="height:3px;background:{cor};border-radius:2px;
-                            margin-top:12px;opacity:0.25;"></div>
-            </div>
-            """, unsafe_allow_html=True)
+    # ── KPI Cards via components ──
+    kpi_html = f"""
+    <!DOCTYPE html><html><head>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+    *{{margin:0;padding:0;box-sizing:border-box;}}
+    body{{background:transparent;font-family:Nunito,sans-serif;}}
+    .grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}}
+    .card{{background:#fff;border-radius:16px;padding:18px 16px 14px;
+           border:1.5px solid #EDE9E4;box-shadow:0 2px 12px rgba(0,0,0,0.05);
+           position:relative;overflow:hidden;}}
+    .card-icon{{position:absolute;top:-6px;right:4px;font-size:44px;opacity:0.07;line-height:1;}}
+    .card-lbl{{font-size:9px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:#9C9490;margin-bottom:8px;}}
+    .card-num{{font-family:"DM Mono",monospace;font-size:32px;font-weight:500;letter-spacing:-1px;}}
+    .card-bar{{height:3px;border-radius:2px;margin-top:12px;opacity:0.3;}}
+    </style></head><body>
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon">📦</div>
+        <div class="card-lbl">Pedidos Concluídos</div>
+        <div class="card-num" style="color:#C8566A;">{len(ped_comp)}</div>
+        <div class="card-bar" style="background:#C8566A;"></div>
+      </div>
+      <div class="card">
+        <div class="card-icon">👥</div>
+        <div class="card-lbl">Operadores Ativos</div>
+        <div class="card-num" style="color:#4A7C59;">{len(ops_ativ)}</div>
+        <div class="card-bar" style="background:#4A7C59;"></div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⏱</div>
+        <div class="card-lbl">Tempo Médio</div>
+        <div class="card-num" style="color:#3B5EC6;">{avg}m</div>
+        <div class="card-bar" style="background:#3B5EC6;"></div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📊</div>
+        <div class="card-lbl">Total Registros</div>
+        <div class="card-num" style="color:#C47B2A;">{total_r}</div>
+        <div class="card-bar" style="background:#C47B2A;"></div>
+      </div>
+    </div>
+    </body></html>"""
+    components.html(kpi_html, height=115, scrolling=False)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # ── Operator performance table ──
-    op_map = {}
+    # ── Build op_map ──
+    op_map = {{}}
     for r in regs:
         op = r[2]
-        if op not in op_map: op_map[op] = {"p":set(),"sep":[],"conf":[],"emb":[]}
+        if op not in op_map: op_map[op] = {{"p":set(),"sep":[],"conf":[],"emb":[]}}
         op_map[op]["p"].add(r[1])
         if r[4]==0: op_map[op]["sep"].append(r[5])
         if r[4]==1: op_map[op]["conf"].append(r[5])
         if r[4]==2: op_map[op]["emb"].append(r[5])
 
-    st.markdown("""
-    <div style="font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
-                color:#9C9490;margin-bottom:10px;">Desempenho por Operador</div>
-    """, unsafe_allow_html=True)
+    st.markdown("<br style='line-height:0.4'>", unsafe_allow_html=True)
 
+    # ── Operator table via components ──
     if op_map:
-        rows_html = ""
+        op_rows = ""
         for op, d in op_map.items():
             sep_t  = fmt(media(d["sep"]))  if d["sep"]  else "—"
             conf_t = fmt(media(d["conf"])) if d["conf"] else "—"
             emb_t  = fmt(media(d["emb"]))  if d["emb"]  else "—"
-            initial = op[0].upper()
-            rows_html += f"""
-            <tr>
-              <td>
+            ini    = op[0].upper()
+            op_rows += f"""<tr>
+              <td style="padding:13px 16px;vertical-align:middle;">
                 <div style="display:flex;align-items:center;gap:10px;">
-                  <div style="width:34px;height:34px;border-radius:50%;
+                  <div style="width:36px;height:36px;border-radius:50%;flex-shrink:0;
                        background:linear-gradient(135deg,#D9617A,#9E3F52);
                        display:flex;align-items:center;justify-content:center;
-                       font-size:14px;font-weight:900;color:#fff;flex-shrink:0;">{initial}</div>
+                       font-size:15px;font-weight:900;color:#fff;">{ini}</div>
                   <span style="font-weight:800;font-size:14px;color:#1A1714;">{op}</span>
                 </div>
               </td>
-              <td style="text-align:center;">
-                <span style="background:#F5E8EB;color:#C8566A;font-weight:800;
-                       font-size:13px;padding:4px 12px;border-radius:100px;">{len(d["p"])}</span>
+              <td style="padding:13px 10px;text-align:center;vertical-align:middle;">
+                <span style="background:#F5E8EB;color:#C8566A;font-weight:800;font-size:13px;
+                             padding:4px 14px;border-radius:100px;">{len(d["p"])}</span>
               </td>
-              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:13px;color:#3B5EC6;font-weight:600;">{sep_t}</td>
-              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:13px;color:#C47B2A;font-weight:600;">{conf_t}</td>
-              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:13px;color:#4A7C59;font-weight:700;">{emb_t}</td>
+              <td style="padding:13px 10px;text-align:center;font-family:monospace;font-size:13px;color:#3B5EC6;font-weight:700;vertical-align:middle;">{sep_t}</td>
+              <td style="padding:13px 10px;text-align:center;font-family:monospace;font-size:13px;color:#C47B2A;font-weight:700;vertical-align:middle;">{conf_t}</td>
+              <td style="padding:13px 10px;text-align:center;font-family:monospace;font-size:13px;color:#4A7C59;font-weight:700;vertical-align:middle;">{emb_t}</td>
             </tr>"""
 
-        st.markdown(f"""
-        <div style="background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;
-                    overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);margin-bottom:6px;">
-          <table style="width:100%;border-collapse:collapse;">
+        n_ops = len(op_map)
+        op_height = 56 + (n_ops * 62) + 20
+
+        components.html(f"""
+        <!DOCTYPE html><html><head>
+        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+        <style>
+        *{{margin:0;padding:0;box-sizing:border-box;}}
+        body{{background:transparent;font-family:Nunito,sans-serif;}}
+        .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
+        .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;
+               overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
+        table{{width:100%;border-collapse:collapse;}}
+        thead tr{{background:#1A1714;}}
+        th{{padding:12px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;
+            text-transform:uppercase;text-align:center;}}
+        th:first-child{{text-align:left;padding-left:16px;}}
+        tbody tr{{border-bottom:1px solid #F2EEE9;transition:background .15s;}}
+        tbody tr:last-child{{border-bottom:none;}}
+        tbody tr:hover{{background:#FDFAF9;}}
+        </style></head><body>
+        <div class="lbl">Desempenho por Operador</div>
+        <div class="wrap">
+          <table>
             <thead>
-              <tr style="background:#1A1714;">
-                <th style="padding:12px 16px;font-size:10px;font-weight:800;letter-spacing:1.5px;
-                           text-transform:uppercase;color:rgba(255,255,255,0.5);text-align:left;">Operador</th>
-                <th style="padding:12px 10px;font-size:10px;font-weight:800;letter-spacing:1.5px;
-                           text-transform:uppercase;color:rgba(255,255,255,0.5);text-align:center;">Pedidos</th>
-                <th style="padding:12px 10px;font-size:10px;font-weight:800;letter-spacing:1.5px;
-                           text-transform:uppercase;color:#7B9FE0;text-align:center;">Separação</th>
-                <th style="padding:12px 10px;font-size:10px;font-weight:800;letter-spacing:1.5px;
-                           text-transform:uppercase;color:#D4A45A;text-align:center;">Conferência</th>
-                <th style="padding:12px 10px;font-size:10px;font-weight:800;letter-spacing:1.5px;
-                           text-transform:uppercase;color:#7AB895;text-align:center;">Embalagem</th>
+              <tr>
+                <th style="color:rgba(255,255,255,0.45);">Operador</th>
+                <th style="color:rgba(255,255,255,0.45);">Pedidos</th>
+                <th style="color:#7B9FE0;">Separação</th>
+                <th style="color:#D4A45A;">Conferência</th>
+                <th style="color:#7AB895;">Embalagem</th>
               </tr>
             </thead>
-            <tbody style="font-family:'Nunito',sans-serif;">
-              {rows_html}
-            </tbody>
+            <tbody>{op_rows}</tbody>
           </table>
         </div>
-        <style>
-        tbody tr {{ border-bottom: 1px solid #F2EEE9; transition: background .15s; }}
-        tbody tr:last-child {{ border-bottom: none; }}
-        tbody tr:hover {{ background: #FDFAF9 !important; }}
-        tbody td {{ padding: 13px 16px; vertical-align: middle; }}
-        </style>
-        """, unsafe_allow_html=True)
+        </body></html>
+        """, height=op_height, scrolling=False)
     else:
-        st.markdown("""
+        components.html("""
+        <!DOCTYPE html><html><body style="background:transparent;font-family:sans-serif;">
         <div style="background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;
                     padding:40px;text-align:center;color:#9C9490;font-size:14px;font-weight:600;">
             Nenhum registro ainda.
-        </div>
-        """, unsafe_allow_html=True)
+        </div></body></html>""", height=120, scrolling=False)
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<br style='line-height:0.4'>", unsafe_allow_html=True)
 
-    # ── History ──
+    # ── History header ──
     h1, h2 = st.columns([3, 1])
-    with h1:
-        st.markdown("""
-        <div style="font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
-                    color:#9C9490;margin-bottom:10px;">Histórico de Pedidos</div>
-        """, unsafe_allow_html=True)
     with h2:
-        st.markdown('<div class="btn-sm">', unsafe_allow_html=True)
         if st.button("🗑 Limpar dados", use_container_width=True):
             limpar(); st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
 
-    tag_map = {
-        0: ("<span style='background:#EBF0FB;color:#3B5EC6;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;'>Separação</span>"),
-        1: ("<span style='background:#FBF2E6;color:#C47B2A;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;'>Conferência</span>"),
-        2: ("<span style='background:#E8F2EC;color:#4A7C59;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;'>Embalagem</span>"),
+    tag_html = {
+        0: '<span style="background:#EBF0FB;color:#3B5EC6;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;">Separação</span>',
+        1: '<span style="background:#FBF2E6;color:#C47B2A;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;">Conferência</span>',
+        2: '<span style="background:#E8F2EC;color:#4A7C59;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;">Embalagem</span>',
     }
 
     if regs:
         hist_rows = ""
         for r in regs[:80]:
-            hist_rows += f"""
-            <tr>
-              <td style="font-family:'DM Mono',monospace;font-size:12px;font-weight:600;color:#1A1714;">{r[1]}</td>
-              <td style="font-size:13px;font-weight:700;color:#1A1714;">{r[2]}</td>
-              <td>{tag_map.get(r[4], r[3])}</td>
-              <td style="font-family:'DM Mono',monospace;font-size:12px;font-weight:600;color:#4A7C59;text-align:center;">{fmt(r[5])}</td>
-              <td style="font-size:11px;color:#9C9490;text-align:center;">{r[6]}</td>
+            hist_rows += f"""<tr>
+              <td style="padding:11px 16px;font-family:monospace;font-size:12px;font-weight:700;color:#1A1714;">{r[1]}</td>
+              <td style="padding:11px 10px;font-size:13px;font-weight:700;color:#1A1714;">{r[2]}</td>
+              <td style="padding:11px 10px;">{tag_html.get(r[4], r[3])}</td>
+              <td style="padding:11px 10px;font-family:monospace;font-size:12px;font-weight:700;color:#4A7C59;text-align:center;">{fmt(r[5])}</td>
+              <td style="padding:11px 10px;font-size:11px;color:#9C9490;text-align:center;">{r[6]}</td>
             </tr>"""
 
-        st.markdown(f"""
-        <div style="background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;
-                    overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);">
-          <table style="width:100%;border-collapse:collapse;">
+        n_hist = min(len(regs), 80)
+        hist_height = 56 + (n_hist * 46) + 20
+
+        components.html(f"""
+        <!DOCTYPE html><html><head>
+        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+        <style>
+        *{{margin:0;padding:0;box-sizing:border-box;}}
+        body{{background:transparent;font-family:Nunito,sans-serif;}}
+        .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
+        .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;
+               overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
+        table{{width:100%;border-collapse:collapse;}}
+        thead tr{{background:#1A1714;}}
+        th{{padding:12px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-align:center;}}
+        th:first-child{{text-align:left;padding-left:16px;}}
+        th:nth-child(2){{text-align:left;}}
+        tbody tr{{border-bottom:1px solid #F2EEE9;}}
+        tbody tr:last-child{{border-bottom:none;}}
+        tbody tr:hover{{background:#FDFAF9;}}
+        </style></head><body>
+        <div class="lbl">Histórico de Pedidos</div>
+        <div class="wrap">
+          <table>
             <thead>
-              <tr style="background:#1A1714;">
-                <th style="padding:12px 16px;font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.5);text-align:left;">Pedido</th>
-                <th style="padding:12px 10px;font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.5);text-align:left;">Operador</th>
-                <th style="padding:12px 10px;font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.5);">Etapa</th>
-                <th style="padding:12px 10px;font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.5);text-align:center;">Tempo</th>
-                <th style="padding:12px 10px;font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.5);text-align:center;">Data</th>
+              <tr>
+                <th>Pedido</th><th>Operador</th><th>Etapa</th><th>Tempo</th><th>Data</th>
               </tr>
             </thead>
             <tbody>{hist_rows}</tbody>
           </table>
         </div>
-        """, unsafe_allow_html=True)
+        </body></html>
+        """, height=min(hist_height, 600), scrolling=hist_height > 600)
     else:
-        st.markdown("""
+        components.html("""
+        <!DOCTYPE html><html><body style="background:transparent;font-family:sans-serif;">
         <div style="background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;
                     padding:40px;text-align:center;color:#9C9490;font-size:14px;font-weight:600;">
             Nenhum registro ainda.
-        </div>
-        """, unsafe_allow_html=True)
+        </div></body></html>""", height=120, scrolling=False)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -1299,7 +1330,6 @@ def tela_admin():
     if regs:
         c1, c2 = st.columns(2)
         with c1:
-            # CSV
             buf_csv = io.StringIO()
             csv.writer(buf_csv).writerows(
                 [["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data"]] + list(regs))
@@ -1311,19 +1341,15 @@ def tela_admin():
                 use_container_width=True,
             )
         with c2:
-            # PDF
             st.markdown("""
             <style>
             .btn-pdf > button {
                 background: linear-gradient(135deg,#C8566A,#9E3F52) !important;
                 color:#fff !important; border:none !important;
                 box-shadow: 0 5px 0 rgba(100,20,35,0.40), 0 8px 20px rgba(200,86,106,0.28) !important;
-                font-weight:800 !important; letter-spacing:.5px !important;
+                font-weight:800 !important;
             }
-            .btn-pdf > button:hover {
-                transform:translateY(-2px) !important;
-                box-shadow: 0 8px 0 rgba(100,20,35,0.38), 0 14px 28px rgba(200,86,106,0.35) !important;
-            }
+            .btn-pdf > button:hover { transform:translateY(-2px) !important; }
             </style>
             """, unsafe_allow_html=True)
             st.markdown('<div class="btn-pdf">', unsafe_allow_html=True)
