@@ -1344,69 +1344,121 @@ def tela_admin():
         st.markdown('</div>', unsafe_allow_html=True)
 
     # ── Upload planilha ──
-    with st.expander("📂 Importar Planilha de Pedidos", expanded=False):
+    # Toggle state
+    if "show_upload" not in st.session_state:
+        st.session_state.show_upload = False
+
+    # Header button to toggle
+    st.markdown("""
+    <style>
+    .btn-upload > button {
+        background: linear-gradient(135deg,#1A1714,#2e2825) !important;
+        color:#fff !important; border:none !important;
+        box-shadow: 0 5px 0 rgba(0,0,0,0.45), 0 8px 20px rgba(0,0,0,0.20) !important;
+        font-size:14px !important; font-weight:800 !important; letter-spacing:.5px !important;
+        border-top: 1px solid rgba(255,255,255,0.08) !important;
+    }
+    .btn-upload > button:hover {
+        background: linear-gradient(135deg,#2e2825,#3d3530) !important;
+        transform: translateY(-1px) !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    col_up1, col_up2 = st.columns([3,1])
+    with col_up1:
+        pedidos_base_count = len(buscar_pedidos_base())
+        if pedidos_base_count > 0:
+            abertos_c   = sum(1 for p in buscar_pedidos_base() if p[3]=="aberto")
+            concl_c     = pedidos_base_count - abertos_c
+            st.markdown(f"""
+            <div style="display:flex;align-items:center;gap:14px;padding:12px 0;">
+                <div style="width:10px;height:10px;border-radius:50%;background:#4A7C59;
+                            box-shadow:0 0 8px #4A7C59;flex-shrink:0;"></div>
+                <div style="font-size:13px;font-weight:700;color:#5C5450;">
+                    Base carregada: <strong style="color:#1A1714;">{pedidos_base_count}</strong> pedidos
+                    &nbsp;·&nbsp; <span style="color:#4A7C59;">{abertos_c} abertos</span>
+                    &nbsp;·&nbsp; <span style="color:#C8566A;">{concl_c} concluídos</span>
+                </div>
+            </div>""", unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div style="display:flex;align-items:center;gap:14px;padding:12px 0;">
+                <div style="width:10px;height:10px;border-radius:50%;background:#C8566A;
+                            box-shadow:0 0 8px rgba(200,86,106,0.6);flex-shrink:0;"></div>
+                <div style="font-size:13px;font-weight:700;color:#C8566A;">
+                    Nenhuma planilha carregada ainda
+                </div>
+            </div>""", unsafe_allow_html=True)
+    with col_up2:
+        label = "✕ Fechar" if st.session_state.show_upload else "📂 Carregar Planilha"
+        st.markdown('<div class="btn-upload">', unsafe_allow_html=True)
+        if st.button(label, use_container_width=True):
+            st.session_state.show_upload = not st.session_state.show_upload
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    if st.session_state.show_upload:
         components.html("""
         <!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
         <style>*{margin:0;padding:0;box-sizing:border-box;}</style>
         </head><body style="background:transparent;font-family:Nunito,sans-serif;">
-        <div style="background:linear-gradient(135deg,#1A1714,#2e2825);border-radius:14px;padding:18px 22px;
-                    border:1px solid rgba(255,255,255,0.06);box-shadow:0 4px 16px rgba(0,0,0,0.2);">
-            <div style="font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
-                        color:rgba(255,255,255,0.4);margin-bottom:6px;">Como usar</div>
-            <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.85);line-height:1.6;">
-                Suba qualquer planilha <b style="color:#C8566A;">.xlsx</b> ou <b style="color:#C8566A;">.csv</b> com os pedidos.<br>
-                O sistema detecta automaticamente as colunas de <b>número</b>, <b>status</b> e <b>cliente</b>.<br>
-                Pedidos marcados como <i>concluído/finalizado/entregue</i> ficam bloqueados para produção.
+        <div style="background:linear-gradient(135deg,#1c1917,#292524);border-radius:16px;padding:20px 24px;
+                    border:1px solid rgba(255,255,255,0.07);box-shadow:0 6px 24px rgba(0,0,0,0.25);
+                    position:relative;overflow:hidden;">
+            <div style="position:absolute;right:-20px;top:-20px;width:120px;height:120px;border-radius:50%;
+                        background:rgba(200,86,106,0.08);"></div>
+            <div style="display:flex;align-items:flex-start;gap:16px;position:relative;z-index:1;">
+                <div style="width:44px;height:44px;border-radius:12px;flex-shrink:0;
+                            background:linear-gradient(135deg,#C8566A,#9E3F52);
+                            display:flex;align-items:center;justify-content:center;
+                            box-shadow:0 4px 14px rgba(200,86,106,0.4);">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"
+                         stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="12" y1="18" x2="12" y2="12"></line>
+                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                    </svg>
+                </div>
+                <div>
+                    <div style="font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
+                                color:rgba(255,255,255,0.4);margin-bottom:4px;">Instruções</div>
+                    <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.85);line-height:1.7;">
+                        Suba a planilha <b style="color:#C8566A;">.xlsx</b> exportada do sistema interno.<br>
+                        O sistema lê a coluna <b style="color:#C8566A;">Pedido</b> e a coluna <b style="color:#C8566A;">%.1</b>
+                        (100% = concluído, qualquer outro valor = em aberto).<br>
+                        Pedidos concluídos ficam <b>bloqueados</b> para produção.
+                    </div>
+                </div>
             </div>
         </div>
-        </body></html>""", height=115, scrolling=False)
+        </body></html>""", height=130, scrolling=False)
 
         st.markdown("<br style='line-height:0.3'>", unsafe_allow_html=True)
         uploaded = st.file_uploader(
-            "Selecione a planilha",
+            "Selecione a planilha (.xlsx ou .csv)",
             type=["xlsx","xls","csv"],
-            help="Aceita .xlsx, .xls e .csv"
         )
         if uploaded:
             ok, result = importar_planilha(uploaded.read(), uploaded.name)
             if ok:
-                components.html(f"""<div style="background:#E8F2EC;border:1.5px solid #4A7C59;border-radius:10px;
-                    padding:12px 18px;font-family:sans-serif;font-size:13px;font-weight:800;color:#2d5a3d;text-align:center;">
-                    ✅ {result} pedidos importados com sucesso de <b>{uploaded.name}</b>!</div>""",
-                    height=55, scrolling=False)
+                components.html(f"""<div style="background:#E8F2EC;border:2px solid #4A7C59;border-radius:12px;
+                    padding:14px 20px;font-family:sans-serif;font-size:14px;font-weight:800;
+                    color:#2d5a3d;text-align:center;margin-top:8px;">
+                    ✅ {result} pedidos importados com sucesso de <b>{uploaded.name}</b>
+                </div>""", height=60, scrolling=False)
+                st.session_state.show_upload = False
                 st.rerun()
             else:
-                components.html(f"""<div style="background:#FEF2F2;border:1.5px solid #C8566A;border-radius:10px;
-                    padding:12px 18px;font-family:sans-serif;font-size:13px;font-weight:800;color:#991B1B;text-align:center;">
-                    ❌ {result}</div>""", height=55, scrolling=False)
+                components.html(f"""<div style="background:#FEF2F2;border:2px solid #C8566A;border-radius:12px;
+                    padding:14px 20px;font-family:sans-serif;font-size:14px;font-weight:800;
+                    color:#991B1B;text-align:center;margin-top:8px;">
+                    ❌ {result}
+                </div>""", height=60, scrolling=False)
 
-        # Show current base stats
-        pedidos_base = buscar_pedidos_base()
-        if pedidos_base:
-            abertos   = sum(1 for p in pedidos_base if p[3]=="aberto")
-            concluidos = sum(1 for p in pedidos_base if p[3]=="concluido")
-            components.html(f"""
-            <!DOCTYPE html><html><head>
-            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
-            <style>*{{margin:0;padding:0;box-sizing:border-box;}}</style>
-            </head><body style="background:transparent;font-family:Nunito,sans-serif;padding-top:10px;">
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
-                <div style="background:#fff;border-radius:12px;padding:14px;border:1.5px solid #EDE9E4;text-align:center;">
-                    <div style="font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#9C9490;margin-bottom:4px;">Total na Base</div>
-                    <div style="font-family:'DM Mono',monospace;font-size:26px;font-weight:500;color:#1A1714;">{len(pedidos_base)}</div>
-                </div>
-                <div style="background:#fff;border-radius:12px;padding:14px;border:1.5px solid #EDE9E4;text-align:center;">
-                    <div style="font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#4A7C59;margin-bottom:4px;">Em Aberto</div>
-                    <div style="font-family:'DM Mono',monospace;font-size:26px;font-weight:500;color:#4A7C59;">{abertos}</div>
-                </div>
-                <div style="background:#fff;border-radius:12px;padding:14px;border:1.5px solid #EDE9E4;text-align:center;">
-                    <div style="font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#C8566A;margin-bottom:4px;">Concluídos</div>
-                    <div style="font-family:'DM Mono',monospace;font-size:26px;font-weight:500;color:#C8566A;">{concluidos}</div>
-                </div>
-            </div>
-            </body></html>""", height=95, scrolling=False)
-
+    st.markdown("<br style='line-height:0.3'>", unsafe_allow_html=True)
     regs     = buscar()
     ped_comp = list({r[1] for r in regs if r[4] == 2})
     ops_ativ = list({r[2] for r in regs})
