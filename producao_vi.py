@@ -6,6 +6,8 @@ from datetime import datetime
 from pathlib import Path
 import csv, io
 import streamlit.components.v1 as components
+import pandas as pd
+import re
 
 st.set_page_config(
     page_title="Vi Lingerie - Producao",
@@ -32,6 +34,120 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         pedido TEXT, operador TEXT, etapa TEXT,
         etapa_idx INTEGER, tempo_segundos INTEGER, data TEXT)""")
+    con.execute("""CREATE TABLE IF NOT EXISTS pedidos_base (
+        numero TEXT PRIMARY KEY,
+        cliente TEXT DEFAULT '',
+        produto TEXT DEFAULT '',
+        status TEXT DEFAULT 'aberto',
+        importado_em TEXT DEFAULT '')""")
+    con.commit(); con.close()
+
+# ─── Pedidos base helpers ───
+def importar_planilha(file_bytes, filename):
+    """
+    Parse the Vi Lingerie production spreadsheet.
+    Col 'Pedido'  = order number (col A)
+    Col '%.1'     = completion % — value 100 means done, anything else = open
+    Col 'Cliente' = client name (optional display)
+    Also supports generic xlsx/csv with auto-detection as fallback.
+    """
+    try:
+        if filename.lower().endswith(".csv"):
+            df = pd.read_csv(io.BytesIO(file_bytes), dtype=str)
+        else:
+            df = pd.read_excel(io.BytesIO(file_bytes), dtype=str)
+    except Exception as e:
+        return False, f"Erro ao ler arquivo: {e}"
+
+    cols_orig = list(df.columns)
+    df.columns = [str(c).strip() for c in df.columns]
+
+    # ── Detect numero column ──
+    # Priority: exact 'Pedido', then fallback heuristic
+    num_col = None
+    for c in df.columns:
+        if c.strip().lower() == "pedido":
+            num_col = c; break
+    if num_col is None:
+        for c in df.columns:
+            cl = c.lower()
+            if any(k in cl for k in ["pedido","número","numero","order","cod"]):
+                num_col = c; break
+    if num_col is None:
+        num_col = df.columns[0]  # last resort: first column
+
+    # ── Detect percent/status column ──
+    # Priority: exact '%.1' (Vi Lingerie format), then fallback
+    pct_col = None
+    for c in df.columns:
+        if c.strip() == "%.1":
+            pct_col = c; break
+    if pct_col is None:
+        for c in df.columns:
+            cl = c.lower()
+            if any(k in cl for k in ["% total","% pronto","progresso","status","situação","%"]):
+                pct_col = c; break
+
+    # ── Detect client column ──
+    cli_col = next((c for c in df.columns if c.lower() in ("cliente","client","nome","comprador")), None)
+
+    now_str = datetime.now().strftime("%d/%m/%Y %H:%M")
+    con = sqlite3.connect(DB_PATH)
+    count = 0
+    skipped = 0
+    for _, row in df.iterrows():
+        num = str(row[num_col]).strip()
+        if not num or num.lower() in ("nan","none","","pedido"):
+            skipped += 1; continue
+
+        # Determine status from % column
+        if pct_col:
+            try:
+                pct_val = float(str(row[pct_col]).strip().replace(",","."))
+                sta = "concluido" if pct_val >= 100.0 else "aberto"
+            except:
+                sta = "aberto"
+        else:
+            sta = "aberto"
+
+        cli = ""
+        if cli_col:
+            raw = str(row[cli_col]).strip()
+            cli = "" if raw.lower() in ("nan","none","") else raw
+
+        con.execute("""INSERT INTO pedidos_base (numero,cliente,produto,status,importado_em)
+            VALUES (?,?,?,?,?) ON CONFLICT(numero) DO UPDATE SET
+            cliente=excluded.cliente,
+            status=excluded.status,
+            importado_em=excluded.importado_em""",
+            (num, cli, "", sta, now_str))
+        count += 1
+    con.commit(); con.close()
+    return True, count
+
+def buscar_pedidos_base():
+    con = sqlite3.connect(DB_PATH)
+    rows = con.execute("SELECT numero,cliente,produto,status FROM pedidos_base ORDER BY numero").fetchall()
+    con.close(); return rows
+
+def status_pedido(numero):
+    """Returns 'aberto','concluido','nao_encontrado'"""
+    con = sqlite3.connect(DB_PATH)
+    row = con.execute("SELECT status FROM pedidos_base WHERE numero=?", (numero,)).fetchone()
+    con.close()
+    if row is None: return "nao_encontrado"
+    return row[0]
+
+def cadastrar_pedido_avulso(numero):
+    now_str = datetime.now().strftime("%d/%m/%Y %H:%M")
+    con = sqlite3.connect(DB_PATH)
+    con.execute("""INSERT OR IGNORE INTO pedidos_base (numero,cliente,produto,status,importado_em)
+        VALUES (?,\'\',\'\','aberto',?)""", (numero, now_str))
+    con.commit(); con.close()
+
+def marcar_concluido(numero):
+    con = sqlite3.connect(DB_PATH)
+    con.execute("UPDATE pedidos_base SET status=\'concluido\' WHERE numero=?", (numero,))
     con.commit(); con.close()
 
 def salvar(pedido, operador, etapa, etapa_idx, tempo):
@@ -82,6 +198,7 @@ for k, v in {
     "acum":0, "modal":None,
     "pedido_prox":None, "etapa_prox":None,
     "erro_pedido":False, "erro_senha":False,
+    "pedido_status":None, "pedido_confirm":False,
 }.items():
     if k not in st.session_state:
         st.session_state[k] = v
@@ -461,65 +578,168 @@ def tela_producao():
         </body></html>
         """, height=100, scrolling=False)
 
+        st.markdown("<br style='line-height:0.3'>", unsafe_allow_html=True)
+
+        # ── Smart pedido lookup ──
+        pedidos_db = buscar_pedidos_base()
+        pedidos_abertos = [p[0] for p in pedidos_db if p[3] == "aberto"]
+        has_base = len(pedidos_db) > 0
+
         st.markdown("""
-        <div style="font-size:14px;font-weight:800;letter-spacing:1.5px;color:#5C5450;
-                    text-transform:uppercase;margin-bottom:8px;text-align:center;">
-            Número do Pedido
-        </div>
+        <style>
+        div[data-testid="stTextInput"] label { display:none !important; }
+        div[data-testid="stTextInput"] input {
+            text-align: center !important; font-size: 18px !important;
+            font-weight: 800 !important; letter-spacing: 2px !important;
+            color: #1A1714 !important; height: 50px !important;
+            border: 2px solid #E0DBD4 !important; border-radius: 12px !important;
+            background: #fff !important; box-shadow: 0 3px 10px rgba(0,0,0,0.05) !important;
+        }
+        div[data-testid="stTextInput"] input:focus {
+            border-color: #C8566A !important;
+            box-shadow: 0 0 0 4px rgba(200,86,106,0.12) !important;
+        }
+        div[data-testid="stTextInput"] input::placeholder {
+            color: #CCC6BF !important; font-weight:600 !important; font-size:15px !important;
+        }
+        div[data-testid="stSelectbox"] label { display:none !important; }
+        </style>
         """, unsafe_allow_html=True)
 
-        _, col_inp, _ = st.columns([0.5, 4, 0.5])
-        with col_inp:
-            st.markdown("""
-            <style>
-            div[data-testid="stTextInput"] label { display:none !important; }
-            div[data-testid="stTextInput"] input {
-                text-align: center !important;
-                font-size: 18px !important;
-                font-weight: 800 !important;
-                letter-spacing: 2px !important;
-                color: #1A1714 !important;
-                height: 50px !important;
-                border: 2px solid #E0DBD4 !important;
-                border-radius: 12px !important;
-                background: #fff !important;
-                box-shadow: 0 3px 10px rgba(0,0,0,0.05) !important;
-                padding: 0 16px !important;
-            }
-            div[data-testid="stTextInput"] input:focus {
-                border-color: #C8566A !important;
-                box-shadow: 0 0 0 4px rgba(200,86,106,0.12), 0 3px 10px rgba(0,0,0,0.05) !important;
-            }
-            div[data-testid="stTextInput"] input::placeholder {
-                color: #CCC6BF !important; font-weight:600 !important; font-size:15px !important; letter-spacing:1px !important;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-            pedido_inp = st.text_input("_", value=st.session_state.pedido or "", placeholder="Ex: #00123")
+        # ── Mode: has base → show selectbox + optional manual ──
+        if has_base and pedidos_abertos:
+            st.markdown('<div style="font-size:11px;font-weight:800;letter-spacing:1.5px;color:#9C9490;text-transform:uppercase;margin-bottom:6px;text-align:center;">Selecione o Pedido</div>', unsafe_allow_html=True)
+            # Build display options with client name
+            pedidos_info = {p[0]: p[1] for p in pedidos_db if p[3]=="aberto"}  # num -> cliente
+            def fmt_opcao(num):
+                cli = pedidos_info.get(num,"")
+                return f"{num}  —  {cli}" if cli else num
+
+            opcoes_display = ["— Selecione ou digite —"] + [fmt_opcao(n) for n in sorted(pedidos_abertos)]
+            opcoes_map     = {"— Selecione ou digite —": ""} | {fmt_opcao(n): n for n in sorted(pedidos_abertos)}
+
+            _, col_sel, _ = st.columns([0.5, 4, 0.5])
+            with col_sel:
+                sel_display = st.selectbox("_sel", opcoes_display, key="pedido_sel_box")
+            pedido_inp = opcoes_map.get(sel_display, "")
+
+            # Show client info card when a pedido is selected
+            if pedido_inp:
+                cli_nome = pedidos_info.get(pedido_inp, "")
+                if cli_nome:
+                    components.html(f"""<div style="background:#F0F7F3;border:1.5px solid #4A7C59;border-radius:10px;
+                        padding:10px 16px;font-family:sans-serif;display:flex;align-items:center;gap:10px;margin:6px 0;">
+                        <div style="font-size:18px;">🛍</div>
+                        <div><div style="font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#4A7C59;margin-bottom:2px;">Cliente</div>
+                        <div style="font-size:13px;font-weight:800;color:#1A1714;">{cli_nome}</div></div>
+                    </div>""", height=58, scrolling=False)
+
+            # Also allow free-type override
+            with st.expander("✏ Digitar número manualmente"):
+                pedido_manual = st.text_input("Número manual", placeholder="Ex: 49735", key="pedido_manual_inp")
+                if pedido_manual.strip():
+                    pedido_inp = pedido_manual.strip()
+        else:
+            st.markdown('<div style="font-size:11px;font-weight:800;letter-spacing:1.5px;color:#9C9490;text-transform:uppercase;margin-bottom:6px;text-align:center;">Número do Pedido</div>', unsafe_allow_html=True)
+            _, col_inp, _ = st.columns([0.5, 4, 0.5])
+            with col_inp:
+                pedido_inp = st.text_input("_", value=st.session_state.pedido or "", placeholder="Ex: #00123")
+            if has_base and not pedidos_abertos:
+                components.html("""<div style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:10px;
+                    padding:10px 14px;font-family:sans-serif;font-size:12px;font-weight:700;color:#92400E;text-align:center;">
+                    ⚠ Nenhum pedido em aberto na base. Carregue uma planilha no painel admin.</div>""",
+                    height=50, scrolling=False)
 
         if st.session_state.erro_pedido:
-            st.markdown('<div style="text-align:center;color:#C8566A;font-size:13px;font-weight:800;margin-top:6px;">⚠ Digite o número do pedido.</div>', unsafe_allow_html=True)
+            st.markdown('<div style="text-align:center;color:#C8566A;font-size:13px;font-weight:800;margin-top:6px;">⚠ Selecione ou digite o número do pedido.</div>', unsafe_allow_html=True)
 
-        st.markdown("<br>", unsafe_allow_html=True)
+        # ── Status warnings ──
+        pst = st.session_state.pedido_status
+        if pst == "concluido":
+            components.html(f"""
+            <div style="background:#FEF2F2;border:2px solid #FCA5A5;border-radius:14px;
+                 padding:16px 20px;font-family:sans-serif;text-align:center;margin:8px 0;">
+                <div style="font-size:22px;margin-bottom:6px;">🔒</div>
+                <div style="font-size:14px;font-weight:800;color:#991B1B;margin-bottom:4px;">Pedido Já Concluído</div>
+                <div style="font-size:12px;color:#B91C1C;font-weight:600;">
+                    Este pedido já passou por todas as etapas e foi encerrado no sistema.
+                </div>
+            </div>""", height=110, scrolling=False)
+            if st.button("← Escolher outro pedido", use_container_width=True):
+                st.session_state.pedido_status = None; st.rerun()
 
-        _, c1, gap, c2, _ = st.columns([0.3, 3, 0.3, 1.5, 0.3])
-        with c1:
-            st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
-            if st.button("▶  INICIAR CRONÔMETRO", use_container_width=True):
-                if not pedido_inp.strip():
-                    st.session_state.erro_pedido = True; st.rerun()
-                st.session_state.erro_pedido = False
-                st.session_state.pedido  = pedido_inp.strip()
-                st.session_state.rodando = True
-                st.session_state.inicio  = time.time()
-                st.session_state.acum    = 0
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-        with c2:
-            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
-            if st.button("← Voltar", use_container_width=True):
-                st.session_state.tela = "home"; st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+        elif pst == "nao_encontrado":
+            components.html(f"""
+            <div style="background:#FFFBEB;border:2px solid #FCD34D;border-radius:14px;
+                 padding:16px 20px;font-family:sans-serif;text-align:center;margin:8px 0;">
+                <div style="font-size:22px;margin-bottom:6px;">❓</div>
+                <div style="font-size:14px;font-weight:800;color:#92400E;margin-bottom:4px;">Pedido Não Encontrado</div>
+                <div style="font-size:12px;color:#B45309;font-weight:600;">
+                    Este número não está na base de pedidos. Deseja cadastrá-lo manualmente?
+                </div>
+            </div>""", height=110, scrolling=False)
+            cc1, cc2 = st.columns(2)
+            with cc1:
+                st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
+                if st.button("✓ Cadastrar e Iniciar", use_container_width=True):
+                    num = st.session_state.get("_pedido_validando","")
+                    if num:
+                        cadastrar_pedido_avulso(num)
+                        st.session_state.pedido_status = None
+                        st.session_state.pedido  = num
+                        st.session_state.rodando = True
+                        st.session_state.inicio  = time.time()
+                        st.session_state.acum    = 0
+                        st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            with cc2:
+                st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+                if st.button("✕ Cancelar", use_container_width=True):
+                    st.session_state.pedido_status = None; st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+
+        else:
+            st.markdown("<br>", unsafe_allow_html=True)
+            _, c1, gap, c2, _ = st.columns([0.3, 3, 0.3, 1.5, 0.3])
+            with c1:
+                st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
+                if st.button("▶  INICIAR CRONÔMETRO", use_container_width=True):
+                    num = pedido_inp.strip() if isinstance(pedido_inp, str) else ""
+                    if not num:
+                        st.session_state.erro_pedido = True; st.rerun()
+                    st.session_state.erro_pedido = False
+                    # Validate against base
+                    pst = status_pedido(num)
+                    if pst == "aberto":
+                        st.session_state.pedido  = num
+                        st.session_state.rodando = True
+                        st.session_state.inicio  = time.time()
+                        st.session_state.acum    = 0
+                        st.session_state.pedido_status = None
+                        st.rerun()
+                    elif pst == "concluido":
+                        st.session_state.pedido_status = "concluido"
+                        st.session_state._pedido_validando = num
+                        st.rerun()
+                    else:  # nao_encontrado — only block if we have a base loaded
+                        if has_base:
+                            st.session_state.pedido_status = "nao_encontrado"
+                            st.session_state._pedido_validando = num
+                            st.rerun()
+                        else:
+                            # No base: allow freely
+                            st.session_state.pedido  = num
+                            st.session_state.rodando = True
+                            st.session_state.inicio  = time.time()
+                            st.session_state.acum    = 0
+                            st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            with c2:
+                st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+                if st.button("← Voltar", use_container_width=True):
+                    st.session_state.pedido_status = None
+                    st.session_state.tela = "home"; st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
 
     # ── Timer rodando ──
     elif st.session_state.rodando:
@@ -562,6 +782,8 @@ def tela_producao():
                 st.session_state.acum = tempo; st.session_state.rodando = False; st.session_state.inicio = None
                 salvar(st.session_state.pedido, op, ETAPAS[etapa_idx], etapa_idx, tempo)
                 st.session_state.modal = "proxima" if etapa_idx < 2 else "concluido"
+            if etapa_idx == 2:
+                marcar_concluido(st.session_state.pedido)
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
         time.sleep(1); st.rerun()
@@ -1120,6 +1342,70 @@ def tela_admin():
         if st.button("← Sair", use_container_width=True):
             st.session_state.tela = "home"; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── Upload planilha ──
+    with st.expander("📂 Importar Planilha de Pedidos", expanded=False):
+        components.html("""
+        <!DOCTYPE html><html><head>
+        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+        <style>*{margin:0;padding:0;box-sizing:border-box;}</style>
+        </head><body style="background:transparent;font-family:Nunito,sans-serif;">
+        <div style="background:linear-gradient(135deg,#1A1714,#2e2825);border-radius:14px;padding:18px 22px;
+                    border:1px solid rgba(255,255,255,0.06);box-shadow:0 4px 16px rgba(0,0,0,0.2);">
+            <div style="font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
+                        color:rgba(255,255,255,0.4);margin-bottom:6px;">Como usar</div>
+            <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.85);line-height:1.6;">
+                Suba qualquer planilha <b style="color:#C8566A;">.xlsx</b> ou <b style="color:#C8566A;">.csv</b> com os pedidos.<br>
+                O sistema detecta automaticamente as colunas de <b>número</b>, <b>status</b> e <b>cliente</b>.<br>
+                Pedidos marcados como <i>concluído/finalizado/entregue</i> ficam bloqueados para produção.
+            </div>
+        </div>
+        </body></html>""", height=115, scrolling=False)
+
+        st.markdown("<br style='line-height:0.3'>", unsafe_allow_html=True)
+        uploaded = st.file_uploader(
+            "Selecione a planilha",
+            type=["xlsx","xls","csv"],
+            help="Aceita .xlsx, .xls e .csv"
+        )
+        if uploaded:
+            ok, result = importar_planilha(uploaded.read(), uploaded.name)
+            if ok:
+                components.html(f"""<div style="background:#E8F2EC;border:1.5px solid #4A7C59;border-radius:10px;
+                    padding:12px 18px;font-family:sans-serif;font-size:13px;font-weight:800;color:#2d5a3d;text-align:center;">
+                    ✅ {result} pedidos importados com sucesso de <b>{uploaded.name}</b>!</div>""",
+                    height=55, scrolling=False)
+                st.rerun()
+            else:
+                components.html(f"""<div style="background:#FEF2F2;border:1.5px solid #C8566A;border-radius:10px;
+                    padding:12px 18px;font-family:sans-serif;font-size:13px;font-weight:800;color:#991B1B;text-align:center;">
+                    ❌ {result}</div>""", height=55, scrolling=False)
+
+        # Show current base stats
+        pedidos_base = buscar_pedidos_base()
+        if pedidos_base:
+            abertos   = sum(1 for p in pedidos_base if p[3]=="aberto")
+            concluidos = sum(1 for p in pedidos_base if p[3]=="concluido")
+            components.html(f"""
+            <!DOCTYPE html><html><head>
+            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+            <style>*{{margin:0;padding:0;box-sizing:border-box;}}</style>
+            </head><body style="background:transparent;font-family:Nunito,sans-serif;padding-top:10px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+                <div style="background:#fff;border-radius:12px;padding:14px;border:1.5px solid #EDE9E4;text-align:center;">
+                    <div style="font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#9C9490;margin-bottom:4px;">Total na Base</div>
+                    <div style="font-family:'DM Mono',monospace;font-size:26px;font-weight:500;color:#1A1714;">{len(pedidos_base)}</div>
+                </div>
+                <div style="background:#fff;border-radius:12px;padding:14px;border:1.5px solid #EDE9E4;text-align:center;">
+                    <div style="font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#4A7C59;margin-bottom:4px;">Em Aberto</div>
+                    <div style="font-family:'DM Mono',monospace;font-size:26px;font-weight:500;color:#4A7C59;">{abertos}</div>
+                </div>
+                <div style="background:#fff;border-radius:12px;padding:14px;border:1.5px solid #EDE9E4;text-align:center;">
+                    <div style="font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#C8566A;margin-bottom:4px;">Concluídos</div>
+                    <div style="font-family:'DM Mono',monospace;font-size:26px;font-weight:500;color:#C8566A;">{concluidos}</div>
+                </div>
+            </div>
+            </body></html>""", height=95, scrolling=False)
 
     regs     = buscar()
     ped_comp = list({r[1] for r in regs if r[4] == 2})
