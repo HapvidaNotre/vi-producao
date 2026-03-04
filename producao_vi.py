@@ -688,28 +688,116 @@ def tela_producao():
 #  TELA: ADMIN LOGIN
 # ─────────────────────────────────────
 def tela_admin_login():
-    render_logo()
-    st.markdown('<div class="section-label">Área Administrativa</div>', unsafe_allow_html=True)
-    st.markdown('<div class="vi-card">', unsafe_allow_html=True)
-    st.markdown('<div style="text-align:center;font-size:32px;margin-bottom:8px;">🔐</div>', unsafe_allow_html=True)
-    senha = st.text_input("SENHA", type="password", placeholder="Digite a senha")
-    if st.session_state.erro_senha:
-        st.markdown('<span style="color:#C8566A;font-size:12px;">⚠ Senha incorreta.</span>', unsafe_allow_html=True)
-    c1, c2 = st.columns(2)
+    # ── Hero header ──
+    components.html(f"""
+    <!DOCTYPE html><html><head>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+    <style>* {{margin:0;padding:0;box-sizing:border-box;}}</style>
+    </head><body style="background:transparent;font-family:Nunito,sans-serif;">
+    <div style="background:linear-gradient(135deg,#1A1714 0%,#2e2825 100%);border-radius:20px;padding:0;overflow:hidden;position:relative;box-shadow:0 8px 0 rgba(0,0,0,0.35),0 16px 40px rgba(0,0,0,0.25);">
+        <div style="position:absolute;right:-40px;top:-40px;width:180px;height:180px;border-radius:50%;background:rgba(200,86,106,0.08);"></div>
+        <div style="position:absolute;left:-20px;bottom:-50px;width:140px;height:140px;border-radius:50%;background:rgba(200,86,106,0.05);"></div>
+        <div style="padding:32px 28px;position:relative;z-index:1;display:flex;align-items:center;gap:20px;">
+            <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#C8566A,#9E3F52);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(200,86,106,0.40);flex-shrink:0;">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+            </div>
+            <div>
+                <div style="font-size:10px;font-weight:800;letter-spacing:2.5px;color:rgba(255,255,255,0.45);text-transform:uppercase;margin-bottom:4px;">Acesso Restrito</div>
+                <div style="font-size:20px;font-weight:900;color:#fff;letter-spacing:-0.3px;">Painel Administrativo</div>
+            </div>
+        </div>
+        <div style="height:1px;background:linear-gradient(90deg,rgba(200,86,106,0.6),rgba(200,86,106,0.1),transparent);"></div>
+        <div style="padding:16px 28px 20px;display:flex;gap:24px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <div style="width:6px;height:6px;border-radius:50%;background:#4A7C59;box-shadow:0 0 6px #4A7C59;"></div>
+                <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.45);">Sistema Online</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <div style="width:6px;height:6px;border-radius:50%;background:#C8566A;"></div>
+                <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.45);">Vi Lingerie · Produção</span>
+            </div>
+        </div>
+    </div>
+    </body></html>
+    """, height=175, scrolling=False)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Senha ──
+    erro = st.session_state.erro_senha
+
+    st.markdown(f"""
+    <style>
+    div[data-testid="stTextInput"] label {{ display:none !important; }}
+    div[data-testid="stTextInput"] input {{
+        text-align: center !important;
+        font-size: 20px !important;
+        font-weight: 800 !important;
+        letter-spacing: 6px !important;
+        color: #1A1714 !important;
+        height: 58px !important;
+        border: {"2px solid #C8566A" if erro else "2px solid #E0DBD4"} !important;
+        border-radius: 14px !important;
+        background: #fff !important;
+        box-shadow: {"0 0 0 4px rgba(200,86,106,0.10)" if erro else "0 3px 12px rgba(0,0,0,0.06)"} !important;
+        padding: 0 20px !important;
+    }}
+    div[data-testid="stTextInput"] input:focus {{
+        border-color: #C8566A !important;
+        box-shadow: 0 0 0 4px rgba(200,86,106,0.12), 0 3px 12px rgba(0,0,0,0.06) !important;
+    }}
+    div[data-testid="stTextInput"] input::placeholder {{
+        color: #C8C0B8 !important; font-weight:600 !important; letter-spacing:2px !important; font-size:14px !important;
+    }}
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div style="font-size:11px;font-weight:800;letter-spacing:2px;color:#9C9490;text-transform:uppercase;margin-bottom:8px;text-align:center;">Digite sua senha</div>', unsafe_allow_html=True)
+
+    _, col_inp, _ = st.columns([0.3, 5, 0.3])
+    with col_inp:
+        senha = st.text_input("_", type="password", placeholder="••••••••")
+
+    if erro:
+        st.markdown('<div style="text-align:center;color:#C8566A;font-size:13px;font-weight:800;margin-top:6px;">⚠ Senha incorreta. Tente novamente.</div>', unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    _, c1, gap, c2, _ = st.columns([0.3, 1.5, 0.3, 3, 0.3])
     with c1:
-        st.markdown('<div class="btn-outline">', unsafe_allow_html=True)
+        st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
         if st.button("← Voltar", use_container_width=True):
             st.session_state.erro_senha = False; st.session_state.tela = "home"; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
     with c2:
-        st.markdown('<div class="btn-primary">', unsafe_allow_html=True)
-        if st.button("Entrar", use_container_width=True):
+        st.markdown("""
+        <style>
+        .btn-admin-enter > button {
+            background: linear-gradient(135deg,#1A1714,#2e2825) !important;
+            color: #fff !important; border: none !important;
+            box-shadow: 0 5px 0 rgba(0,0,0,0.40), 0 8px 20px rgba(0,0,0,0.20) !important;
+            font-size: 15px !important; letter-spacing: 1px !important;
+        }
+        .btn-admin-enter > button:hover {
+            background: linear-gradient(135deg,#2e2825,#3d3530) !important;
+            transform: translateY(-2px) !important;
+        }
+        .btn-admin-enter > button:active {
+            transform: translateY(2px) !important;
+            box-shadow: 0 2px 0 rgba(0,0,0,0.40) !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        st.markdown('<div class="btn-admin-enter">', unsafe_allow_html=True)
+        if st.button("🔓  Acessar Painel", use_container_width=True):
             if senha == ADMIN_SENHA:
                 st.session_state.erro_senha = False; st.session_state.tela = "admin"; st.rerun()
             else:
                 st.session_state.erro_senha = True; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # ─────────────────────────────────────
 #  TELA: ADMIN PANEL
