@@ -1173,10 +1173,10 @@ def tela_admin():
     components.html(kpi_html, height=115, scrolling=False)
 
     # ── Build op_map ──
-    op_map = {{}}
+    op_map = {}
     for r in regs:
         op = r[2]
-        if op not in op_map: op_map[op] = {{"p":set(),"sep":[],"conf":[],"emb":[]}}
+        if op not in op_map: op_map[op] = {"p":set(),"sep":[],"conf":[],"emb":[]}
         op_map[op]["p"].add(r[1])
         if r[4]==0: op_map[op]["sep"].append(r[5])
         if r[4]==1: op_map[op]["conf"].append(r[5])
