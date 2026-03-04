@@ -1347,6 +1347,7 @@ def tela_admin():
 
         c1, c2 = st.columns(2)
         with c1:
+            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
             st.download_button(
                 label="⬇  Exportar CSV",
                 data=buf_csv.getvalue().encode(),
@@ -1354,6 +1355,7 @@ def tela_admin():
                 mime="text/csv",
                 use_container_width=True,
             )
+            st.markdown('</div>', unsafe_allow_html=True)
         with c2:
             st.markdown('<div class="btn-pdf">', unsafe_allow_html=True)
             st.download_button(
