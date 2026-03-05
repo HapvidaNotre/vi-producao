@@ -20,9 +20,9 @@ st.set_page_config(
 #  CONSTANTS
 # ─────────────────────────────────────
 OPERADORES  = ["Lucivanio","Enagio","Daniel","Italo","Cildenir","Samya","Neide","Eduardo","Talyson"]
-ETAPAS      = ["Separacao","Conferencia","Embalagem"]
-ETAPAS_LBL  = ["Separação","Conferência","Embalagem"]
-ADMIN_SENHA = "vi2025"
+ETAPAS      = ["Separacao","Mesa_Embalagem","Conferencia"]
+ETAPAS_LBL  = ["Separação de Pedidos","Mesa de Embalagem","Conferência de Pedidos"]
+ADMIN_SENHA = "vi2026"
 DB_PATH     = Path(__file__).parent / "producao.db"
 
 # ─────────────────────────────────────
@@ -150,6 +150,48 @@ def marcar_concluido(numero):
     con.execute("UPDATE pedidos_base SET status=\'concluido\' WHERE numero=?", (numero,))
     con.commit(); con.close()
 
+def verificar_etapa_registro(pedido, etapa_idx):
+    """Verifica se esse pedido/etapa já tem registro. Retorna (existe, operador_anterior)."""
+    con = sqlite3.connect(DB_PATH)
+    row = con.execute(
+        "SELECT operador FROM registros WHERE pedido=? AND etapa_idx=? ORDER BY id DESC LIMIT 1",
+        (pedido, etapa_idx)
+    ).fetchone()
+    con.close()
+    if row: return True, row[0]
+    return False, None
+
+def pedido_em_andamento(pedido, etapa_idx):
+    """Verifica se pedido está com timer ativo em outra sessão (via active_sessions table)."""
+    con = sqlite3.connect(DB_PATH)
+    con.execute("""CREATE TABLE IF NOT EXISTS sessoes_ativas (
+        pedido TEXT, etapa_idx INTEGER, operador TEXT, iniciado_em INTEGER,
+        PRIMARY KEY (pedido, etapa_idx))""")
+    row = con.execute(
+        "SELECT operador, iniciado_em FROM sessoes_ativas WHERE pedido=? AND etapa_idx=?",
+        (pedido, etapa_idx)
+    ).fetchone()
+    con.close()
+    if row:
+        # Considera ativa se foi iniciada há menos de 4 horas
+        if int(time.time()) - row[1] < 14400:
+            return True, row[0]
+    return False, None
+
+def registrar_sessao_ativa(pedido, etapa_idx, operador):
+    con = sqlite3.connect(DB_PATH)
+    con.execute("""CREATE TABLE IF NOT EXISTS sessoes_ativas (
+        pedido TEXT, etapa_idx INTEGER, operador TEXT, iniciado_em INTEGER,
+        PRIMARY KEY (pedido, etapa_idx))""")
+    con.execute("""INSERT OR REPLACE INTO sessoes_ativas VALUES (?,?,?,?)""",
+        (pedido, etapa_idx, operador, int(time.time())))
+    con.commit(); con.close()
+
+def remover_sessao_ativa(pedido, etapa_idx):
+    con = sqlite3.connect(DB_PATH)
+    con.execute("DELETE FROM sessoes_ativas WHERE pedido=? AND etapa_idx=?", (pedido, etapa_idx))
+    con.commit(); con.close()
+
 def salvar(pedido, operador, etapa, etapa_idx, tempo):
     con = sqlite3.connect(DB_PATH)
     con.execute("INSERT INTO registros VALUES (NULL,?,?,?,?,?,?)",
@@ -199,6 +241,8 @@ for k, v in {
     "pedido_prox":None, "etapa_prox":None,
     "erro_pedido":False, "erro_senha":False,
     "pedido_status":None, "pedido_confirm":False,
+    # novo fluxo: etapa_escolhida → pedido → operador
+    "etapa_escolhida":None, "duplicata_info":None,
 }.items():
     if k not in st.session_state:
         st.session_state[k] = v
@@ -212,20 +256,8 @@ params = st.query_params
 if "op" in params:
     op = params["op"]
     if op in OPERADORES:
+        # Just set operator and stay on home for pedido selection
         st.session_state.operador = op
-        if st.session_state.pedido_prox:
-            st.session_state.pedido    = st.session_state.pedido_prox
-            st.session_state.etapa_idx = st.session_state.etapa_prox
-            st.session_state.pedido_prox = None
-            st.session_state.etapa_prox  = None
-        else:
-            st.session_state.pedido    = None
-            st.session_state.etapa_idx = 0
-        st.session_state.rodando = False
-        st.session_state.inicio  = None
-        st.session_state.acum    = 0
-        st.session_state.modal   = None
-        st.session_state.tela    = "producao"
     st.query_params.clear()
     st.rerun()
 
@@ -514,26 +546,303 @@ def render_avatar_grid():
     html += '</div>'
     st.markdown(html, unsafe_allow_html=True)
 
+
+def _go_producao(etapa_idx):
+    """Helper: transition to production screen."""
+    registrar_sessao_ativa(st.session_state.pedido, etapa_idx, st.session_state.operador)
+    st.session_state.etapa_idx = etapa_idx
+    st.session_state.rodando   = False
+    st.session_state.inicio    = None
+    st.session_state.acum      = 0
+    st.session_state.modal     = None
+    st.session_state.tela      = "producao"
+    st.rerun()
+
 # ─────────────────────────────────────
-#  TELA: HOME
+#  TELA: HOME  (fluxo: etapa → operador → pedido → INICIAR → volta home)
 # ─────────────────────────────────────
 def tela_home():
     render_logo()
-    st.markdown('<div class="section-label">Selecione o Operador</div>', unsafe_allow_html=True)
 
-    if st.session_state.pedido_prox:
-        st.info(f"📦 Pedido **{st.session_state.pedido_prox}** aguardando: **{ETAPAS_LBL[st.session_state.etapa_prox]}**")
+    # ══════════════════════════════════
+    #  PASSO 1 — Escolher a etapa
+    # ══════════════════════════════════
+    if st.session_state.etapa_escolhida is None:
+        st.markdown('<div class="section-label">Selecione a Etapa</div>', unsafe_allow_html=True)
 
-    render_avatar_grid()
+        icons_etapa = ["📦", "🗃️", "✅"]
+        descricoes  = [
+            "Separar peças conforme localização no pedido",
+            "Embalar conforme observação do pedido",
+            "Conferência via código de barras — envia ao faturamento",
+        ]
+        for i, lbl in enumerate(ETAPAS_LBL):
+            st.markdown(f"""
+            <style>
+            .btn-etapa-{i} > button {{
+                background: linear-gradient(135deg,#C8566A,#9E3F52) !important;
+                color:#fff !important; border:none !important;
+                font-size:16px !important; height:68px !important; text-align:left !important;
+                padding-left:20px !important;
+                box-shadow:0 5px 0 rgba(100,20,35,0.40),0 8px 18px rgba(200,86,106,0.28) !important;
+            }}
+            .btn-etapa-{i} > button:hover {{
+                transform:translateY(-2px) !important;
+                box-shadow:0 8px 0 rgba(100,20,35,0.38),0 14px 28px rgba(200,86,106,0.36) !important;
+            }}
+            </style>
+            """, unsafe_allow_html=True)
+            st.markdown(f'<div class="btn-etapa-{i}">', unsafe_allow_html=True)
+            if st.button(f"{icons_etapa[i]}  {lbl}", use_container_width=True, key=f"etapa_btn_{i}"):
+                st.session_state.etapa_escolhida = i
+                st.session_state.operador = None
+                st.session_state.pedido   = None
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown(
+                f'<div style="font-size:11px;color:#9C9490;text-align:center;margin:-4px 0 10px;">{descricoes[i]}</div>',
+                unsafe_allow_html=True
+            )
 
+        st.markdown("<br>", unsafe_allow_html=True)
+        _, col_c, _ = st.columns([2, 1, 2])
+        with col_c:
+            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+            if st.button("⚙ Admin", use_container_width=True):
+                st.session_state.tela = "admin_login"; st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        return
+
+    etapa_idx = st.session_state.etapa_escolhida
+    etapa_lbl = ETAPAS_LBL[etapa_idx]
+
+    # ══════════════════════════════════
+    #  PASSO 2 — Operador se identifica
+    # ══════════════════════════════════
+    if st.session_state.operador is None:
+        render_stepper(etapa_idx)
+        st.markdown(
+            f'<div style="background:#F5E8EB;border-left:4px solid #C8566A;border-radius:0 10px 10px 0;'
+            f'padding:10px 16px;margin-bottom:20px;font-size:14px;font-weight:700;color:#1A1714;">'
+            f'Etapa: {etapa_lbl}</div>',
+            unsafe_allow_html=True
+        )
+        st.markdown('<div class="section-label">Quem é o operador?</div>', unsafe_allow_html=True)
+
+        html = '<div class="ops-grid">'
+        for op in OPERADORES:
+            html += f"""
+            <a class="op-wrap" href="?op={op}" target="_self">
+              <div class="avatar">{op[0].upper()}</div>
+              <div class="op-name">{op}</div>
+            </a>"""
+        html += '</div>'
+        st.markdown(html, unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        _, col_v, _ = st.columns([2, 2, 2])
+        with col_v:
+            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+            if st.button("← Voltar", use_container_width=True, key="home_op_voltar"):
+                st.session_state.etapa_escolhida = None; st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        return
+
+    # ══════════════════════════════════
+    #  PASSO 3 — Selecionar o pedido
+    # ══════════════════════════════════
+    render_stepper(etapa_idx)
+    op = st.session_state.operador
+    st.markdown(
+        f'<div style="background:#F5E8EB;border-left:4px solid #C8566A;border-radius:0 10px 10px 0;'
+        f'padding:10px 16px;margin-bottom:16px;font-size:14px;font-weight:700;color:#1A1714;">'
+        f'<span style="color:#9C9490;font-weight:600;font-size:12px;">Operador</span><br>{op} &nbsp;·&nbsp; {etapa_lbl}'
+        f'</div>',
+        unsafe_allow_html=True
+    )
+    st.markdown('<div class="section-label">Selecione o pedido</div>', unsafe_allow_html=True)
+
+    pedidos_db      = buscar_pedidos_base()
+    pedidos_abertos = [p[0] for p in pedidos_db if p[3] == "aberto"]
+    pedidos_info    = {p[0]: p[1] for p in pedidos_db if p[3] == "aberto"}
+    has_base        = len(pedidos_db) > 0
+
+    st.markdown("""
+    <style>
+    div[data-testid="stTextInput"] label { display:none !important; }
+    div[data-testid="stSelectbox"] label { display:none !important; }
+    </style>""", unsafe_allow_html=True)
+
+    pedido_inp = ""
+
+    if has_base and pedidos_abertos:
+        def fmt_op_ped(n):
+            cli = pedidos_info.get(n, "")
+            return f"{n}  —  {cli}" if cli else n
+        opcoes_disp = ["— Selecione ou digite —"] + [fmt_op_ped(n) for n in sorted(pedidos_abertos)]
+        opcoes_map  = {"— Selecione ou digite —": ""} | {fmt_op_ped(n): n for n in sorted(pedidos_abertos)}
+        _, col_sel, _ = st.columns([0.3, 4, 0.3])
+        with col_sel:
+            sel = st.selectbox("_sel", opcoes_disp, key="home_pedido_sel")
+        pedido_inp = opcoes_map.get(sel, "")
+        if pedido_inp:
+            cli_nome = pedidos_info.get(pedido_inp, "")
+            if cli_nome:
+                import streamlit.components.v1 as _cv1
+                _cv1.html(
+                    f'<div style="background:#F0F7F3;border:1.5px solid #4A7C59;border-radius:10px;'
+                    f'padding:10px 16px;font-family:sans-serif;display:flex;align-items:center;gap:10px;margin:6px 0;">'
+                    f'<div style="font-size:18px;">🛍</div>'
+                    f'<div><div style="font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#4A7C59;margin-bottom:2px;">Cliente</div>'
+                    f'<div style="font-size:13px;font-weight:800;color:#1A1714;">{cli_nome}</div></div></div>',
+                    height=58, scrolling=False
+                )
+        with st.expander("✏ Digitar número manualmente"):
+            manual = st.text_input("Número manual", placeholder="Ex: 49735", key="home_pedido_manual")
+            if manual.strip(): pedido_inp = manual.strip()
+    else:
+        _, col_inp, _ = st.columns([0.3, 4, 0.3])
+        with col_inp:
+            pedido_inp = st.text_input("_ped", placeholder="Ex: 49735", key="home_pedido_txt")
+        if has_base and not pedidos_abertos:
+            import streamlit.components.v1 as _cv1
+            _cv1.html(
+                '<div style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:10px;'
+                'padding:10px 14px;font-family:sans-serif;font-size:12px;font-weight:700;color:#92400E;text-align:center;">'
+                '⚠ Nenhum pedido em aberto na base.</div>',
+                height=50, scrolling=False
+            )
+
+    # ── Bloqueio: pedido concluído ──
+    if st.session_state.pedido_status == "concluido":
+        import streamlit.components.v1 as _cv1
+        _cv1.html(
+            '<div style="background:#FEF2F2;border:2px solid #FCA5A5;border-radius:14px;'
+            'padding:16px 20px;font-family:sans-serif;text-align:center;margin:8px 0;">'
+            '<div style="font-size:22px;margin-bottom:6px;">🔒</div>'
+            '<div style="font-size:14px;font-weight:800;color:#991B1B;margin-bottom:4px;">Pedido Já Concluído</div>'
+            '<div style="font-size:12px;color:#B91C1C;font-weight:600;">Este pedido já foi encerrado no sistema.</div>'
+            '</div>',
+            height=110, scrolling=False
+        )
+        if st.button("← Escolher outro pedido"):
+            st.session_state.pedido_status = None; st.rerun()
+        return
+
+    # ── Pedido não encontrado: cadastrar? ──
+    if st.session_state.pedido_status == "nao_encontrado":
+        num_pend = st.session_state.get("_pedido_validando", "")
+        import streamlit.components.v1 as _cv1
+        _cv1.html(
+            f'<div style="background:#FFFBEB;border:2px solid #FCD34D;border-radius:14px;'
+            f'padding:16px 20px;font-family:sans-serif;text-align:center;margin:8px 0;">'
+            f'<div style="font-size:22px;margin-bottom:6px;">❓</div>'
+            f'<div style="font-size:14px;font-weight:800;color:#92400E;margin-bottom:4px;">Pedido Não Encontrado</div>'
+            f'<div style="font-size:12px;color:#B45309;font-weight:600;">'
+            f'Pedido <b>{num_pend}</b> não está na base. Deseja cadastrá-lo?</div>'
+            f'</div>',
+            height=115, scrolling=False
+        )
+        cc1, cc2 = st.columns(2)
+        with cc1:
+            st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
+            if st.button("✓ Cadastrar", use_container_width=True):
+                cadastrar_pedido_avulso(num_pend)
+                st.session_state.pedido_status = None
+                st.session_state.pedido = num_pend
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        with cc2:
+            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+            if st.button("✕ Cancelar", use_container_width=True):
+                st.session_state.pedido_status = None; st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        return
+
+    # ── Popup duplicata ──
+    if st.session_state.duplicata_info:
+        info    = st.session_state.duplicata_info
+        op_ant  = info["operador_anterior"]
+        etl     = ETAPAS_LBL[etapa_idx]
+        num     = info["pedido"]
+        msg_tp  = "está sendo processado agora" if info["em_andamento"] else "já passou pela fase de"
+        import streamlit.components.v1 as _cv1
+        _cv1.html(
+            f'<div style="background:#FFF7ED;border:2px solid #F97316;border-radius:14px;'
+            f'padding:18px 22px;font-family:sans-serif;margin:8px 0;">'
+            f'<div style="font-size:22px;text-align:center;margin-bottom:8px;">⚠️</div>'
+            f'<div style="font-size:14px;font-weight:800;color:#9A3412;text-align:center;margin-bottom:8px;">Atenção — Pedido em Conflito</div>'
+            f'<div style="font-size:13px;color:#7C2D12;font-weight:600;text-align:center;line-height:1.6;">'
+            f'<b>{op}</b>, este pedido {msg_tp} <b>{etl}</b>'
+            f'{(" (por " + op_ant + ")") if op_ant else ""}.<br><br>'
+            f'Deseja mesmo assim realizar uma alteração nesta etapa?</div>'
+            f'</div>',
+            height=175, scrolling=False
+        )
+        cc1, cc2 = st.columns(2)
+        with cc1:
+            st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
+            if st.button("✓ Sim, prosseguir", use_container_width=True):
+                st.session_state.pedido = info["pedido"]
+                st.session_state.duplicata_info = None
+                _go_producao(etapa_idx)
+            st.markdown('</div>', unsafe_allow_html=True)
+        with cc2:
+            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+            if st.button("✕ Não", use_container_width=True):
+                st.session_state.duplicata_info = None; st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        return
+
+    # ── BOTÃO INICIAR ──
     st.markdown("<br>", unsafe_allow_html=True)
-    _, col_c, _ = st.columns([2, 1, 2])
-    with col_c:
-        st.markdown('<div class="btn-outline btn-sm">', unsafe_allow_html=True)
-        if st.button("⚙ Admin", use_container_width=True):
-            st.session_state.tela = "admin_login"
-            st.rerun()
+    c1, _, c2 = st.columns([3, 0.3, 1.5])
+    with c1:
+        st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
+        if st.button("▶  INICIAR", use_container_width=True, key="home_iniciar"):
+            num = pedido_inp.strip() if isinstance(pedido_inp, str) else ""
+            if not num:
+                st.session_state.erro_pedido = True; st.rerun()
+            st.session_state.erro_pedido = False
+            pst = status_pedido(num)
+            if pst == "concluido":
+                st.session_state.pedido_status = "concluido"
+                st.session_state._pedido_validando = num; st.rerun()
+            elif pst == "nao_encontrado" and has_base:
+                st.session_state.pedido_status = "nao_encontrado"
+                st.session_state._pedido_validando = num; st.rerun()
+            else:
+                # Check duplicata
+                em_and, op_and = pedido_em_andamento(num, etapa_idx)
+                ja_reg, op_reg = verificar_etapa_registro(num, etapa_idx)
+                op_ant = op_and or op_reg
+                if em_and or ja_reg:
+                    st.session_state._pedido_validando = num
+                    st.session_state.duplicata_info = {
+                        "pedido": num,
+                        "operador_anterior": op_ant,
+                        "em_andamento": em_and,
+                    }
+                    st.rerun()
+                else:
+                    st.session_state.pedido = num
+                    st.session_state.pedido_status = None
+                    _go_producao(etapa_idx)
         st.markdown('</div>', unsafe_allow_html=True)
+    with c2:
+        st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+        if st.button("← Voltar", use_container_width=True, key="home_ped_voltar"):
+            st.session_state.operador = None
+            st.session_state.pedido_status = None; st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    if st.session_state.erro_pedido:
+        st.markdown(
+            '<div style="text-align:center;color:#C8566A;font-size:13px;font-weight:800;margin-top:6px;">'
+            '⚠ Selecione ou digite o número do pedido.</div>',
+            unsafe_allow_html=True
+        )
+
 
 # ─────────────────────────────────────
 #  TELA: PRODUÇÃO
@@ -737,7 +1046,10 @@ def tela_producao():
             with c2:
                 st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
                 if st.button("← Voltar", use_container_width=True):
+                    remover_sessao_ativa(st.session_state.pedido or "", etapa_idx)
                     st.session_state.pedido_status = None
+                    st.session_state.operador = None
+                    st.session_state.etapa_escolhida = None
                     st.session_state.tela = "home"; st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -788,13 +1100,14 @@ def tela_producao():
             st.markdown('</div>', unsafe_allow_html=True)
         time.sleep(1); st.rerun()
 
-    # ── Modal: próxima etapa? ──
+    # ── Modal: etapa concluída → volta ao menu ──
     elif st.session_state.modal == "proxima":
-        next_lbl = ETAPAS_LBL[etapa_idx + 1]
-        tempo_fmt = fmt(st.session_state.acum)
+        next_lbl   = ETAPAS_LBL[etapa_idx + 1]
+        tempo_fmt  = fmt(st.session_state.acum)
+        pedido_val = st.session_state.pedido
         components.html(f"""
         <!DOCTYPE html><html><head>
-        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
         <style>* {{margin:0;padding:0;box-sizing:border-box;}}</style>
         </head><body style="background:transparent;font-family:Nunito,sans-serif;">
         <div style="background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);border:1.5px solid #EDE9E4;">
@@ -802,69 +1115,28 @@ def tela_producao():
                 <div style="width:56px;height:56px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;border:2px solid rgba(255,255,255,0.35);">
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
-                <div style="font-size:20px;font-weight:900;color:#fff;margin-bottom:4px;">Etapa Concluída!</div>
+                <div style="font-size:20px;font-weight:900;color:#fff;margin-bottom:4px;">✅ Etapa Concluída!</div>
                 <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.65);letter-spacing:1px;">{etapa_lbl} · {tempo_fmt}</div>
             </div>
-            <div style="padding:24px;text-align:center;">
-                <div style="font-size:11px;font-weight:800;letter-spacing:2px;color:#9C9490;text-transform:uppercase;margin-bottom:8px;">Próxima etapa</div>
-                <div style="font-size:22px;font-weight:900;color:#1A1714;">{next_lbl}</div>
-                <div style="font-size:13px;font-weight:600;color:#9C9490;margin-top:6px;">Deseja continuar com esta etapa?</div>
-            </div>
-        </div>
-        </body></html>
-        """, height=290, scrolling=False)
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
-            if st.button(f"✓  Sim, continuar", use_container_width=True):
-                st.session_state.modal = "quem"; st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-        with c2:
-            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
-            if st.button("Encerrar pedido", use_container_width=True):
-                st.session_state.modal = None; st.session_state.pedido = None
-                st.session_state.etapa_idx = 0; st.session_state.acum = 0
-                st.session_state.tela = "home"; st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-
-    # ── Modal: quem faz? ──
-    elif st.session_state.modal == "quem":
-        next_lbl = ETAPAS_LBL[etapa_idx + 1]
-        components.html(f"""
-        <!DOCTYPE html><html><head>
-        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
-        <style>* {{margin:0;padding:0;box-sizing:border-box;}}</style>
-        </head><body style="background:transparent;font-family:Nunito,sans-serif;">
-        <div style="background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);border:1.5px solid #EDE9E4;">
-            <div style="background:linear-gradient(135deg,#C8566A,#9E3F52);padding:24px;text-align:center;">
-                <div style="width:56px;height:56px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;border:2px solid rgba(255,255,255,0.35);">
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                </div>
-                <div style="font-size:20px;font-weight:900;color:#fff;margin-bottom:4px;">Quem faz a próxima etapa?</div>
-                <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.65);letter-spacing:1px;">{etapa_lbl} → {next_lbl}</div>
-            </div>
             <div style="padding:20px 24px;text-align:center;">
-                <div style="font-size:13px;font-weight:600;color:#9C9490;">Selecione quem irá executar <strong style="color:#1A1714;">{next_lbl}</strong></div>
+                <div style="font-size:11px;font-weight:800;letter-spacing:2px;color:#9C9490;text-transform:uppercase;margin-bottom:6px;">Pedido {pedido_val}</div>
+                <div style="font-size:14px;font-weight:600;color:#5C5450;line-height:1.6;">
+                    Próxima etapa: <strong style="color:#1A1714;">{next_lbl}</strong><br>
+                    <span style="font-size:12px;color:#9C9490;">O próximo operador iniciará no menu principal.</span>
+                </div>
             </div>
         </div>
         </body></html>
-        """, height=255, scrolling=False)
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
-            if st.button("Eu mesmo", use_container_width=True):
-                st.session_state.etapa_idx += 1; st.session_state.acum = 0
-                st.session_state.modal = None; st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-        with c2:
-            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
-            if st.button("Outro operador", use_container_width=True):
-                st.session_state.pedido_prox = st.session_state.pedido
-                st.session_state.etapa_prox  = etapa_idx + 1
-                st.session_state.pedido = None; st.session_state.etapa_idx = 0
-                st.session_state.acum = 0; st.session_state.modal = None
-                st.session_state.tela = "home"; st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+        """, height=280, scrolling=False)
+        st.markdown("<br style='line-height:0.2'>", unsafe_allow_html=True)
+        st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
+        if st.button("← Voltar ao Menu Principal", use_container_width=True, key="proxima_home"):
+            st.session_state.modal = None; st.session_state.pedido = None
+            st.session_state.etapa_idx = 0; st.session_state.acum = 0
+            st.session_state.operador = None
+            st.session_state.etapa_escolhida = None
+            st.session_state.tela = "home"; st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # ── Modal: concluído ──
     elif st.session_state.modal == "concluido":
@@ -900,9 +1172,11 @@ def tela_producao():
         """, height=300, scrolling=False)
         st.markdown("<br style='line-height:0.2'>", unsafe_allow_html=True)
         st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
-        if st.button("← Voltar ao Início", use_container_width=True):
+        if st.button("← Voltar ao Menu Principal", use_container_width=True):
             st.session_state.modal = None; st.session_state.pedido = None
             st.session_state.etapa_idx = 0; st.session_state.acum = 0
+            st.session_state.operador = None
+            st.session_state.etapa_escolhida = None
             st.session_state.tela = "home"; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1675,31 +1949,79 @@ def tela_admin():
             font-weight:800 !important; height:54px !important;
         }
         .btn-pdf > button:hover { transform:translateY(-2px) !important; }
+        .btn-xml > button {
+            background: linear-gradient(135deg,#3B5EC6,#2a469e) !important;
+            color:#fff !important; border:none !important;
+            box-shadow: 0 5px 0 rgba(20,30,100,0.40), 0 8px 20px rgba(59,94,198,0.28) !important;
+            font-weight:800 !important; height:54px !important;
+        }
+        .btn-xml > button:hover { transform:translateY(-2px) !important; }
         </style>
         """, unsafe_allow_html=True)
 
+        # ── Build exports ──
+        ts = datetime.now().strftime("%Y%m%d_%H%M")
+
+        # CSV
         buf_csv = io.StringIO()
         csv.writer(buf_csv).writerows(
             [["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data"]] + list(regs))
+
+        # PDF
         pdf_bytes = gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg)
 
-        c1, c2 = st.columns(2)
+        # XML
+        import xml.etree.ElementTree as ET
+        from xml.dom import minidom
+        root = ET.Element("RelatorioProducao")
+        root.set("gerado_em", datetime.now().strftime("%d/%m/%Y %H:%M"))
+        root.set("total_registros", str(len(regs)))
+        summary = ET.SubElement(root, "Resumo")
+        ET.SubElement(summary, "PedidosConcluidos").text = str(len(ped_comp))
+        ET.SubElement(summary, "OperadoresAtivos").text = str(ops_ativ)
+        ET.SubElement(summary, "TempoMedioSegundos").text = str(avg)
+        registros_el = ET.SubElement(root, "Registros")
+        for r in regs:
+            reg = ET.SubElement(registros_el, "Registro")
+            reg.set("id", str(r[0]))
+            ET.SubElement(reg, "Pedido").text    = str(r[1])
+            ET.SubElement(reg, "Operador").text  = str(r[2])
+            ET.SubElement(reg, "Etapa").text     = str(r[3])
+            ET.SubElement(reg, "EtapaIdx").text  = str(r[4])
+            ET.SubElement(reg, "TempoSegundos").text = str(r[5])
+            ET.SubElement(reg, "TempoFormatado").text = fmt(r[5])
+            ET.SubElement(reg, "Data").text      = str(r[6])
+        xml_str = minidom.parseString(ET.tostring(root, encoding="unicode")).toprettyxml(indent="  ")
+        xml_bytes = xml_str.encode("utf-8")
+
+        # ── Layout: 3 colunas ──
+        c1, c2, c3 = st.columns(3)
         with c1:
             st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
             st.download_button(
                 label="⬇  Exportar CSV",
                 data=buf_csv.getvalue().encode(),
-                file_name=f"vi_producao_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                file_name=f"vi_producao_{ts}.csv",
                 mime="text/csv",
                 use_container_width=True,
             )
             st.markdown('</div>', unsafe_allow_html=True)
         with c2:
+            st.markdown('<div class="btn-xml">', unsafe_allow_html=True)
+            st.download_button(
+                label="🗂  Exportar XML",
+                data=xml_bytes,
+                file_name=f"vi_producao_{ts}.xml",
+                mime="application/xml",
+                use_container_width=True,
+            )
+            st.markdown('</div>', unsafe_allow_html=True)
+        with c3:
             st.markdown('<div class="btn-pdf">', unsafe_allow_html=True)
             st.download_button(
-                label="📄  Exportar Relatório PDF",
+                label="📄  Exportar PDF",
                 data=pdf_bytes,
-                file_name=f"vi_relatorio_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                file_name=f"vi_relatorio_{ts}.pdf",
                 mime="application/pdf",
                 use_container_width=True,
             )
