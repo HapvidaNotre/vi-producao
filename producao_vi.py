@@ -523,11 +523,6 @@ def render_stepper(idx):
     st.markdown(html, unsafe_allow_html=True)
 
 def render_avatar_grid(on_click_key="home"):
-    """
-    Grid de avatares circulares.
-    Usa st.button nativo mas com CSS injetado via components.html ANTES dos botões,
-    dentro do mesmo contexto de renderização — forçando override no shadow DOM.
-    """
     import streamlit.components.v1 as _cv1
 
     COLORS = [
@@ -536,6 +531,42 @@ def render_avatar_grid(on_click_key="home"):
         ("#2E9E8F","#1a6860"),("#8E6BBF","#5a3a8a"),("#C8566A","#7A2D3E"),
     ]
 
+    # CSS global: esconde TODOS os botões "x" da grid e os posiciona sobre os círculos
+    st.markdown("""
+    <style>
+    .av-overlay-btn > div[data-testid="stButton"] > button {
+        position: absolute !important;
+        top: 0 !important; left: 0 !important;
+        width: 68px !important;
+        height: 68px !important;
+        border-radius: 50% !important;
+        opacity: 0 !important;
+        cursor: pointer !important;
+        z-index: 999 !important;
+        padding: 0 !important;
+        border: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        font-size: 0 !important;
+    }
+    .av-overlay-btn {
+        position: absolute !important;
+        top: 4px !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        width: 68px !important;
+        height: 68px !important;
+        z-index: 999 !important;
+    }
+    .av-cell {
+        position: relative !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     cols_per_row = 3
     rows_ops = [OPERADORES[i:i+cols_per_row] for i in range(0, len(OPERADORES), cols_per_row)]
 
@@ -543,64 +574,43 @@ def render_avatar_grid(on_click_key="home"):
         cols = st.columns(cols_per_row)
         for c_idx, (col, op) in enumerate(zip(cols, row)):
             op_idx = r_idx * cols_per_row + c_idx
-            c1, c2 = COLORS[op_idx % len(COLORS)]
+            c1, c2  = COLORS[op_idx % len(COLORS)]
             ini = (op[0]+op[1]).upper() if len(op) >= 2 else op[0].upper()
 
             with col:
-                # Render circle purely via HTML (visual only)
-                _cv1.html(f"""<!DOCTYPE html>
-<html><head>
+                st.markdown('<div class="av-cell">', unsafe_allow_html=True)
+
+                # 1. Círculo HTML perfeito (visual)
+                _cv1.html(f"""<!DOCTYPE html><html><head>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@900&display=swap" rel="stylesheet">
 <style>
-* {{ margin:0; padding:0; box-sizing:border-box; }}
-body {{ background:transparent; display:flex; flex-direction:column;
-        align-items:center; gap:7px; padding:4px 0 0; font-family:'Nunito',sans-serif; }}
-.av {{
-    width:68px; height:68px; border-radius:50%;
-    background: linear-gradient(150deg, {c1}, {c2});
-    display:flex; align-items:center; justify-content:center;
-    color:#fff; font-size:19px; font-weight:900; letter-spacing:.5px;
-    text-shadow: 0 1px 3px rgba(0,0,0,.28);
-    box-shadow: 0 6px 0 rgba(0,0,0,.28), 0 9px 20px rgba(0,0,0,.15),
-                inset 0 2px 5px rgba(255,255,255,.22);
-    position:relative; overflow:hidden;
-    cursor:pointer;
-    transition: transform .15s ease, box-shadow .15s ease;
-    user-select:none;
-}}
-.shine {{
-    position:absolute; top:8px; left:12px; width:32px; height:15px;
-    background: radial-gradient(ellipse, rgba(255,255,255,.30) 0%, transparent 72%);
-    border-radius:50%; pointer-events:none;
-}}
-.av:hover {{ transform: translateY(-5px) scale(1.09);
-    box-shadow: 0 12px 0 rgba(0,0,0,.22), 0 18px 28px rgba(0,0,0,.18),
-                inset 0 2px 5px rgba(255,255,255,.22); }}
-.av:active {{ transform: translateY(2px) scale(.95);
-    box-shadow: 0 2px 0 rgba(0,0,0,.32), inset 0 4px 8px rgba(0,0,0,.22);
-    transition: transform .06s, box-shadow .06s; }}
-.nm {{ font-size:11px; font-weight:800; color:#2C2826; text-align:center; }}
-</style></head>
-<body>
+*{{margin:0;padding:0;box-sizing:border-box;}}
+body{{background:transparent;display:flex;flex-direction:column;
+     align-items:center;gap:7px;padding:4px 0 0;font-family:'Nunito',sans-serif;}}
+.av{{width:68px;height:68px;border-radius:50%;
+    background:linear-gradient(150deg,{c1},{c2});
+    display:flex;align-items:center;justify-content:center;
+    color:#fff;font-size:19px;font-weight:900;letter-spacing:.5px;
+    text-shadow:0 1px 3px rgba(0,0,0,.28);
+    box-shadow:0 6px 0 rgba(0,0,0,.28),0 9px 20px rgba(0,0,0,.15),
+               inset 0 2px 5px rgba(255,255,255,.22);
+    position:relative;overflow:hidden;}}
+.shine{{position:absolute;top:8px;left:12px;width:32px;height:15px;
+    background:radial-gradient(ellipse,rgba(255,255,255,.30) 0%,transparent 72%);
+    border-radius:50%;pointer-events:none;}}
+.nm{{font-size:11px;font-weight:800;color:#2C2826;text-align:center;}}
+</style></head><body>
   <div class="av"><div class="shine"></div>{ini}</div>
   <div class="nm">{op}</div>
 </body></html>""", height=100, scrolling=False)
 
-                # St.button invisível mas clicável sobre o círculo
-                st.markdown(f"""
-                <style>
-                div[data-testid="stButton"]:has(button[key="{on_click_key}_{op_idx}"]) {{
-                    position: relative;
-                    margin-top: -96px;
-                    height: 75px;
-                    z-index: 10;
-                    opacity: 0;
-                }}
-                </style>""", unsafe_allow_html=True)
-                if st.button("x", key=f"{on_click_key}_{op_idx}",
-                             use_container_width=True):
+                # 2. Botão invisível sobreposto (clicável)
+                st.markdown('<div class="av-overlay-btn">', unsafe_allow_html=True)
+                if st.button(" ", key=f"av_{on_click_key}_{op_idx}",
+                             use_container_width=False):
                     st.session_state.operador = op
                     st.rerun()
+                st.markdown('</div></div>', unsafe_allow_html=True)
 
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
