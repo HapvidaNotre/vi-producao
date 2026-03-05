@@ -76,58 +76,6 @@ def init_db():
     pass  # Tables created via supabase_setup.sql
 
 # ─── Planilha / Pedidos base ───
-def importar_planilha(file_bytes, filename):
-    try:
-        if filename.lower().endswith(".csv"):
-            df = pd.read_csv(io.BytesIO(file_bytes), dtype=str)
-        else:
-            df = pd.read_excel(io.BytesIO(file_bytes), dtype=str)
-    except Exception as e:
-        return False, f"Erro ao ler arquivo: {e}"
-
-    df.columns = [str(c).strip() for c in df.columns]
-
-    num_col = None
-    for c in df.columns:
-        if c.strip().lower() == "pedido": num_col = c; break
-    if num_col is None:
-        for c in df.columns:
-            if any(k in c.lower() for k in ["pedido","número","numero","order","cod"]):
-                num_col = c; break
-    if num_col is None: num_col = df.columns[0]
-
-    pct_col = None
-    for c in df.columns:
-        if c.strip() == "%.1": pct_col = c; break
-    if pct_col is None:
-        for c in df.columns:
-            if any(k in c.lower() for k in ["% total","% pronto","progresso","status","situação","%"]):
-                pct_col = c; break
-
-    cli_col = next((c for c in df.columns if c.lower() in ("cliente","client","nome","comprador")), None)
-
-    now_str = datetime.now().strftime("%d/%m/%Y %H:%M")
-    rows = []
-    for _, row in df.iterrows():
-        num = str(row[num_col]).strip()
-        if not num or num.lower() in ("nan","none","","pedido"): continue
-        if pct_col:
-            try:
-                pct_val = float(str(row[pct_col]).strip().replace(",","."))
-                sta = "concluido" if pct_val >= 100.0 else "aberto"
-            except: sta = "aberto"
-        else: sta = "aberto"
-        cli = ""
-        if cli_col:
-            raw = str(row[cli_col]).strip()
-            cli = "" if raw.lower() in ("nan","none","") else raw
-        rows.append({"numero": num, "cliente": cli, "produto": "",
-                     "status": sta, "importado_em": now_str})
-
-    if not rows: return False, "Nenhum pedido encontrado"
-    ok = _upsert("pedidos_base", rows, "numero")
-    return (True, len(rows)) if ok else (False, "Erro ao salvar no Supabase")
-
 def buscar_pedidos_base():
     rows = _get("pedidos_base", "select=numero,cliente,produto,status&order=numero.asc")
     if isinstance(rows, list):
@@ -225,13 +173,10 @@ for k, v in {
     "pedido_prox":None, "etapa_prox":None,
     "erro_pedido":False, "erro_senha":False,
     "pedido_status":None, "pedido_confirm":False,
-    # novo fluxo: etapa_escolhida → pedido → operador
     "etapa_escolhida":None, "duplicata_info":None,
 }.items():
     if k not in st.session_state:
         st.session_state[k] = v
-
-# (seleção via st.selectbox nativo — sem query params)
 
 # ─────────────────────────────────────
 #  CSS
@@ -258,65 +203,6 @@ html, body, [data-testid="stAppViewContainer"] {{
     color:#9C9490; margin-bottom:1.2rem; text-align:center;
 }}
 
-/* ── AVATAR GRID ── */
-.ops-grid {{
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px 20px;
-    margin-bottom: 1.5rem;
-}}
-.op-wrap {{
-    display: flex; flex-direction: column;
-    align-items: center; gap: 10px;
-    text-decoration: none !important;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-}}
-.op-wrap:visited, .op-wrap:link, .op-wrap:hover, .op-wrap:active {{
-    text-decoration: none !important;
-}}
-.avatar {{
-    width: 74px; height: 74px; border-radius: 50%;
-    background: linear-gradient(145deg, #D9617A 0%, #A84055 55%, #7A2D3E 100%);
-    box-shadow:
-        0 6px 0 rgba(80,10,25,0.50),
-        0 10px 24px rgba(158,63,82,0.38),
-        inset 0 2px 5px rgba(255,255,255,0.20);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 28px; font-weight: 900; color: #fff;
-    text-shadow: 0 1px 4px rgba(0,0,0,0.30);
-    transition: transform 0.20s ease, box-shadow 0.20s ease;
-    position: relative; overflow: hidden;
-    user-select: none;
-}}
-.avatar::after {{
-    content:''; position:absolute;
-    top:8px; left:14px; width:36px; height:19px;
-    background: radial-gradient(ellipse, rgba(255,255,255,0.26) 0%, transparent 75%);
-    border-radius:50%; pointer-events:none;
-}}
-.op-wrap:hover .avatar {{
-    transform: translateY(-7px) scale(1.07);
-    box-shadow:
-        0 13px 0 rgba(80,10,25,0.46),
-        0 20px 36px rgba(158,63,82,0.46),
-        inset 0 2px 5px rgba(255,255,255,0.22);
-}}
-.op-wrap:active .avatar {{
-    transform: translateY(2px) scale(0.95) !important;
-    box-shadow:
-        0 2px 0 rgba(80,10,25,0.50),
-        0 4px 10px rgba(158,63,82,0.28),
-        inset 0 3px 8px rgba(0,0,0,0.22) !important;
-    transition: transform 0.07s ease, box-shadow 0.07s ease !important;
-}}
-.op-name {{
-    font-size: 13px; font-weight: 700; color: #2C2826;
-    text-align: center; line-height: 1.3;
-    text-decoration: none !important;
-    letter-spacing: 0.1px;
-}}
-
 /* ── STEPPER ── */
 .stepper {{ display:flex; align-items:flex-start; margin-bottom:1.6rem; }}
 .step {{ flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; }}
@@ -337,25 +223,6 @@ html, body, [data-testid="stAppViewContainer"] {{
 .vi-card {{
     background:#fff; border:1.5px solid #E8E3DC; border-radius:16px;
     padding:28px; box-shadow:0 4px 20px rgba(0,0,0,0.06); margin-bottom:1rem;
-}}
-
-/* ── BADGE ── */
-.badge-op {{
-    display:inline-flex; align-items:center; gap:7px;
-    padding:6px 16px; border-radius:100px;
-    background:#F5E8EB; color:#C8566A;
-    font-size:13px; font-weight:800; margin-bottom:1.2rem;
-    letter-spacing:0.2px;
-}}
-
-/* ── ETAPA LABEL ── */
-.etapa-info {{
-    background: #F5E8EB;
-    border-left: 4px solid #C8566A;
-    border-radius: 0 10px 10px 0;
-    padding: 10px 16px;
-    margin-bottom: 20px;
-    font-size: 14px; font-weight: 700; color: #1A1714;
 }}
 
 /* ── INPUT ── */
@@ -396,7 +263,6 @@ label {{
     font-size: 15px !important;
     letter-spacing: .5px !important;
 }}
-/* INICIAR — verde escuro elegante */
 .btn-iniciar > button {{
     background: linear-gradient(135deg, #2C6E49, #1E4D35) !important;
     color: #fff !important; border: none !important;
@@ -411,7 +277,6 @@ label {{
     transform: translateY(2px) !important;
     box-shadow: 0 2px 0 rgba(20,50,30,0.45), 0 3px 8px rgba(44,110,73,0.20) !important;
 }}
-/* VOLTAR — cinza quente */
 .btn-voltar > button {{
     background: #FFFFFF !important;
     color: #5C5450 !important;
@@ -423,7 +288,6 @@ label {{
     transform: translateY(-1px) !important;
     box-shadow: 0 5px 0 rgba(0,0,0,0.08), 0 8px 16px rgba(200,86,106,0.12) !important;
 }}
-/* FINALIZAR — vermelho */
 .btn-finalizar > button {{
     background: linear-gradient(135deg, #C8566A, #9E3F52) !important;
     color: #fff !important; border: none !important;
@@ -438,7 +302,6 @@ label {{
     transform: translateY(2px) !important;
     box-shadow: 0 2px 0 rgba(100,20,35,0.45) !important;
 }}
-/* PRIMARY (reutilizado) */
 .btn-primary > button {{
     background: linear-gradient(135deg, #C8566A, #9E3F52) !important;
     color: #fff !important; border: none !important;
@@ -507,7 +370,6 @@ def render_stepper(idx):
     st.markdown(html, unsafe_allow_html=True)
 
 def render_avatar_grid(on_click_key="home"):
-    """Seleção de operador — selectbox nativo estilizado, 100% funcional."""
     import streamlit.components.v1 as _cv1
 
     COLORS = [
@@ -515,7 +377,6 @@ def render_avatar_grid(on_click_key="home"):
         "#7C5CBF","#B85C38","#2E9E8F","#8E6BBF","#C8566A",
     ]
 
-    # Card visual acima do selectbox (só decorativo)
     selecionado = st.session_state.get("operador")
     if selecionado and selecionado in OPERADORES:
         idx_op = OPERADORES.index(selecionado)
@@ -560,13 +421,9 @@ body{{background:transparent;font-family:'Nunito',sans-serif;}}
 </div>
 </body></html>""", height=86, scrolling=False)
 
-    # CSS para grudar o selectbox embaixo do card e estilizá-lo
     st.markdown("""
     <style>
-    /* Remove label */
     div[data-testid="stSelectbox"] label { display:none !important; }
-
-    /* Caixa do selectbox */
     div[data-testid="stSelectbox"] > div > div {
         border: 2px solid #E8E2DC !important;
         border-top: none !important;
@@ -584,7 +441,6 @@ body{{background:transparent;font-family:'Nunito',sans-serif;}}
         border-color: #C8566A !important;
         box-shadow: 0 8px 24px rgba(200,86,106,.12) !important;
     }
-    /* Dropdown list */
     div[data-testid="stSelectbox"] ul {
         background: #fff !important;
         border: 2px solid #C8566A !important;
@@ -623,7 +479,6 @@ body{{background:transparent;font-family:'Nunito',sans-serif;}}
 
 
 def _go_producao(etapa_idx):
-    """Helper: transition to production screen."""
     registrar_sessao_ativa(st.session_state.pedido, etapa_idx, st.session_state.operador)
     st.session_state.etapa_idx = etapa_idx
     st.session_state.rodando   = False
@@ -634,14 +489,11 @@ def _go_producao(etapa_idx):
     st.rerun()
 
 # ─────────────────────────────────────
-#  TELA: HOME  (fluxo: etapa → operador → pedido → INICIAR → volta home)
+#  TELA: HOME
 # ─────────────────────────────────────
 def tela_home():
     render_logo()
 
-    # ══════════════════════════════════
-    #  PASSO 1 — Escolher a etapa
-    # ══════════════════════════════════
     if st.session_state.etapa_escolhida is None:
         st.markdown("""
         <div style="display:flex;align-items:center;gap:10px;margin:0 0 20px;">
@@ -724,9 +576,6 @@ def tela_home():
     etapa_idx = st.session_state.etapa_escolhida
     etapa_lbl = ETAPAS_LBL[etapa_idx]
 
-    # ══════════════════════════════════
-    #  PASSO 2 — Operador se identifica
-    # ══════════════════════════════════
     if st.session_state.operador is None:
         render_stepper(etapa_idx)
         st.markdown(
@@ -755,9 +604,6 @@ def tela_home():
             st.markdown('</div>', unsafe_allow_html=True)
         return
 
-    # ══════════════════════════════════
-    #  PASSO 3 — Selecionar o pedido
-    # ══════════════════════════════════
     render_stepper(etapa_idx)
     op = st.session_state.operador
     st.markdown(
@@ -820,7 +666,6 @@ def tela_home():
                 height=50, scrolling=False
             )
 
-    # ── Bloqueio: pedido concluído ──
     if st.session_state.pedido_status == "concluido":
         import streamlit.components.v1 as _cv1
         _cv1.html(
@@ -836,7 +681,6 @@ def tela_home():
             st.session_state.pedido_status = None; st.rerun()
         return
 
-    # ── Pedido não encontrado: cadastrar? ──
     if st.session_state.pedido_status == "nao_encontrado":
         num_pend = st.session_state.get("_pedido_validando", "")
         import streamlit.components.v1 as _cv1
@@ -866,7 +710,6 @@ def tela_home():
             st.markdown('</div>', unsafe_allow_html=True)
         return
 
-    # ── Popup duplicata ──
     if st.session_state.duplicata_info:
         info    = st.session_state.duplicata_info
         op_ant  = info["operador_anterior"]
@@ -901,7 +744,6 @@ def tela_home():
             st.markdown('</div>', unsafe_allow_html=True)
         return
 
-    # ── BOTÃO INICIAR ──
     st.markdown("<br>", unsafe_allow_html=True)
     c1, _, c2 = st.columns([3, 0.3, 1.5])
     with c1:
@@ -919,7 +761,6 @@ def tela_home():
                 st.session_state.pedido_status = "nao_encontrado"
                 st.session_state._pedido_validando = num; st.rerun()
             else:
-                # Check duplicata
                 em_and, op_and = pedido_em_andamento(num, etapa_idx)
                 ja_reg, op_reg = verificar_etapa_registro(num, etapa_idx)
                 op_ant = op_and or op_reg
@@ -964,12 +805,11 @@ def tela_producao():
 
     st.markdown("<br style='line-height:0.5'>", unsafe_allow_html=True)
 
-    # ── Pedido já definido pelo home — mostrar card info + botão INICIAR ──
+    # ── Card info + botão INICIAR CRONÔMETRO ──
     if not st.session_state.rodando and st.session_state.acum == 0 and not st.session_state.modal:
         pedido_val = st.session_state.pedido or ""
         initial    = op[0].upper()
 
-        # Info card: etapa + operador + pedido
         components.html(f"""
         <!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&display=swap" rel="stylesheet">
@@ -1026,6 +866,7 @@ def tela_producao():
                 st.session_state.etapa_escolhida = None
                 st.session_state.tela = "home"; st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
+
     # ── Timer rodando ──
     elif st.session_state.rodando:
         elapsed = get_elapsed()
@@ -1059,21 +900,28 @@ def tela_producao():
         </div>
         </body></html>
         """, height=200, scrolling=False)
+
         _, col_fin, _ = st.columns([0.5, 5, 0.5])
         with col_fin:
             st.markdown('<div class="btn-finalizar">', unsafe_allow_html=True)
             if st.button("■  FINALIZAR ETAPA", use_container_width=True):
                 tempo = get_elapsed()
-                st.session_state.acum = tempo; st.session_state.rodando = False; st.session_state.inicio = None
+                st.session_state.acum    = tempo
+                st.session_state.rodando = False
+                st.session_state.inicio  = None
                 salvar(st.session_state.pedido, op, ETAPAS[etapa_idx], etapa_idx, tempo)
-                st.session_state.modal = "proxima" if etapa_idx < 2 else "concluido"
-            if etapa_idx == 2:
-                marcar_concluido(st.session_state.pedido)
+                # ✅ CORREÇÃO: marcar_concluido e definição do modal DENTRO do bloco do botão
+                if etapa_idx == 2:
+                    marcar_concluido(st.session_state.pedido)
+                    st.session_state.modal = "concluido"
+                else:
+                    st.session_state.modal = "proxima"
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
+
         time.sleep(1); st.rerun()
 
-    # ── Modal: etapa concluída → volta ao menu ──
+    # ── Modal: próxima etapa ──
     elif st.session_state.modal == "proxima":
         next_lbl   = ETAPAS_LBL[etapa_idx + 1]
         tempo_fmt  = fmt(st.session_state.acum)
@@ -1111,7 +959,7 @@ def tela_producao():
             st.session_state.tela = "home"; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # ── Modal: concluído ──
+    # ── Modal: pedido concluído ──
     elif st.session_state.modal == "concluido":
         pedido_val = st.session_state.pedido
         tempo_fmt = fmt(st.session_state.acum)
@@ -1136,7 +984,7 @@ def tela_producao():
                     <span style="font-family:monospace;font-size:17px;font-weight:800;color:#1A1714;">{pedido_val}</span>
                 </div>
                 <div style="display:flex;justify-content:space-between;align-items:center;background:#F0F7F3;border-radius:12px;padding:14px 18px;">
-                    <span style="font-size:11px;font-weight:800;letter-spacing:1.5px;color:#4A7C59;text-transform:uppercase;">Embalagem</span>
+                    <span style="font-size:11px;font-weight:800;letter-spacing:1.5px;color:#4A7C59;text-transform:uppercase;">Conferência</span>
                     <span style="font-family:monospace;font-size:17px;font-weight:800;color:#4A7C59;">{tempo_fmt}</span>
                 </div>
             </div>
@@ -1153,6 +1001,7 @@ def tela_producao():
             st.session_state.tela = "home"; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
+
 # ─────────────────────────────────────
 #  TELA: ADMIN LOGIN
 # ─────────────────────────────────────
@@ -1161,7 +1010,6 @@ def tela_admin_login():
 
     erro = st.session_state.erro_senha
 
-    # Full premium admin login via components.html
     components.html("""
     <!DOCTYPE html>
     <html>
@@ -1171,103 +1019,46 @@ def tela_admin_login():
     <style>
       *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
       body { background:transparent; font-family:'Inter',sans-serif; }
-
       .card {
         background: linear-gradient(145deg, #1c1917 0%, #292524 50%, #1c1917 100%);
-        border-radius: 24px;
-        overflow: hidden;
+        border-radius: 24px; overflow: hidden;
         border: 1px solid rgba(255,255,255,0.06);
-        box-shadow:
-          0 2px 0 rgba(255,255,255,0.04) inset,
-          0 -1px 0 rgba(0,0,0,0.5) inset,
-          0 20px 60px rgba(0,0,0,0.5),
-          0 8px 20px rgba(0,0,0,0.3);
+        box-shadow: 0 2px 0 rgba(255,255,255,0.04) inset, 0 -1px 0 rgba(0,0,0,0.5) inset,
+                    0 20px 60px rgba(0,0,0,0.5), 0 8px 20px rgba(0,0,0,0.3);
         position: relative;
       }
-
-      /* Animated glow orb */
-      .orb {
-        position: absolute;
-        border-radius: 50%;
-        filter: blur(60px);
-        opacity: 0.15;
-        animation: pulse 4s ease-in-out infinite;
-      }
+      .orb { position:absolute; border-radius:50%; filter:blur(60px); opacity:0.15; animation:pulse 4s ease-in-out infinite; }
       .orb-1 { width:220px; height:220px; background:#C8566A; top:-60px; right:-60px; animation-delay:0s; }
       .orb-2 { width:160px; height:160px; background:#9E3F52; bottom:-40px; left:-40px; animation-delay:2s; }
-      @keyframes pulse {
-        0%, 100% { opacity: 0.12; transform: scale(1); }
-        50% { opacity: 0.22; transform: scale(1.1); }
-      }
-
-      .card-inner { position: relative; z-index: 1; padding: 36px 32px 32px; }
-
-      /* Icon */
+      @keyframes pulse { 0%,100%{opacity:.12;transform:scale(1);} 50%{opacity:.22;transform:scale(1.1);} }
+      .card-inner { position:relative; z-index:1; padding:36px 32px 32px; }
       .icon-wrap {
-        width: 64px; height: 64px; border-radius: 18px;
-        background: linear-gradient(145deg, #C8566A, #7A2D3E);
-        display: flex; align-items: center; justify-content: center;
-        margin: 0 auto 22px;
-        box-shadow:
-          0 0 0 1px rgba(200,86,106,0.3),
-          0 8px 24px rgba(200,86,106,0.4),
-          inset 0 1px 0 rgba(255,255,255,0.15);
-        animation: icon-glow 3s ease-in-out infinite;
+        width:64px; height:64px; border-radius:18px;
+        background:linear-gradient(145deg,#C8566A,#7A2D3E);
+        display:flex; align-items:center; justify-content:center;
+        margin:0 auto 22px;
+        box-shadow: 0 0 0 1px rgba(200,86,106,0.3), 0 8px 24px rgba(200,86,106,0.4), inset 0 1px 0 rgba(255,255,255,0.15);
+        animation:icon-glow 3s ease-in-out infinite;
       }
       @keyframes icon-glow {
-        0%, 100% { box-shadow: 0 0 0 1px rgba(200,86,106,0.3), 0 8px 24px rgba(200,86,106,0.4), inset 0 1px 0 rgba(255,255,255,0.15); }
-        50% { box-shadow: 0 0 0 4px rgba(200,86,106,0.15), 0 8px 32px rgba(200,86,106,0.6), inset 0 1px 0 rgba(255,255,255,0.15); }
+        0%,100%{box-shadow:0 0 0 1px rgba(200,86,106,0.3),0 8px 24px rgba(200,86,106,0.4),inset 0 1px 0 rgba(255,255,255,0.15);}
+        50%{box-shadow:0 0 0 4px rgba(200,86,106,0.15),0 8px 32px rgba(200,86,106,0.6),inset 0 1px 0 rgba(255,255,255,0.15);}
       }
-
-      .title-area { text-align: center; margin-bottom: 28px; }
-      .eyebrow {
-        font-size: 10px; font-weight: 700; letter-spacing: 3px;
-        text-transform: uppercase; color: rgba(255,255,255,0.35);
-        margin-bottom: 6px;
-      }
-      .title {
-        font-size: 26px; font-weight: 800; color: #fff;
-        letter-spacing: -0.5px; line-height: 1.1;
-      }
-      .subtitle { font-size: 13px; color: rgba(255,255,255,0.4); margin-top: 6px; font-weight: 500; }
-
-      /* Divider */
-      .divider {
-        height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(200,86,106,0.4), rgba(255,255,255,0.08), transparent);
-        margin-bottom: 24px;
-      }
-
-      /* Status bar */
-      .status-bar {
-        display: flex; align-items: center; justify-content: center; gap: 20px;
-        padding: 12px 0 4px;
-      }
+      .title-area { text-align:center; margin-bottom:28px; }
+      .eyebrow { font-size:10px; font-weight:700; letter-spacing:3px; text-transform:uppercase; color:rgba(255,255,255,0.35); margin-bottom:6px; }
+      .title { font-size:26px; font-weight:800; color:#fff; letter-spacing:-0.5px; line-height:1.1; }
+      .subtitle { font-size:13px; color:rgba(255,255,255,0.4); margin-top:6px; font-weight:500; }
+      .divider { height:1px; background:linear-gradient(90deg,transparent,rgba(200,86,106,0.4),rgba(255,255,255,0.08),transparent); margin-bottom:24px; }
+      .status-bar { display:flex; align-items:center; justify-content:center; gap:20px; padding:12px 0 4px; }
       .status-item { display:flex; align-items:center; gap:6px; }
-      .dot {
-        width: 7px; height: 7px; border-radius: 50%;
-        animation: blink 2s ease-in-out infinite;
-      }
-      .dot-green { background: #4ade80; box-shadow: 0 0 8px #4ade80; }
-      .dot-amber { background: #C8566A; animation-delay: 1s; }
-      @keyframes blink {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.4; }
-      }
-      .status-text { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.35); letter-spacing: 0.5px; }
-
-      /* Scan line effect */
-      .scanline {
-        position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-        background: repeating-linear-gradient(
-          0deg,
-          transparent,
-          transparent 2px,
-          rgba(255,255,255,0.01) 2px,
-          rgba(255,255,255,0.01) 4px
-        );
-        pointer-events: none; border-radius: 24px; z-index: 0;
-      }
+      .dot { width:7px; height:7px; border-radius:50%; animation:blink 2s ease-in-out infinite; }
+      .dot-green { background:#4ade80; box-shadow:0 0 8px #4ade80; }
+      .dot-amber { background:#C8566A; animation-delay:1s; }
+      @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+      .status-text { font-size:11px; font-weight:600; color:rgba(255,255,255,0.35); letter-spacing:0.5px; }
+      .scanline { position:absolute; top:0; left:0; right:0; bottom:0;
+        background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,255,255,0.01) 2px,rgba(255,255,255,0.01) 4px);
+        pointer-events:none; border-radius:24px; z-index:0; }
     </style>
     </head>
     <body>
@@ -1289,14 +1080,8 @@ def tela_admin_login():
         </div>
         <div class="divider"></div>
         <div class="status-bar">
-          <div class="status-item">
-            <div class="dot dot-green"></div>
-            <span class="status-text">Sistema Online</span>
-          </div>
-          <div class="status-item">
-            <div class="dot dot-amber"></div>
-            <span class="status-text">Autenticação Necessária</span>
-          </div>
+          <div class="status-item"><div class="dot dot-green"></div><span class="status-text">Sistema Online</span></div>
+          <div class="status-item"><div class="dot dot-amber"></div><span class="status-text">Autenticação Necessária</span></div>
         </div>
       </div>
     </div>
@@ -1306,7 +1091,6 @@ def tela_admin_login():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Password field styling
     border_color = "#C8566A" if erro else "#E0DBD4"
     shadow = "0 0 0 4px rgba(200,86,106,0.12)" if erro else "0 3px 12px rgba(0,0,0,0.06)"
 
@@ -1314,29 +1098,15 @@ def tela_admin_login():
     <style>
     div[data-testid="stTextInput"] label {{ display:none !important; }}
     div[data-testid="stTextInput"] input {{
-        text-align: center !important;
-        font-size: 22px !important;
-        font-weight: 700 !important;
-        letter-spacing: 8px !important;
-        color: #1A1714 !important;
-        height: 62px !important;
-        border: 2px solid {border_color} !important;
-        border-radius: 14px !important;
-        background: #fff !important;
-        box-shadow: {shadow} !important;
-        padding: 0 20px !important;
-        font-family: 'DM Mono', monospace !important;
-        transition: all .2s ease !important;
-    }}
-    div[data-testid="stTextInput"] input:focus {{
-        border-color: #1A1714 !important;
-        box-shadow: 0 0 0 4px rgba(26,23,20,0.08), 0 4px 16px rgba(0,0,0,0.08) !important;
+        text-align:center !important; font-size:22px !important; font-weight:700 !important;
+        letter-spacing:8px !important; color:#1A1714 !important; height:62px !important;
+        border:2px solid {border_color} !important; border-radius:14px !important;
+        background:#fff !important; box-shadow:{shadow} !important;
+        padding:0 20px !important; font-family:'DM Mono',monospace !important;
     }}
     div[data-testid="stTextInput"] input::placeholder {{
-        color: #D0CAC4 !important;
-        font-weight: 500 !important;
-        letter-spacing: 4px !important;
-        font-size: 18px !important;
+        color:#D0CAC4 !important; font-weight:500 !important;
+        letter-spacing:4px !important; font-size:18px !important;
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -1369,15 +1139,10 @@ def tela_admin_login():
     with c1:
         st.markdown("""
         <style>
-        .btn-ghost > button {
-            background: transparent !important;
-            color: #5C5450 !important;
-            border: 1.5px solid #DDD8D2 !important;
-            font-size: 13px !important;
-        }
-        .btn-ghost > button:hover { border-color: #9C9490 !important; color: #1A1714 !important; }
-        </style>
-        """, unsafe_allow_html=True)
+        .btn-ghost > button { background:transparent !important; color:#5C5450 !important;
+            border:1.5px solid #DDD8D2 !important; font-size:13px !important; }
+        .btn-ghost > button:hover { border-color:#9C9490 !important; color:#1A1714 !important; }
+        </style>""", unsafe_allow_html=True)
         st.markdown('<div class="btn-ghost">', unsafe_allow_html=True)
         if st.button("← Voltar", use_container_width=True):
             st.session_state.erro_senha = False; st.session_state.tela = "home"; st.rerun()
@@ -1386,23 +1151,18 @@ def tela_admin_login():
         st.markdown("""
         <style>
         .btn-admin-dark > button {
-            background: linear-gradient(135deg, #1c1917, #292524) !important;
-            color: #fff !important; border: none !important;
-            box-shadow: 0 5px 0 rgba(0,0,0,0.50), 0 10px 24px rgba(0,0,0,0.25) !important;
-            font-size: 14px !important; letter-spacing: 0.8px !important;
-            border-top: 1px solid rgba(255,255,255,0.08) !important;
+            background:linear-gradient(135deg,#1c1917,#292524) !important;
+            color:#fff !important; border:none !important;
+            box-shadow:0 5px 0 rgba(0,0,0,0.50),0 10px 24px rgba(0,0,0,0.25) !important;
+            font-size:14px !important; letter-spacing:0.8px !important;
+            border-top:1px solid rgba(255,255,255,0.08) !important;
         }
         .btn-admin-dark > button:hover {
-            background: linear-gradient(135deg, #292524, #3d3530) !important;
-            transform: translateY(-2px) !important;
-            box-shadow: 0 8px 0 rgba(0,0,0,0.45), 0 16px 32px rgba(0,0,0,0.30) !important;
+            background:linear-gradient(135deg,#292524,#3d3530) !important;
+            transform:translateY(-2px) !important;
         }
-        .btn-admin-dark > button:active {
-            transform: translateY(3px) !important;
-            box-shadow: 0 2px 0 rgba(0,0,0,0.50) !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
+        .btn-admin-dark > button:active { transform:translateY(3px) !important; }
+        </style>""", unsafe_allow_html=True)
         st.markdown('<div class="btn-admin-dark">', unsafe_allow_html=True)
         if st.button("🔓  Acessar Painel", use_container_width=True):
             if senha == ADMIN_SENHA:
@@ -1410,6 +1170,8 @@ def tela_admin_login():
             else:
                 st.session_state.erro_senha = True; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
+
+
 # ─────────────────────────────────────
 #  TELA: ADMIN PANEL
 # ─────────────────────────────────────
@@ -1425,33 +1187,32 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg):
     doc = SimpleDocTemplate(buf, pagesize=A4,
         leftMargin=2*cm, rightMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
 
-    ROSA      = colors.HexColor("#C8566A")
-    ESCURO    = colors.HexColor("#1A1714")
-    CLARO     = colors.HexColor("#F7F5F2")
-    CINZA     = colors.HexColor("#8C8480")
-    VERDE     = colors.HexColor("#4A7C59")
-    BEGE      = colors.HexColor("#EDE9E4")
-    BRANCO    = colors.white
+    ROSA   = colors.HexColor("#C8566A")
+    ESCURO = colors.HexColor("#1A1714")
+    CLARO  = colors.HexColor("#F7F5F2")
+    CINZA  = colors.HexColor("#8C8480")
+    VERDE  = colors.HexColor("#4A7C59")
+    BEGE   = colors.HexColor("#EDE9E4")
+    BRANCO = colors.white
 
     styles = getSampleStyleSheet()
 
     def sty(name, **kw):
-        s = ParagraphStyle(name, **kw)
-        return s
+        return ParagraphStyle(name, **kw)
 
-    S_TITLE    = sty("t", fontName="Helvetica-Bold", fontSize=22, textColor=ESCURO, spaceAfter=2)
-    S_SUB      = sty("s", fontName="Helvetica",      fontSize=10, textColor=CINZA,  spaceAfter=0)
-    S_SECTION  = sty("sc",fontName="Helvetica-Bold", fontSize=9,  textColor=CINZA,
-                     spaceAfter=6, spaceBefore=16, letterSpacing=1.5)
-    S_FOOTER   = sty("f", fontName="Helvetica",      fontSize=8,  textColor=CINZA, alignment=TA_CENTER)
+    S_TITLE   = sty("t",  fontName="Helvetica-Bold", fontSize=22, textColor=ESCURO, spaceAfter=2)
+    S_SUB     = sty("s",  fontName="Helvetica",      fontSize=10, textColor=CINZA,  spaceAfter=0)
+    S_SECTION = sty("sc", fontName="Helvetica-Bold", fontSize=9,  textColor=CINZA,
+                    spaceAfter=6, spaceBefore=16, letterSpacing=1.5)
+    S_FOOTER  = sty("f",  fontName="Helvetica",      fontSize=8,  textColor=CINZA, alignment=TA_CENTER)
 
     story = []
     now_str = datetime.now().strftime("%d/%m/%Y às %H:%M")
 
-    # ── Header ──
     header_data = [[
         Paragraph("<b><font color='#C8566A' size='18'>Vi</font> LINGERIE</b>", styles["Normal"]),
-        Paragraph(f"<font color='#8C8480' size='8'>Gerado em {now_str}</font>", ParagraphStyle("r", alignment=TA_RIGHT))
+        Paragraph(f"<font color='#8C8480' size='8'>Gerado em {now_str}</font>",
+                  ParagraphStyle("r", alignment=TA_RIGHT))
     ]]
     header_tbl = Table(header_data, colWidths=["60%","40%"])
     header_tbl.setStyle(TableStyle([
@@ -1460,115 +1221,89 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg):
     ]))
     story.append(header_tbl)
     story.append(HRFlowable(width="100%", thickness=2, color=ROSA, spaceAfter=14))
-
     story.append(Paragraph("Relatório de Produção", S_TITLE))
     story.append(Paragraph("Desempenho de operadores por etapa do processo produtivo", S_SUB))
     story.append(Spacer(1, 18))
 
-    # ── KPI cards ──
     story.append(Paragraph("RESUMO GERAL", S_SECTION))
-    kpi_data = [
-        [Paragraph(f"<b><font size='22' color='#C8566A'>{len(ped_comp)}</font></b><br/><font size='8' color='#8C8480'>PEDIDOS CONCLUÍDOS</font>", styles["Normal"]),
-         Paragraph(f"<b><font size='22' color='#C8566A'>{len(ops_ativ)}</font></b><br/><font size='8' color='#8C8480'>OPERADORES ATIVOS</font>", styles["Normal"]),
-         Paragraph(f"<b><font size='22' color='#C8566A'>{avg}m</font></b><br/><font size='8' color='#8C8480'>TEMPO MÉDIO</font>", styles["Normal"]),
-         Paragraph(f"<b><font size='22' color='#C8566A'>{len(regs)}</font></b><br/><font size='8' color='#8C8480'>REGISTROS TOTAIS</font>", styles["Normal"])],
-    ]
+    kpi_data = [[
+        Paragraph(f"<b><font size='22' color='#C8566A'>{len(ped_comp)}</font></b><br/><font size='8' color='#8C8480'>PEDIDOS CONCLUÍDOS</font>", styles["Normal"]),
+        Paragraph(f"<b><font size='22' color='#C8566A'>{len(ops_ativ)}</font></b><br/><font size='8' color='#8C8480'>OPERADORES ATIVOS</font>", styles["Normal"]),
+        Paragraph(f"<b><font size='22' color='#C8566A'>{avg}m</font></b><br/><font size='8' color='#8C8480'>TEMPO MÉDIO</font>", styles["Normal"]),
+        Paragraph(f"<b><font size='22' color='#C8566A'>{len(regs)}</font></b><br/><font size='8' color='#8C8480'>REGISTROS TOTAIS</font>", styles["Normal"]),
+    ]]
     kpi_tbl = Table(kpi_data, colWidths=["25%","25%","25%","25%"])
     kpi_tbl.setStyle(TableStyle([
         ("BACKGROUND",    (0,0), (-1,-1), CLARO),
-        ("ROWBACKGROUNDS",(0,0), (-1,-1), [CLARO]),
-        ("BOX",           (0,0), (0,0),   0.8, BEGE),
-        ("BOX",           (1,0), (1,0),   0.8, BEGE),
-        ("BOX",           (2,0), (2,0),   0.8, BEGE),
-        ("BOX",           (3,0), (3,0),   0.8, BEGE),
-        ("ROUNDEDCORNERS",(0,0), (-1,-1), 6),
-        ("TOPPADDING",    (0,0), (-1,-1), 14),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 14),
-        ("LEFTPADDING",   (0,0), (-1,-1), 14),
-        ("ALIGN",         (0,0), (-1,-1), "CENTER"),
+        ("TOPPADDING",    (0,0), (-1,-1), 14), ("BOTTOMPADDING", (0,0), (-1,-1), 14),
+        ("LEFTPADDING",   (0,0), (-1,-1), 14), ("ALIGN",         (0,0), (-1,-1), "CENTER"),
         ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
     ]))
     story.append(kpi_tbl)
     story.append(Spacer(1, 20))
 
-    # ── Operator performance ──
     if op_map:
         story.append(Paragraph("DESEMPENHO POR OPERADOR", S_SECTION))
         op_header = [
-            Paragraph("<b>OPERADOR</b>", ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO)),
-            Paragraph("<b>PEDIDOS</b>",  ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
-            Paragraph("<b>SEPARAÇÃO</b>",ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
-            Paragraph("<b>CONFERÊNCIA</b>",ParagraphStyle("h",fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
-            Paragraph("<b>EMBALAGEM</b>",ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>OPERADOR</b>",    ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO)),
+            Paragraph("<b>PEDIDOS</b>",     ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>SEPARAÇÃO</b>",   ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>CONFERÊNCIA</b>", ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>EMBALAGEM</b>",   ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
         ]
         op_rows = [op_header]
         for i, (op, d) in enumerate(op_map.items()):
-            bg = CLARO if i % 2 == 0 else BRANCO
             op_rows.append([
                 Paragraph(f"<b>{op}</b>", ParagraphStyle("o", fontName="Helvetica-Bold", fontSize=9, textColor=ESCURO)),
                 Paragraph(str(len(d["p"])), ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
-                Paragraph(fmt(media(d["sep"])) if d["sep"] else "—", ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
+                Paragraph(fmt(media(d["sep"]))  if d["sep"]  else "—", ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
                 Paragraph(fmt(media(d["conf"])) if d["conf"] else "—", ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
-                Paragraph(fmt(media(d["emb"])) if d["emb"] else "—", ParagraphStyle("c", fontSize=9, textColor=VERDE, alignment=TA_CENTER, fontName="Helvetica-Bold")),
+                Paragraph(fmt(media(d["emb"]))  if d["emb"]  else "—", ParagraphStyle("c", fontSize=9, textColor=VERDE,  alignment=TA_CENTER, fontName="Helvetica-Bold")),
             ])
-
         op_tbl = Table(op_rows, colWidths=["30%","14%","18%","20%","18%"])
-        row_bgs = [ROSA] + [CLARO if i%2==0 else BRANCO for i in range(len(op_rows)-1)]
         op_tbl.setStyle(TableStyle([
             ("BACKGROUND",    (0,0), (-1,0), ROSA),
             ("ROWBACKGROUNDS",(0,1), (-1,-1), [CLARO, BRANCO]),
             ("GRID",          (0,0), (-1,-1), 0.4, BEGE),
-            ("TOPPADDING",    (0,0), (-1,-1), 9),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 9),
-            ("LEFTPADDING",   (0,0), (-1,-1), 10),
-            ("RIGHTPADDING",  (0,0), (-1,-1), 10),
+            ("TOPPADDING",    (0,0), (-1,-1), 9),  ("BOTTOMPADDING", (0,0), (-1,-1), 9),
+            ("LEFTPADDING",   (0,0), (-1,-1), 10), ("RIGHTPADDING",  (0,0), (-1,-1), 10),
             ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
-            ("LINEBELOW",     (0,0), (-1,0), 0, colors.transparent),
         ]))
         story.append(op_tbl)
         story.append(Spacer(1, 20))
 
-    # ── History ──
     if regs:
         story.append(Paragraph("HISTÓRICO DE PEDIDOS", S_SECTION))
-        ETAPA_CORES = {"Separacao": colors.HexColor("#3B5EC6"),
-                       "Conferencia": colors.HexColor("#C47B2A"),
-                       "Embalagem": colors.HexColor("#4A7C59")}
         ETAPA_NOMES = {"Separacao":"Separação","Conferencia":"Conferência","Embalagem":"Embalagem"}
         hist_header = [
-            Paragraph("<b>PEDIDO</b>",   ParagraphStyle("h",fontName="Helvetica-Bold",fontSize=8,textColor=BRANCO)),
-            Paragraph("<b>OPERADOR</b>", ParagraphStyle("h",fontName="Helvetica-Bold",fontSize=8,textColor=BRANCO)),
-            Paragraph("<b>ETAPA</b>",    ParagraphStyle("h",fontName="Helvetica-Bold",fontSize=8,textColor=BRANCO,alignment=TA_CENTER)),
-            Paragraph("<b>TEMPO</b>",    ParagraphStyle("h",fontName="Helvetica-Bold",fontSize=8,textColor=BRANCO,alignment=TA_CENTER)),
-            Paragraph("<b>DATA</b>",     ParagraphStyle("h",fontName="Helvetica-Bold",fontSize=8,textColor=BRANCO,alignment=TA_CENTER)),
+            Paragraph("<b>PEDIDO</b>",   ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO)),
+            Paragraph("<b>OPERADOR</b>", ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO)),
+            Paragraph("<b>ETAPA</b>",    ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>TEMPO</b>",    ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>DATA</b>",     ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
         ]
         hist_rows = [hist_header]
-        for i, r in enumerate(regs[:80]):
-            cor_etapa = ETAPA_CORES.get(r[3], CINZA)
+        for r in regs[:80]:
             hist_rows.append([
                 Paragraph(f"<font name='Courier-Bold' size='8'>{r[1]}</font>", styles["Normal"]),
                 Paragraph(f"<font size='8'>{r[2]}</font>", styles["Normal"]),
                 Paragraph(ETAPA_NOMES.get(r[3], r[3]), styles["Normal"]),
-                Paragraph(f"<font name='Courier' size='8'>{fmt(r[5])}</font>", ParagraphStyle("c",fontSize=8,alignment=TA_CENTER)),
-                Paragraph(f"<font size='7' color='#8C8480'>{r[6]}</font>", ParagraphStyle("c",fontSize=7,alignment=TA_CENTER)),
+                Paragraph(f"<font name='Courier' size='8'>{fmt(r[5])}</font>", ParagraphStyle("c", fontSize=8, alignment=TA_CENTER)),
+                Paragraph(f"<font size='7' color='#8C8480'>{r[6]}</font>", ParagraphStyle("c", fontSize=7, alignment=TA_CENTER)),
             ])
-
         hist_tbl = Table(hist_rows, colWidths=["18%","22%","22%","16%","22%"])
         hist_tbl.setStyle(TableStyle([
             ("BACKGROUND",    (0,0), (-1,0), ESCURO),
             ("ROWBACKGROUNDS",(0,1), (-1,-1), [CLARO, BRANCO]),
             ("GRID",          (0,0), (-1,-1), 0.3, BEGE),
-            ("TOPPADDING",    (0,0), (-1,-1), 7),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 7),
-            ("LEFTPADDING",   (0,0), (-1,-1), 8),
-            ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+            ("TOPPADDING",    (0,0), (-1,-1), 7), ("BOTTOMPADDING", (0,0), (-1,-1), 7),
+            ("LEFTPADDING",   (0,0), (-1,-1), 8), ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
         ]))
         story.append(hist_tbl)
 
     story.append(Spacer(1, 24))
     story.append(HRFlowable(width="100%", thickness=0.5, color=BEGE, spaceAfter=8))
     story.append(Paragraph(f"Vi Lingerie · Relatório gerado automaticamente em {now_str} · Sistema de Produção", S_FOOTER))
-
     doc.build(story)
     return buf.getvalue()
 
@@ -1590,129 +1325,45 @@ def tela_admin():
             st.session_state.tela = "home"; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # ── Upload planilha ──
-    # Toggle state
-    if "show_upload" not in st.session_state:
-        st.session_state.show_upload = False
-
-    # Header button to toggle
-    st.markdown("""
-    <style>
-    .btn-upload > button {
-        background: linear-gradient(135deg,#1A1714,#2e2825) !important;
-        color:#fff !important; border:none !important;
-        box-shadow: 0 5px 0 rgba(0,0,0,0.45), 0 8px 20px rgba(0,0,0,0.20) !important;
-        font-size:14px !important; font-weight:800 !important; letter-spacing:.5px !important;
-        border-top: 1px solid rgba(255,255,255,0.08) !important;
-    }
-    .btn-upload > button:hover {
-        background: linear-gradient(135deg,#2e2825,#3d3530) !important;
-        transform: translateY(-1px) !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    col_up1, col_up2 = st.columns([3,1])
-    with col_up1:
-        pedidos_base_count = len(buscar_pedidos_base())
-        if pedidos_base_count > 0:
-            abertos_c   = sum(1 for p in buscar_pedidos_base() if p[3]=="aberto")
-            concl_c     = pedidos_base_count - abertos_c
-            st.markdown(f"""
-            <div style="display:flex;align-items:center;gap:14px;padding:12px 0;">
-                <div style="width:10px;height:10px;border-radius:50%;background:#4A7C59;
-                            box-shadow:0 0 8px #4A7C59;flex-shrink:0;"></div>
-                <div style="font-size:13px;font-weight:700;color:#5C5450;">
-                    Base carregada: <strong style="color:#1A1714;">{pedidos_base_count}</strong> pedidos
-                    &nbsp;·&nbsp; <span style="color:#4A7C59;">{abertos_c} abertos</span>
-                    &nbsp;·&nbsp; <span style="color:#C8566A;">{concl_c} concluídos</span>
-                </div>
-            </div>""", unsafe_allow_html=True)
-        else:
-            st.markdown("""
-            <div style="display:flex;align-items:center;gap:14px;padding:12px 0;">
-                <div style="width:10px;height:10px;border-radius:50%;background:#C8566A;
-                            box-shadow:0 0 8px rgba(200,86,106,0.6);flex-shrink:0;"></div>
-                <div style="font-size:13px;font-weight:700;color:#C8566A;">
-                    Nenhuma planilha carregada ainda
-                </div>
-            </div>""", unsafe_allow_html=True)
-    with col_up2:
-        label = "✕ Fechar" if st.session_state.show_upload else "📂 Carregar Planilha"
-        st.markdown('<div class="btn-upload">', unsafe_allow_html=True)
-        if st.button(label, use_container_width=True):
-            st.session_state.show_upload = not st.session_state.show_upload
-            st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    if st.session_state.show_upload:
-        components.html("""
-        <!DOCTYPE html><html><head>
-        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
-        <style>*{margin:0;padding:0;box-sizing:border-box;}</style>
-        </head><body style="background:transparent;font-family:Nunito,sans-serif;">
-        <div style="background:linear-gradient(135deg,#1c1917,#292524);border-radius:16px;padding:20px 24px;
-                    border:1px solid rgba(255,255,255,0.07);box-shadow:0 6px 24px rgba(0,0,0,0.25);
-                    position:relative;overflow:hidden;">
-            <div style="position:absolute;right:-20px;top:-20px;width:120px;height:120px;border-radius:50%;
-                        background:rgba(200,86,106,0.08);"></div>
-            <div style="display:flex;align-items:flex-start;gap:16px;position:relative;z-index:1;">
-                <div style="width:44px;height:44px;border-radius:12px;flex-shrink:0;
-                            background:linear-gradient(135deg,#C8566A,#9E3F52);
-                            display:flex;align-items:center;justify-content:center;
-                            box-shadow:0 4px 14px rgba(200,86,106,0.4);">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"
-                         stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                        <polyline points="14 2 14 8 20 8"></polyline>
-                        <line x1="12" y1="18" x2="12" y2="12"></line>
-                        <line x1="9" y1="15" x2="15" y2="15"></line>
-                    </svg>
-                </div>
-                <div>
-                    <div style="font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
-                                color:rgba(255,255,255,0.4);margin-bottom:4px;">Instruções</div>
-                    <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.85);line-height:1.7;">
-                        Suba a planilha <b style="color:#C8566A;">.xlsx</b> exportada do sistema interno.<br>
-                        O sistema lê a coluna <b style="color:#C8566A;">Pedido</b> e a coluna <b style="color:#C8566A;">%.1</b>
-                        (100% = concluído, qualquer outro valor = em aberto).<br>
-                        Pedidos concluídos ficam <b>bloqueados</b> para produção.
-                    </div>
-                </div>
+    # ── ✅ INFO: planilha gerenciada pelo Programa A ──
+    pedidos_base_count = len(buscar_pedidos_base())
+    if pedidos_base_count > 0:
+        pb = buscar_pedidos_base()
+        abertos_c = sum(1 for p in pb if p[3] == "aberto")
+        concl_c   = pedidos_base_count - abertos_c
+        st.markdown(f"""
+        <div style="display:flex;align-items:center;gap:14px;background:#F0F7F3;
+                    border:1.5px solid #4A7C59;border-radius:12px;padding:14px 20px;margin-bottom:1rem;">
+            <div style="width:10px;height:10px;border-radius:50%;background:#4A7C59;
+                        box-shadow:0 0 8px #4A7C59;flex-shrink:0;"></div>
+            <div style="font-size:13px;font-weight:700;color:#2d5a3d;">
+                Base sincronizada via <strong>Programa A</strong>:
+                <strong style="color:#1A1714;">{pedidos_base_count}</strong> pedidos
+                &nbsp;·&nbsp; <span style="color:#4A7C59;">{abertos_c} abertos</span>
+                &nbsp;·&nbsp; <span style="color:#C8566A;">{concl_c} concluídos</span>
             </div>
         </div>
-        </body></html>""", height=130, scrolling=False)
-
-        st.markdown("<br style='line-height:0.3'>", unsafe_allow_html=True)
-        uploaded = st.file_uploader(
-            "Selecione a planilha (.xlsx ou .csv)",
-            type=["xlsx","xls","csv"],
-        )
-        if uploaded:
-            ok, result = importar_planilha(uploaded.read(), uploaded.name)
-            if ok:
-                components.html(f"""<div style="background:#E8F2EC;border:2px solid #4A7C59;border-radius:12px;
-                    padding:14px 20px;font-family:sans-serif;font-size:14px;font-weight:800;
-                    color:#2d5a3d;text-align:center;margin-top:8px;">
-                    ✅ {result} pedidos importados com sucesso de <b>{uploaded.name}</b>
-                </div>""", height=60, scrolling=False)
-                st.session_state.show_upload = False
-                st.rerun()
-            else:
-                components.html(f"""<div style="background:#FEF2F2;border:2px solid #C8566A;border-radius:12px;
-                    padding:14px 20px;font-family:sans-serif;font-size:14px;font-weight:800;
-                    color:#991B1B;text-align:center;margin-top:8px;">
-                    ❌ {result}
-                </div>""", height=60, scrolling=False)
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div style="display:flex;align-items:center;gap:14px;background:#FFFBEB;
+                    border:1.5px solid #F59E0B;border-radius:12px;padding:14px 20px;margin-bottom:1rem;">
+            <div style="width:10px;height:10px;border-radius:50%;background:#F59E0B;flex-shrink:0;"></div>
+            <div style="font-size:13px;font-weight:700;color:#92400E;">
+                Nenhuma planilha carregada. Acesse o <strong>Programa A</strong> (Dashboard do Gestor) para importar a carteira de pedidos.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
     st.markdown("<br style='line-height:0.3'>", unsafe_allow_html=True)
+
     regs     = buscar()
     ped_comp = list({r[1] for r in regs if r[4] == 2})
     ops_ativ = list({r[2] for r in regs})
     avg      = media([r[5] for r in regs]) // 60 if regs else 0
     total_r  = len(regs)
 
-    # ── KPI Cards via components ──
+    # ── KPI Cards ──
     kpi_html = f"""
     <!DOCTYPE html><html><head>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -1721,43 +1372,22 @@ def tela_admin():
     body{{background:transparent;font-family:Nunito,sans-serif;}}
     .grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}}
     .card{{background:#fff;border-radius:16px;padding:18px 16px 14px;
-           border:1.5px solid #EDE9E4;box-shadow:0 2px 12px rgba(0,0,0,0.05);
-           position:relative;overflow:hidden;}}
+           border:1.5px solid #EDE9E4;box-shadow:0 2px 12px rgba(0,0,0,0.05);position:relative;overflow:hidden;}}
     .card-icon{{position:absolute;top:-6px;right:4px;font-size:44px;opacity:0.07;line-height:1;}}
     .card-lbl{{font-size:9px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:#9C9490;margin-bottom:8px;}}
     .card-num{{font-family:"DM Mono",monospace;font-size:32px;font-weight:500;letter-spacing:-1px;}}
     .card-bar{{height:3px;border-radius:2px;margin-top:12px;opacity:0.3;}}
     </style></head><body>
     <div class="grid">
-      <div class="card">
-        <div class="card-icon">📦</div>
-        <div class="card-lbl">Pedidos Concluídos</div>
-        <div class="card-num" style="color:#C8566A;">{len(ped_comp)}</div>
-        <div class="card-bar" style="background:#C8566A;"></div>
-      </div>
-      <div class="card">
-        <div class="card-icon">👥</div>
-        <div class="card-lbl">Operadores Ativos</div>
-        <div class="card-num" style="color:#4A7C59;">{len(ops_ativ)}</div>
-        <div class="card-bar" style="background:#4A7C59;"></div>
-      </div>
-      <div class="card">
-        <div class="card-icon">⏱</div>
-        <div class="card-lbl">Tempo Médio</div>
-        <div class="card-num" style="color:#3B5EC6;">{avg}m</div>
-        <div class="card-bar" style="background:#3B5EC6;"></div>
-      </div>
-      <div class="card">
-        <div class="card-icon">📊</div>
-        <div class="card-lbl">Total Registros</div>
-        <div class="card-num" style="color:#C47B2A;">{total_r}</div>
-        <div class="card-bar" style="background:#C47B2A;"></div>
-      </div>
+      <div class="card"><div class="card-icon">📦</div><div class="card-lbl">Pedidos Concluídos</div><div class="card-num" style="color:#C8566A;">{len(ped_comp)}</div><div class="card-bar" style="background:#C8566A;"></div></div>
+      <div class="card"><div class="card-icon">👥</div><div class="card-lbl">Operadores Ativos</div><div class="card-num" style="color:#4A7C59;">{len(ops_ativ)}</div><div class="card-bar" style="background:#4A7C59;"></div></div>
+      <div class="card"><div class="card-icon">⏱</div><div class="card-lbl">Tempo Médio</div><div class="card-num" style="color:#3B5EC6;">{avg}m</div><div class="card-bar" style="background:#3B5EC6;"></div></div>
+      <div class="card"><div class="card-icon">📊</div><div class="card-lbl">Total Registros</div><div class="card-num" style="color:#C47B2A;">{total_r}</div><div class="card-bar" style="background:#C47B2A;"></div></div>
     </div>
     </body></html>"""
     components.html(kpi_html, height=115, scrolling=False)
 
-    # ── Build op_map ──
+    # ── Tabela de operadores ──
     op_map = {}
     for r in regs:
         op = r[2]
@@ -1769,7 +1399,6 @@ def tela_admin():
 
     st.markdown("<br style='line-height:0.4'>", unsafe_allow_html=True)
 
-    # ── Operator table via components ──
     if op_map:
         op_rows = ""
         for op, d in op_map.items():
@@ -1788,8 +1417,7 @@ def tela_admin():
                 </div>
               </td>
               <td style="padding:13px 10px;text-align:center;vertical-align:middle;">
-                <span style="background:#F5E8EB;color:#C8566A;font-weight:800;font-size:13px;
-                             padding:4px 14px;border-radius:100px;">{len(d["p"])}</span>
+                <span style="background:#F5E8EB;color:#C8566A;font-weight:800;font-size:13px;padding:4px 14px;border-radius:100px;">{len(d["p"])}</span>
               </td>
               <td style="padding:13px 10px;text-align:center;font-family:monospace;font-size:13px;color:#3B5EC6;font-weight:700;vertical-align:middle;">{sep_t}</td>
               <td style="padding:13px 10px;text-align:center;font-family:monospace;font-size:13px;color:#C47B2A;font-weight:700;vertical-align:middle;">{conf_t}</td>
@@ -1797,54 +1425,37 @@ def tela_admin():
             </tr>"""
 
         n_ops = len(op_map)
-        op_height = 56 + (n_ops * 62) + 20
-
         components.html(f"""
         <!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
         <style>
-        *{{margin:0;padding:0;box-sizing:border-box;}}
-        body{{background:transparent;font-family:Nunito,sans-serif;}}
+        *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
         .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
-        .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;
-               overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-        table{{width:100%;border-collapse:collapse;}}
-        thead tr{{background:#1A1714;}}
-        th{{padding:12px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;
-            text-transform:uppercase;text-align:center;}}
+        .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
+        table{{width:100%;border-collapse:collapse;}} thead tr{{background:#1A1714;}}
+        th{{padding:12px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;text-align:center;}}
         th:first-child{{text-align:left;padding-left:16px;}}
         tbody tr{{border-bottom:1px solid #F2EEE9;transition:background .15s;}}
-        tbody tr:last-child{{border-bottom:none;}}
-        tbody tr:hover{{background:#FDFAF9;}}
+        tbody tr:last-child{{border-bottom:none;}} tbody tr:hover{{background:#FDFAF9;}}
         </style></head><body>
         <div class="lbl">Desempenho por Operador</div>
-        <div class="wrap">
-          <table>
-            <thead>
-              <tr>
-                <th style="color:rgba(255,255,255,0.45);">Operador</th>
-                <th style="color:rgba(255,255,255,0.45);">Pedidos</th>
-                <th style="color:#7B9FE0;">Separação</th>
-                <th style="color:#D4A45A;">Conferência</th>
-                <th style="color:#7AB895;">Embalagem</th>
-              </tr>
-            </thead>
-            <tbody>{op_rows}</tbody>
-          </table>
-        </div>
+        <div class="wrap"><table><thead><tr>
+          <th style="color:rgba(255,255,255,0.45);">Operador</th>
+          <th style="color:rgba(255,255,255,0.45);">Pedidos</th>
+          <th style="color:#7B9FE0;">Separação</th>
+          <th style="color:#D4A45A;">Conferência</th>
+          <th style="color:#7AB895;">Embalagem</th>
+        </tr></thead><tbody>{op_rows}</tbody></table></div>
         </body></html>
-        """, height=op_height, scrolling=False)
+        """, height=56 + (n_ops * 62) + 20, scrolling=False)
     else:
-        components.html("""
-        <!DOCTYPE html><html><body style="background:transparent;font-family:sans-serif;">
+        components.html("""<!DOCTYPE html><html><body style="background:transparent;font-family:sans-serif;">
         <div style="background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;
                     padding:40px;text-align:center;color:#9C9490;font-size:14px;font-weight:600;">
-            Nenhum registro ainda.
-        </div></body></html>""", height=120, scrolling=False)
+            Nenhum registro ainda.</div></body></html>""", height=120, scrolling=False)
 
     st.markdown("<br style='line-height:0.4'>", unsafe_allow_html=True)
 
-    # ── History header ──
     h1, h2 = st.columns([3, 1])
     with h2:
         if st.button("🗑 Limpar dados", use_container_width=True):
@@ -1874,76 +1485,50 @@ def tela_admin():
         <!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
         <style>
-        *{{margin:0;padding:0;box-sizing:border-box;}}
-        body{{background:transparent;font-family:Nunito,sans-serif;}}
+        *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
         .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
-        .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;
-               overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-        table{{width:100%;border-collapse:collapse;}}
-        thead tr{{background:#1A1714;}}
+        .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
+        table{{width:100%;border-collapse:collapse;}} thead tr{{background:#1A1714;}}
         th{{padding:12px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-align:center;}}
-        th:first-child{{text-align:left;padding-left:16px;}}
-        th:nth-child(2){{text-align:left;}}
-        tbody tr{{border-bottom:1px solid #F2EEE9;}}
-        tbody tr:last-child{{border-bottom:none;}}
+        th:first-child{{text-align:left;padding-left:16px;}} th:nth-child(2){{text-align:left;}}
+        tbody tr{{border-bottom:1px solid #F2EEE9;}} tbody tr:last-child{{border-bottom:none;}}
         tbody tr:hover{{background:#FDFAF9;}}
         </style></head><body>
         <div class="lbl">Histórico de Pedidos</div>
-        <div class="wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Pedido</th><th>Operador</th><th>Etapa</th><th>Tempo</th><th>Data</th>
-              </tr>
-            </thead>
-            <tbody>{hist_rows}</tbody>
-          </table>
-        </div>
+        <div class="wrap"><table><thead><tr>
+          <th>Pedido</th><th>Operador</th><th>Etapa</th><th>Tempo</th><th>Data</th>
+        </tr></thead><tbody>{hist_rows}</tbody></table></div>
         </body></html>
         """, height=min(hist_height, 600), scrolling=hist_height > 600)
     else:
-        components.html("""
-        <!DOCTYPE html><html><body style="background:transparent;font-family:sans-serif;">
+        components.html("""<!DOCTYPE html><html><body style="background:transparent;font-family:sans-serif;">
         <div style="background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;
                     padding:40px;text-align:center;color:#9C9490;font-size:14px;font-weight:600;">
-            Nenhum registro ainda.
-        </div></body></html>""", height=120, scrolling=False)
+            Nenhum registro ainda.</div></body></html>""", height=120, scrolling=False)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ── Export buttons ──
+    # ── Exportações ──
     if regs:
         st.markdown("""
         <style>
-        .btn-pdf > button {
-            background: linear-gradient(135deg,#C8566A,#9E3F52) !important;
-            color:#fff !important; border:none !important;
-            box-shadow: 0 5px 0 rgba(100,20,35,0.40), 0 8px 20px rgba(200,86,106,0.28) !important;
-            font-weight:800 !important; height:54px !important;
-        }
+        .btn-pdf > button { background:linear-gradient(135deg,#C8566A,#9E3F52) !important; color:#fff !important; border:none !important;
+            box-shadow:0 5px 0 rgba(100,20,35,0.40),0 8px 20px rgba(200,86,106,0.28) !important; font-weight:800 !important; height:54px !important; }
         .btn-pdf > button:hover { transform:translateY(-2px) !important; }
-        .btn-xml > button {
-            background: linear-gradient(135deg,#3B5EC6,#2a469e) !important;
-            color:#fff !important; border:none !important;
-            box-shadow: 0 5px 0 rgba(20,30,100,0.40), 0 8px 20px rgba(59,94,198,0.28) !important;
-            font-weight:800 !important; height:54px !important;
-        }
+        .btn-xml > button { background:linear-gradient(135deg,#3B5EC6,#2a469e) !important; color:#fff !important; border:none !important;
+            box-shadow:0 5px 0 rgba(20,30,100,0.40),0 8px 20px rgba(59,94,198,0.28) !important; font-weight:800 !important; height:54px !important; }
         .btn-xml > button:hover { transform:translateY(-2px) !important; }
         </style>
         """, unsafe_allow_html=True)
 
-        # ── Build exports ──
         ts = datetime.now().strftime("%Y%m%d_%H%M")
 
-        # CSV
         buf_csv = io.StringIO()
         csv.writer(buf_csv).writerows(
             [["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data"]] + list(regs))
 
-        # PDF
         pdf_bytes = gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg)
 
-        # XML
         import xml.etree.ElementTree as ET
         from xml.dom import minidom
         root = ET.Element("RelatorioProducao")
@@ -1951,54 +1536,39 @@ def tela_admin():
         root.set("total_registros", str(len(regs)))
         summary = ET.SubElement(root, "Resumo")
         ET.SubElement(summary, "PedidosConcluidos").text = str(len(ped_comp))
-        ET.SubElement(summary, "OperadoresAtivos").text = str(ops_ativ)
+        ET.SubElement(summary, "OperadoresAtivos").text  = str(ops_ativ)
         ET.SubElement(summary, "TempoMedioSegundos").text = str(avg)
         registros_el = ET.SubElement(root, "Registros")
         for r in regs:
             reg = ET.SubElement(registros_el, "Registro")
             reg.set("id", str(r[0]))
-            ET.SubElement(reg, "Pedido").text    = str(r[1])
-            ET.SubElement(reg, "Operador").text  = str(r[2])
-            ET.SubElement(reg, "Etapa").text     = str(r[3])
-            ET.SubElement(reg, "EtapaIdx").text  = str(r[4])
-            ET.SubElement(reg, "TempoSegundos").text = str(r[5])
+            ET.SubElement(reg, "Pedido").text         = str(r[1])
+            ET.SubElement(reg, "Operador").text       = str(r[2])
+            ET.SubElement(reg, "Etapa").text          = str(r[3])
+            ET.SubElement(reg, "EtapaIdx").text       = str(r[4])
+            ET.SubElement(reg, "TempoSegundos").text  = str(r[5])
             ET.SubElement(reg, "TempoFormatado").text = fmt(r[5])
-            ET.SubElement(reg, "Data").text      = str(r[6])
-        xml_str = minidom.parseString(ET.tostring(root, encoding="unicode")).toprettyxml(indent="  ")
-        xml_bytes = xml_str.encode("utf-8")
+            ET.SubElement(reg, "Data").text           = str(r[6])
+        xml_bytes = minidom.parseString(ET.tostring(root, encoding="unicode")).toprettyxml(indent="  ").encode("utf-8")
 
-        # ── Layout: 3 colunas ──
         c1, c2, c3 = st.columns(3)
         with c1:
             st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
-            st.download_button(
-                label="⬇  Exportar CSV",
-                data=buf_csv.getvalue().encode(),
-                file_name=f"vi_producao_{ts}.csv",
-                mime="text/csv",
-                use_container_width=True,
-            )
+            st.download_button("⬇  Exportar CSV", data=buf_csv.getvalue().encode(),
+                file_name=f"vi_producao_{ts}.csv", mime="text/csv", use_container_width=True)
             st.markdown('</div>', unsafe_allow_html=True)
         with c2:
             st.markdown('<div class="btn-xml">', unsafe_allow_html=True)
-            st.download_button(
-                label="🗂  Exportar XML",
-                data=xml_bytes,
-                file_name=f"vi_producao_{ts}.xml",
-                mime="application/xml",
-                use_container_width=True,
-            )
+            st.download_button("🗂  Exportar XML", data=xml_bytes,
+                file_name=f"vi_producao_{ts}.xml", mime="application/xml", use_container_width=True)
             st.markdown('</div>', unsafe_allow_html=True)
         with c3:
             st.markdown('<div class="btn-pdf">', unsafe_allow_html=True)
-            st.download_button(
-                label="📄  Exportar PDF",
-                data=pdf_bytes,
-                file_name=f"vi_relatorio_{ts}.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-            )
+            st.download_button("📄  Exportar PDF", data=pdf_bytes,
+                file_name=f"vi_relatorio_{ts}.pdf", mime="application/pdf", use_container_width=True)
             st.markdown('</div>', unsafe_allow_html=True)
+
+
 # ─────────────────────────────────────
 #  ROUTER
 # ─────────────────────────────────────
