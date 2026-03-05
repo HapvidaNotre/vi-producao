@@ -523,52 +523,50 @@ def render_stepper(idx):
     st.markdown(html, unsafe_allow_html=True)
 
 def render_avatar_grid(on_click_key="home"):
-    """Avatar grid — full-width card buttons, premium look, native Streamlit."""
+    """Avatar grid — large photo-style cards, premium operador selection."""
 
+    COLORS = [
+        ("#C8566A","#FFF0F2","#7A2D3E"),
+        ("#3B7DD8","#EEF4FF","#1a4fa0"),
+        ("#4A7C59","#F0F7F3","#2a5038"),
+        ("#E07B3A","#FFF4EE","#9a4a15"),
+        ("#7C5CBF","#F4F0FF","#4a2e8a"),
+        ("#C8566A","#FFF0F2","#7A2D3E"),
+        ("#3B7DD8","#EEF4FF","#1a4fa0"),
+        ("#4A7C59","#F0F7F3","#2a5038"),
+        ("#E07B3A","#FFF4EE","#9a4a15"),
+    ]
+
+    # Global CSS for all cards
     st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap');
+    .op-grid-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 4px; }
 
-    /* ── Operator card button ── */
-    div[class*="stButton"] button[data-baseweb="button"] {
+    div.op-btn-wrap > div[data-testid="stButton"] > button {
         font-family: 'Nunito', sans-serif !important;
-    }
-
-    .op-card-btn > div[data-testid="stButton"] > button {
         background: #FFFFFF !important;
-        border: 1.5px solid #EDE9E4 !important;
+        border: 2px solid #F0EBE5 !important;
         border-radius: 16px !important;
-        height: 80px !important;
+        height: 72px !important;
         width: 100% !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: flex-start !important;
-        gap: 14px !important;
-        padding: 0 18px !important;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05) !important;
-        transition: all 0.18s ease !important;
-        color: #1A1714 !important;
+        padding: 0 16px 0 12px !important;
+        text-align: left !important;
         font-size: 15px !important;
         font-weight: 800 !important;
-        letter-spacing: 0.3px !important;
-        text-align: left !important;
-    }
-    .op-card-btn > div[data-testid="stButton"] > button:hover {
-        border-color: #C8566A !important;
-        box-shadow: 0 6px 20px rgba(200,86,106,0.18), 0 2px 6px rgba(0,0,0,0.06) !important;
-        transform: translateY(-2px) !important;
-        background: #FFF8F9 !important;
-    }
-    .op-card-btn > div[data-testid="stButton"] > button:active {
-        transform: translateY(1px) !important;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.08) !important;
-    }
-    .op-card-btn > div[data-testid="stButton"] > button p {
+        color: #1A1714 !important;
+        letter-spacing: 0.2px !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.055) !important;
+        transition: all 0.15s ease !important;
         display: flex !important;
         align-items: center !important;
-        gap: 14px !important;
-        margin: 0 !important;
-        width: 100% !important;
+    }
+    div.op-btn-wrap > div[data-testid="stButton"] > button:hover {
+        transform: translateY(-3px) scale(1.01) !important;
+    }
+    div.op-btn-wrap > div[data-testid="stButton"] > button:active {
+        transform: translateY(1px) scale(0.99) !important;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.07) !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -576,34 +574,46 @@ def render_avatar_grid(on_click_key="home"):
     cols_per_row = 2
     rows_ops = [OPERADORES[i:i+cols_per_row] for i in range(0, len(OPERADORES), cols_per_row)]
 
-    COLORS = [
-        "#C8566A","#3B7DD8","#4A7C59","#E07B3A",
-        "#7C5CBF","#C8566A","#3B7DD8","#4A7C59","#E07B3A",
-    ]
-
     for r_idx, row in enumerate(rows_ops):
         cols = st.columns(cols_per_row)
         for c_idx, (col, op) in enumerate(zip(cols, row)):
             op_idx = r_idx * cols_per_row + c_idx
-            color  = COLORS[op_idx % len(COLORS)]
-            initials = op[:2].upper() if len(op) >= 2 else op[0].upper()
+            color, bg, dark = COLORS[op_idx % len(COLORS)]
+            initials = (op[0] + op[1]).upper() if len(op) >= 2 else op[0].upper()
+
             with col:
-                # Badge + name as button label using markdown trick
-                label = (
-                    f'<span style="display:inline-flex;align-items:center;justify-content:center;'
-                    f'width:44px;height:44px;border-radius:50%;'
-                    f'background:linear-gradient(145deg,{color}dd,{color});'
-                    f'color:#fff;font-size:16px;font-weight:900;flex-shrink:0;'
-                    f'box-shadow:0 3px 8px {color}55;">{initials}</span>'
-                    f'<span style="font-size:15px;font-weight:800;color:#1A1714;">{op}</span>'
+                # Per-operator hover color
+                st.markdown(f"""
+                <style>
+                div.op-btn-wrap-{op_idx} > div[data-testid="stButton"] > button {{
+                    border-color: #F0EBE5 !important;
+                }}
+                div.op-btn-wrap-{op_idx} > div[data-testid="stButton"] > button:hover {{
+                    background: {bg} !important;
+                    border-color: {color} !important;
+                    box-shadow: 0 8px 22px {color}33, 0 2px 6px rgba(0,0,0,0.06) !important;
+                }}
+                </style>""", unsafe_allow_html=True)
+
+                # Circle initial badge above button
+                st.markdown(
+                    f'<div style="display:flex;align-items:center;gap:0;">'
+                    f'<div style="width:42px;height:42px;border-radius:50%;flex-shrink:0;'
+                    f'background:linear-gradient(135deg,{color},{dark});'
+                    f'display:flex;align-items:center;justify-content:center;'
+                    f'font-family:Nunito,sans-serif;font-size:14px;font-weight:900;color:#fff;'
+                    f'box-shadow:0 3px 10px {color}55;'
+                    f'margin-right:-6px;position:relative;z-index:2;border:2px solid #fff;">'
+                    f'{initials}</div></div>',
+                    unsafe_allow_html=True
                 )
-                st.markdown(f'<div class="op-card-btn">', unsafe_allow_html=True)
-                if st.button(f"  {initials}   {op}", key=f"av_{on_click_key}_{op}",
-                             use_container_width=True):
+                st.markdown(f'<div class="op-btn-wrap op-btn-wrap-{op_idx}">', unsafe_allow_html=True)
+                if st.button(f"  {op}", key=f"av_{on_click_key}_{op}", use_container_width=True):
                     st.session_state.operador = op
                     st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+
+        st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
 
 
 def _go_producao(etapa_idx):
@@ -948,24 +958,27 @@ def tela_producao():
 
     st.markdown("<br style='line-height:0.5'>", unsafe_allow_html=True)
 
-    # ── Input de pedido ──
+    # ── Pedido já definido pelo home — mostrar card info + botão INICIAR ──
     if not st.session_state.rodando and st.session_state.acum == 0 and not st.session_state.modal:
+        pedido_val = st.session_state.pedido or ""
+        initial    = op[0].upper()
 
-        initial = op[0].upper()
+        # Info card: etapa + operador + pedido
         components.html(f"""
         <!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&display=swap" rel="stylesheet">
         <style>* {{margin:0;padding:0;box-sizing:border-box;}}</style>
         </head><body style="background:transparent;font-family:Nunito,sans-serif;">
-        <div style="background:linear-gradient(135deg,#C8566A 0%,#9E3F52 100%);border-radius:20px;padding:0;box-shadow:0 8px 0 rgba(100,20,35,0.28),0 16px 36px rgba(200,86,106,0.28);overflow:hidden;position:relative;">
+        <div style="background:linear-gradient(135deg,#C8566A 0%,#9E3F52 100%);border-radius:20px;
+            box-shadow:0 8px 0 rgba(100,20,35,0.28),0 16px 36px rgba(200,86,106,0.28);
+            overflow:hidden;position:relative;">
             <div style="position:absolute;right:-30px;top:-30px;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,0.07);"></div>
-            <div style="position:absolute;right:30px;bottom:-40px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,0.05);"></div>
             <div style="display:flex;align-items:center;justify-content:space-between;padding:22px 28px;position:relative;z-index:1;">
                 <div>
                     <div style="font-size:9px;font-weight:800;letter-spacing:2.5px;color:rgba(255,255,255,0.55);text-transform:uppercase;margin-bottom:4px;">Etapa Atual</div>
-                    <div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:-0.3px;line-height:1.1;">{etapa_lbl}</div>
+                    <div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:-0.3px;">{etapa_lbl}</div>
                 </div>
-                <div style="width:1.5px;height:48px;background:rgba(255,255,255,0.2);border-radius:2px;margin:0 20px;flex-shrink:0;"></div>
+                <div style="width:1.5px;height:48px;background:rgba(255,255,255,0.2);border-radius:2px;margin:0 16px;flex-shrink:0;"></div>
                 <div style="text-align:right;">
                     <div style="font-size:9px;font-weight:800;letter-spacing:2.5px;color:rgba(255,255,255,0.55);text-transform:uppercase;margin-bottom:4px;">Operador</div>
                     <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;">
@@ -974,176 +987,39 @@ def tela_producao():
                     </div>
                 </div>
             </div>
+            <div style="background:rgba(0,0,0,0.15);padding:12px 28px;display:flex;align-items:center;gap:10px;">
+                <div style="font-size:9px;font-weight:800;letter-spacing:2px;color:rgba(255,255,255,0.5);text-transform:uppercase;">Pedido</div>
+                <div style="font-family:monospace;font-size:18px;font-weight:800;color:#fff;letter-spacing:1px;">{pedido_val}</div>
+            </div>
         </div>
         </body></html>
-        """, height=100, scrolling=False)
+        """, height=130, scrolling=False)
 
         st.markdown("<br style='line-height:0.3'>", unsafe_allow_html=True)
 
-        # ── Smart pedido lookup ──
-        pedidos_db = buscar_pedidos_base()
-        pedidos_abertos = [p[0] for p in pedidos_db if p[3] == "aberto"]
-        has_base = len(pedidos_db) > 0
+        _, c1, _ = st.columns([0.3, 4, 0.3])
+        with c1:
+            st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
+            if st.button("▶  INICIAR CRONÔMETRO", use_container_width=True):
+                st.session_state.rodando = True
+                st.session_state.inicio  = time.time()
+                st.session_state.acum    = 0
+                registrar_sessao_ativa(pedido_val, etapa_idx, op)
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
 
-        st.markdown("""
-        <style>
-        div[data-testid="stTextInput"] label { display:none !important; }
-        div[data-testid="stTextInput"] input {
-            text-align: center !important; font-size: 18px !important;
-            font-weight: 800 !important; letter-spacing: 2px !important;
-            color: #1A1714 !important; height: 50px !important;
-            border: 2px solid #E0DBD4 !important; border-radius: 12px !important;
-            background: #fff !important; box-shadow: 0 3px 10px rgba(0,0,0,0.05) !important;
-        }
-        div[data-testid="stTextInput"] input:focus {
-            border-color: #C8566A !important;
-            box-shadow: 0 0 0 4px rgba(200,86,106,0.12) !important;
-        }
-        div[data-testid="stTextInput"] input::placeholder {
-            color: #CCC6BF !important; font-weight:600 !important; font-size:15px !important;
-        }
-        div[data-testid="stSelectbox"] label { display:none !important; }
-        </style>
-        """, unsafe_allow_html=True)
-
-        # ── Mode: has base → show selectbox + optional manual ──
-        if has_base and pedidos_abertos:
-            st.markdown('<div style="font-size:11px;font-weight:800;letter-spacing:1.5px;color:#9C9490;text-transform:uppercase;margin-bottom:6px;text-align:center;">Selecione o Pedido</div>', unsafe_allow_html=True)
-            # Build display options with client name
-            pedidos_info = {p[0]: p[1] for p in pedidos_db if p[3]=="aberto"}  # num -> cliente
-            def fmt_opcao(num):
-                cli = pedidos_info.get(num,"")
-                return f"{num}  —  {cli}" if cli else num
-
-            opcoes_display = ["— Selecione ou digite —"] + [fmt_opcao(n) for n in sorted(pedidos_abertos)]
-            opcoes_map     = {"— Selecione ou digite —": ""} | {fmt_opcao(n): n for n in sorted(pedidos_abertos)}
-
-            _, col_sel, _ = st.columns([0.5, 4, 0.5])
-            with col_sel:
-                sel_display = st.selectbox("_sel", opcoes_display, key="pedido_sel_box")
-            pedido_inp = opcoes_map.get(sel_display, "")
-
-            # Show client info card when a pedido is selected
-            if pedido_inp:
-                cli_nome = pedidos_info.get(pedido_inp, "")
-                if cli_nome:
-                    components.html(f"""<div style="background:#F0F7F3;border:1.5px solid #4A7C59;border-radius:10px;
-                        padding:10px 16px;font-family:sans-serif;display:flex;align-items:center;gap:10px;margin:6px 0;">
-                        <div style="font-size:18px;">🛍</div>
-                        <div><div style="font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#4A7C59;margin-bottom:2px;">Cliente</div>
-                        <div style="font-size:13px;font-weight:800;color:#1A1714;">{cli_nome}</div></div>
-                    </div>""", height=58, scrolling=False)
-
-            # Also allow free-type override
-            with st.expander("✏ Digitar número manualmente"):
-                pedido_manual = st.text_input("Número manual", placeholder="Ex: 49735", key="pedido_manual_inp")
-                if pedido_manual.strip():
-                    pedido_inp = pedido_manual.strip()
-        else:
-            st.markdown('<div style="font-size:11px;font-weight:800;letter-spacing:1.5px;color:#9C9490;text-transform:uppercase;margin-bottom:6px;text-align:center;">Número do Pedido</div>', unsafe_allow_html=True)
-            _, col_inp, _ = st.columns([0.5, 4, 0.5])
-            with col_inp:
-                pedido_inp = st.text_input("_", value=st.session_state.pedido or "", placeholder="Ex: #00123")
-            if has_base and not pedidos_abertos:
-                components.html("""<div style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:10px;
-                    padding:10px 14px;font-family:sans-serif;font-size:12px;font-weight:700;color:#92400E;text-align:center;">
-                    ⚠ Nenhum pedido em aberto na base. Carregue uma planilha no painel admin.</div>""",
-                    height=50, scrolling=False)
-
-        if st.session_state.erro_pedido:
-            st.markdown('<div style="text-align:center;color:#C8566A;font-size:13px;font-weight:800;margin-top:6px;">⚠ Selecione ou digite o número do pedido.</div>', unsafe_allow_html=True)
-
-        # ── Status warnings ──
-        pst = st.session_state.pedido_status
-        if pst == "concluido":
-            components.html(f"""
-            <div style="background:#FEF2F2;border:2px solid #FCA5A5;border-radius:14px;
-                 padding:16px 20px;font-family:sans-serif;text-align:center;margin:8px 0;">
-                <div style="font-size:22px;margin-bottom:6px;">🔒</div>
-                <div style="font-size:14px;font-weight:800;color:#991B1B;margin-bottom:4px;">Pedido Já Concluído</div>
-                <div style="font-size:12px;color:#B91C1C;font-weight:600;">
-                    Este pedido já passou por todas as etapas e foi encerrado no sistema.
-                </div>
-            </div>""", height=110, scrolling=False)
-            if st.button("← Escolher outro pedido", use_container_width=True):
-                st.session_state.pedido_status = None; st.rerun()
-
-        elif pst == "nao_encontrado":
-            components.html(f"""
-            <div style="background:#FFFBEB;border:2px solid #FCD34D;border-radius:14px;
-                 padding:16px 20px;font-family:sans-serif;text-align:center;margin:8px 0;">
-                <div style="font-size:22px;margin-bottom:6px;">❓</div>
-                <div style="font-size:14px;font-weight:800;color:#92400E;margin-bottom:4px;">Pedido Não Encontrado</div>
-                <div style="font-size:12px;color:#B45309;font-weight:600;">
-                    Este número não está na base de pedidos. Deseja cadastrá-lo manualmente?
-                </div>
-            </div>""", height=110, scrolling=False)
-            cc1, cc2 = st.columns(2)
-            with cc1:
-                st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
-                if st.button("✓ Cadastrar e Iniciar", use_container_width=True):
-                    num = st.session_state.get("_pedido_validando","")
-                    if num:
-                        cadastrar_pedido_avulso(num)
-                        st.session_state.pedido_status = None
-                        st.session_state.pedido  = num
-                        st.session_state.rodando = True
-                        st.session_state.inicio  = time.time()
-                        st.session_state.acum    = 0
-                        st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
-            with cc2:
-                st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
-                if st.button("✕ Cancelar", use_container_width=True):
-                    st.session_state.pedido_status = None; st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
-
-        else:
-            st.markdown("<br>", unsafe_allow_html=True)
-            _, c1, gap, c2, _ = st.columns([0.3, 3, 0.3, 1.5, 0.3])
-            with c1:
-                st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
-                if st.button("▶  INICIAR CRONÔMETRO", use_container_width=True):
-                    num = pedido_inp.strip() if isinstance(pedido_inp, str) else ""
-                    if not num:
-                        st.session_state.erro_pedido = True; st.rerun()
-                    st.session_state.erro_pedido = False
-                    # Validate against base
-                    pst = status_pedido(num)
-                    if pst == "aberto":
-                        st.session_state.pedido  = num
-                        st.session_state.rodando = True
-                        st.session_state.inicio  = time.time()
-                        st.session_state.acum    = 0
-                        st.session_state.pedido_status = None
-                        st.rerun()
-                    elif pst == "concluido":
-                        st.session_state.pedido_status = "concluido"
-                        st.session_state._pedido_validando = num
-                        st.rerun()
-                    else:  # nao_encontrado — only block if we have a base loaded
-                        if has_base:
-                            st.session_state.pedido_status = "nao_encontrado"
-                            st.session_state._pedido_validando = num
-                            st.rerun()
-                        else:
-                            # No base: allow freely
-                            st.session_state.pedido  = num
-                            st.session_state.rodando = True
-                            st.session_state.inicio  = time.time()
-                            st.session_state.acum    = 0
-                            st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
-            with c2:
-                st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
-                if st.button("← Voltar", use_container_width=True):
-                    remover_sessao_ativa(st.session_state.pedido or "", etapa_idx)
-                    st.session_state.pedido_status = None
-                    st.session_state.operador = None
-                    st.session_state.etapa_escolhida = None
-                    st.session_state.tela = "home"; st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
-
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        _, c2, _ = st.columns([0.3, 4, 0.3])
+        with c2:
+            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+            if st.button("← Voltar ao Menu", use_container_width=True):
+                remover_sessao_ativa(pedido_val, etapa_idx)
+                st.session_state.pedido = None
+                st.session_state.pedido_status = None
+                st.session_state.operador = None
+                st.session_state.etapa_escolhida = None
+                st.session_state.tela = "home"; st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
     # ── Timer rodando ──
     elif st.session_state.rodando:
         elapsed = get_elapsed()
