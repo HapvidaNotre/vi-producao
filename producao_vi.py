@@ -523,7 +523,7 @@ def render_stepper(idx):
     st.markdown(html, unsafe_allow_html=True)
 
 def render_avatar_grid(on_click_key="home"):
-    """Avatar circular grid — 3 per row, circle as button, name below."""
+    """Avatar circular grid — 3 per row, perfect circles."""
 
     COLORS = [
         ("#C8566A","#7A2D3E"),("#3B7DD8","#1a4fa0"),("#4A7C59","#2a5038"),
@@ -531,42 +531,71 @@ def render_avatar_grid(on_click_key="home"):
         ("#3B7DD8","#1a4fa0"),("#4A7C59","#2a5038"),("#E07B3A","#9a4a15"),
     ]
 
-    st.markdown("""
-    <style>
+    # Inject global + per-operator CSS
+    css_parts = ["""
     @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap');
+    """]
 
-    /* Remove all default button chrome for avatar buttons */
-    div.av-wrap > div[data-testid="stButton"] > button {
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        padding: 0 !important;
-        margin: 0 auto !important;
-        width: 72px !important;
-        height: 72px !important;
-        border-radius: 50% !important;
-        font-family: 'Nunito', sans-serif !important;
-        font-size: 20px !important;
-        font-weight: 900 !important;
-        color: #fff !important;
-        letter-spacing: 0.5px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        transition: transform 0.15s ease, box-shadow 0.15s ease !important;
-    }
-    div.av-wrap > div[data-testid="stButton"] > button:hover {
-        transform: translateY(-4px) scale(1.08) !important;
-    }
-    div.av-wrap > div[data-testid="stButton"] > button:active {
-        transform: translateY(2px) scale(0.95) !important;
-    }
-    div.av-wrap > div[data-testid="stButton"] > button:focus {
-        outline: none !important;
-        box-shadow: none !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    for op_idx, op in enumerate(OPERADORES):
+        color, dark = COLORS[op_idx % len(COLORS)]
+        css_parts.append(f"""
+        /* force perfect circle for {op} */
+        div[data-testid="stButton"]:has(button[data-testid="baseButton-secondary"][aria-label="{op}"]) button,
+        div[data-testid="stButton"]:has(button[aria-label="{op}"]) button {{
+            width: 74px !important;
+            height: 74px !important;
+            min-width: 74px !important;
+            min-height: 74px !important;
+            max-width: 74px !important;
+            max-height: 74px !important;
+            border-radius: 50% !important;
+            -webkit-border-radius: 50% !important;
+            background: linear-gradient(145deg, {color} 0%, {dark} 100%) !important;
+            box-shadow:
+                0 5px 0 {dark}99,
+                0 8px 0 rgba(80,10,25,0.12),
+                0 10px 22px {color}55,
+                inset 0 2px 4px rgba(255,255,255,0.22) !important;
+            border: none !important;
+            outline: none !important;
+            padding: 0 !important;
+            margin: 0 auto !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-family: 'Nunito', sans-serif !important;
+            font-size: 19px !important;
+            font-weight: 900 !important;
+            color: #ffffff !important;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.28) !important;
+            letter-spacing: 0.5px !important;
+            transition: transform 0.17s ease, box-shadow 0.17s ease !important;
+            cursor: pointer !important;
+        }}
+        div[data-testid="stButton"]:has(button[aria-label="{op}"]) button:hover {{
+            transform: translateY(-5px) scale(1.08) !important;
+            box-shadow:
+                0 11px 0 {dark}88,
+                0 18px 30px {color}66,
+                inset 0 2px 4px rgba(255,255,255,0.22) !important;
+        }}
+        div[data-testid="stButton"]:has(button[aria-label="{op}"]) button:active {{
+            transform: translateY(2px) scale(0.95) !important;
+            box-shadow:
+                0 2px 0 {dark}99,
+                0 4px 10px {color}44,
+                inset 0 3px 6px rgba(0,0,0,0.18) !important;
+        }}
+        div[data-testid="stButton"]:has(button[aria-label="{op}"]) button:focus {{
+            outline: none !important;
+            box-shadow:
+                0 5px 0 {dark}99,
+                0 10px 22px {color}55,
+                inset 0 2px 4px rgba(255,255,255,0.22) !important;
+        }}
+        """)
+
+    st.markdown(f"<style>{''.join(css_parts)}</style>", unsafe_allow_html=True)
 
     cols_per_row = 3
     rows_ops = [OPERADORES[i:i+cols_per_row] for i in range(0, len(OPERADORES), cols_per_row)]
@@ -574,42 +603,24 @@ def render_avatar_grid(on_click_key="home"):
     for r_idx, row in enumerate(rows_ops):
         cols = st.columns(cols_per_row)
         for c_idx, (col, op) in enumerate(zip(cols, row)):
-            op_idx = r_idx * cols_per_row + c_idx
-            color, dark = COLORS[op_idx % len(COLORS)]
             initials = (op[0] + op[1]).upper() if len(op) >= 2 else op[0].upper()
-
             with col:
-                # Per-operator circle color + glow on hover
-                st.markdown(f"""
-                <style>
-                div.av-wrap-{op_idx} > div[data-testid="stButton"] > button {{
-                    background: linear-gradient(145deg, {color}, {dark}) !important;
-                    box-shadow: 0 5px 0 {dark}88, 0 8px 18px {color}55 !important;
-                }}
-                div.av-wrap-{op_idx} > div[data-testid="stButton"] > button:hover {{
-                    box-shadow: 0 10px 0 {dark}66, 0 16px 28px {color}66 !important;
-                }}
-                div.av-wrap-{op_idx} > div[data-testid="stButton"] > button:active {{
-                    box-shadow: 0 2px 0 {dark}88, 0 3px 8px {color}44 !important;
-                }}
-                </style>
-                <div style="text-align:center;margin-bottom:2px;">
-                  <div style="font-size:12px;font-weight:800;color:#2C2826;
-                      font-family:Nunito,sans-serif;letter-spacing:0.2px;
-                      margin-bottom:4px;">{op}</div>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown(
+                    f'<div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:4px 0;">',
+                    unsafe_allow_html=True
+                )
+                if st.button(initials, key=f"av_{on_click_key}_{op}",
+                             help=op, use_container_width=False):
+                    st.session_state.operador = op
+                    st.rerun()
+                st.markdown(
+                    f'<div style="font-family:Nunito,sans-serif;font-size:12px;font-weight:800;' +
+                    f'color:#2C2826;text-align:center;letter-spacing:0.1px;line-height:1.2;">{op}</div>' +
+                    '</div>',
+                    unsafe_allow_html=True
+                )
 
-                # Center the button
-                _, btn_col, _ = st.columns([0.5, 2, 0.5])
-                with btn_col:
-                    st.markdown(f'<div class="av-wrap av-wrap-{op_idx}" style="display:flex;justify-content:center;">', unsafe_allow_html=True)
-                    if st.button(initials, key=f"av_{on_click_key}_{op}", use_container_width=False):
-                        st.session_state.operador = op
-                        st.rerun()
-                    st.markdown('</div>', unsafe_allow_html=True)
-
-        st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
 
 def _go_producao(etapa_idx):
