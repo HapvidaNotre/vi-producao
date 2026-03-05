@@ -523,97 +523,93 @@ def render_stepper(idx):
     st.markdown(html, unsafe_allow_html=True)
 
 def render_avatar_grid(on_click_key="home"):
-    """Avatar grid — large photo-style cards, premium operador selection."""
+    """Avatar circular grid — 3 per row, circle as button, name below."""
 
     COLORS = [
-        ("#C8566A","#FFF0F2","#7A2D3E"),
-        ("#3B7DD8","#EEF4FF","#1a4fa0"),
-        ("#4A7C59","#F0F7F3","#2a5038"),
-        ("#E07B3A","#FFF4EE","#9a4a15"),
-        ("#7C5CBF","#F4F0FF","#4a2e8a"),
-        ("#C8566A","#FFF0F2","#7A2D3E"),
-        ("#3B7DD8","#EEF4FF","#1a4fa0"),
-        ("#4A7C59","#F0F7F3","#2a5038"),
-        ("#E07B3A","#FFF4EE","#9a4a15"),
+        ("#C8566A","#7A2D3E"),("#3B7DD8","#1a4fa0"),("#4A7C59","#2a5038"),
+        ("#E07B3A","#9a4a15"),("#7C5CBF","#4a2e8a"),("#C8566A","#7A2D3E"),
+        ("#3B7DD8","#1a4fa0"),("#4A7C59","#2a5038"),("#E07B3A","#9a4a15"),
     ]
 
-    # Global CSS for all cards
     st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap');
-    .op-grid-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 4px; }
 
-    div.op-btn-wrap > div[data-testid="stButton"] > button {
-        font-family: 'Nunito', sans-serif !important;
-        background: #FFFFFF !important;
-        border: 2px solid #F0EBE5 !important;
-        border-radius: 16px !important;
+    /* Remove all default button chrome for avatar buttons */
+    div.av-wrap > div[data-testid="stButton"] > button {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 auto !important;
+        width: 72px !important;
         height: 72px !important;
-        width: 100% !important;
-        padding: 0 16px 0 12px !important;
-        text-align: left !important;
-        font-size: 15px !important;
-        font-weight: 800 !important;
-        color: #1A1714 !important;
-        letter-spacing: 0.2px !important;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.055) !important;
-        transition: all 0.15s ease !important;
+        border-radius: 50% !important;
+        font-family: 'Nunito', sans-serif !important;
+        font-size: 20px !important;
+        font-weight: 900 !important;
+        color: #fff !important;
+        letter-spacing: 0.5px !important;
         display: flex !important;
         align-items: center !important;
+        justify-content: center !important;
+        transition: transform 0.15s ease, box-shadow 0.15s ease !important;
     }
-    div.op-btn-wrap > div[data-testid="stButton"] > button:hover {
-        transform: translateY(-3px) scale(1.01) !important;
+    div.av-wrap > div[data-testid="stButton"] > button:hover {
+        transform: translateY(-4px) scale(1.08) !important;
     }
-    div.op-btn-wrap > div[data-testid="stButton"] > button:active {
-        transform: translateY(1px) scale(0.99) !important;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.07) !important;
+    div.av-wrap > div[data-testid="stButton"] > button:active {
+        transform: translateY(2px) scale(0.95) !important;
+    }
+    div.av-wrap > div[data-testid="stButton"] > button:focus {
+        outline: none !important;
+        box-shadow: none !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-    cols_per_row = 2
+    cols_per_row = 3
     rows_ops = [OPERADORES[i:i+cols_per_row] for i in range(0, len(OPERADORES), cols_per_row)]
 
     for r_idx, row in enumerate(rows_ops):
         cols = st.columns(cols_per_row)
         for c_idx, (col, op) in enumerate(zip(cols, row)):
             op_idx = r_idx * cols_per_row + c_idx
-            color, bg, dark = COLORS[op_idx % len(COLORS)]
+            color, dark = COLORS[op_idx % len(COLORS)]
             initials = (op[0] + op[1]).upper() if len(op) >= 2 else op[0].upper()
 
             with col:
-                # Per-operator hover color
+                # Per-operator circle color + glow on hover
                 st.markdown(f"""
                 <style>
-                div.op-btn-wrap-{op_idx} > div[data-testid="stButton"] > button {{
-                    border-color: #F0EBE5 !important;
+                div.av-wrap-{op_idx} > div[data-testid="stButton"] > button {{
+                    background: linear-gradient(145deg, {color}, {dark}) !important;
+                    box-shadow: 0 5px 0 {dark}88, 0 8px 18px {color}55 !important;
                 }}
-                div.op-btn-wrap-{op_idx} > div[data-testid="stButton"] > button:hover {{
-                    background: {bg} !important;
-                    border-color: {color} !important;
-                    box-shadow: 0 8px 22px {color}33, 0 2px 6px rgba(0,0,0,0.06) !important;
+                div.av-wrap-{op_idx} > div[data-testid="stButton"] > button:hover {{
+                    box-shadow: 0 10px 0 {dark}66, 0 16px 28px {color}66 !important;
                 }}
-                </style>""", unsafe_allow_html=True)
+                div.av-wrap-{op_idx} > div[data-testid="stButton"] > button:active {{
+                    box-shadow: 0 2px 0 {dark}88, 0 3px 8px {color}44 !important;
+                }}
+                </style>
+                <div style="text-align:center;margin-bottom:2px;">
+                  <div style="font-size:12px;font-weight:800;color:#2C2826;
+                      font-family:Nunito,sans-serif;letter-spacing:0.2px;
+                      margin-bottom:4px;">{op}</div>
+                </div>
+                """, unsafe_allow_html=True)
 
-                # Circle initial badge above button
-                st.markdown(
-                    f'<div style="display:flex;align-items:center;gap:0;">'
-                    f'<div style="width:42px;height:42px;border-radius:50%;flex-shrink:0;'
-                    f'background:linear-gradient(135deg,{color},{dark});'
-                    f'display:flex;align-items:center;justify-content:center;'
-                    f'font-family:Nunito,sans-serif;font-size:14px;font-weight:900;color:#fff;'
-                    f'box-shadow:0 3px 10px {color}55;'
-                    f'margin-right:-6px;position:relative;z-index:2;border:2px solid #fff;">'
-                    f'{initials}</div></div>',
-                    unsafe_allow_html=True
-                )
-                st.markdown(f'<div class="op-btn-wrap op-btn-wrap-{op_idx}">', unsafe_allow_html=True)
-                if st.button(f"  {op}", key=f"av_{on_click_key}_{op}", use_container_width=True):
-                    st.session_state.operador = op
-                    st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
+                # Center the button
+                _, btn_col, _ = st.columns([0.5, 2, 0.5])
+                with btn_col:
+                    st.markdown(f'<div class="av-wrap av-wrap-{op_idx}" style="display:flex;justify-content:center;">', unsafe_allow_html=True)
+                    if st.button(initials, key=f"av_{on_click_key}_{op}", use_container_width=False):
+                        st.session_state.operador = op
+                        st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
 
-        st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
 
 
 def _go_producao(etapa_idx):
