@@ -247,19 +247,7 @@ for k, v in {
     if k not in st.session_state:
         st.session_state[k] = v
 
-# ─────────────────────────────────────
-#  QUERY PARAM ROUTER
-#  Avatar clicks use <a href="?op=Name"> which sets a query param,
-#  Streamlit detects it here, updates session_state, clears params, reruns.
-# ─────────────────────────────────────
-params = st.query_params
-if "op" in params:
-    op = params["op"]
-    if op in OPERADORES:
-        # Just set operator and stay on home for pedido selection
-        st.session_state.operador = op
-    st.query_params.clear()
-    st.rerun()
+# (query param router removed — avatars now use native st.button)
 
 # ─────────────────────────────────────
 #  CSS
@@ -534,17 +522,58 @@ def render_stepper(idx):
     html += '</div>'
     st.markdown(html, unsafe_allow_html=True)
 
-def render_avatar_grid():
-    """Clickable avatar links using query params — 100% reliable Streamlit navigation."""
-    html = '<div class="ops-grid">'
+def render_avatar_grid(on_click_key="home"):
+    """Avatar grid using native Streamlit buttons — no query params, no loop."""
+    # Inject CSS: style the avatar buttons to look like the visual avatar design
+    ops_css = ""
     for op in OPERADORES:
-        html += f"""
-        <a class="op-wrap" href="?op={op}" target="_self">
-          <div class="avatar">{op[0].upper()}</div>
-          <div class="op-name">{op}</div>
-        </a>"""
-    html += '</div>'
-    st.markdown(html, unsafe_allow_html=True)
+        key = f"av_{on_click_key}_{op}"
+        ops_css += f"""
+        div[data-testid="stButton"]:has(> button[aria-label="{op}"]) > button {{
+            background: linear-gradient(145deg, #D9617A 0%, #A84055 55%, #7A2D3E 100%) !important;
+            border: none !important;
+            border-radius: 50% !important;
+            width: 74px !important;
+            height: 74px !important;
+            font-size: 28px !important;
+            font-weight: 900 !important;
+            color: #fff !important;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.30) !important;
+            box-shadow: 0 6px 0 rgba(80,10,25,0.50), 0 10px 24px rgba(158,63,82,0.38) !important;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transition: transform 0.20s ease, box-shadow 0.20s ease !important;
+            letter-spacing: 0 !important;
+        }}
+        div[data-testid="stButton"]:has(> button[aria-label="{op}"]) > button:hover {{
+            transform: translateY(-7px) scale(1.07) !important;
+            box-shadow: 0 13px 0 rgba(80,10,25,0.46), 0 20px 36px rgba(158,63,82,0.46) !important;
+        }}
+        div[data-testid="stButton"]:has(> button[aria-label="{op}"]) > button:active {{
+            transform: translateY(2px) scale(0.95) !important;
+            box-shadow: 0 2px 0 rgba(80,10,25,0.50) !important;
+        }}
+        """
+    st.markdown(f"<style>{ops_css}</style>", unsafe_allow_html=True)
+
+    cols_per_row = 3
+    rows_ops = [OPERADORES[i:i+cols_per_row] for i in range(0, len(OPERADORES), cols_per_row)]
+    for row in rows_ops:
+        cols = st.columns(cols_per_row)
+        for col, op in zip(cols, row):
+            with col:
+                st.markdown(
+                    f'<div style="text-align:center;margin-bottom:2px;">'
+                    f'<div style="font-size:11px;font-weight:800;letter-spacing:0.5px;color:#2C2826;margin-top:6px;">{op}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+                if st.button(op[0].upper(), key=f"av_{on_click_key}_{op}",
+                             use_container_width=False, help=op):
+                    st.session_state.operador = op
+                    st.rerun()
 
 
 def _go_producao(etapa_idx):
@@ -629,15 +658,7 @@ def tela_home():
         )
         st.markdown('<div class="section-label">Quem é o operador?</div>', unsafe_allow_html=True)
 
-        html = '<div class="ops-grid">'
-        for op in OPERADORES:
-            html += f"""
-            <a class="op-wrap" href="?op={op}" target="_self">
-              <div class="avatar">{op[0].upper()}</div>
-              <div class="op-name">{op}</div>
-            </a>"""
-        html += '</div>'
-        st.markdown(html, unsafe_allow_html=True)
+        render_avatar_grid(on_click_key="op")
 
         st.markdown("<br>", unsafe_allow_html=True)
         _, col_v, _ = st.columns([2, 2, 2])
