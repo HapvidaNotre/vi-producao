@@ -523,57 +523,87 @@ def render_stepper(idx):
     st.markdown(html, unsafe_allow_html=True)
 
 def render_avatar_grid(on_click_key="home"):
-    """Avatar grid using native Streamlit buttons — no query params, no loop."""
-    # Inject CSS: style the avatar buttons to look like the visual avatar design
-    ops_css = ""
-    for op in OPERADORES:
-        key = f"av_{on_click_key}_{op}"
-        ops_css += f"""
-        div[data-testid="stButton"]:has(> button[aria-label="{op}"]) > button {{
-            background: linear-gradient(145deg, #D9617A 0%, #A84055 55%, #7A2D3E 100%) !important;
-            border: none !important;
-            border-radius: 50% !important;
-            width: 74px !important;
-            height: 74px !important;
-            font-size: 28px !important;
-            font-weight: 900 !important;
-            color: #fff !important;
-            text-shadow: 0 1px 4px rgba(0,0,0,0.30) !important;
-            box-shadow: 0 6px 0 rgba(80,10,25,0.50), 0 10px 24px rgba(158,63,82,0.38) !important;
-            padding: 0 !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            transition: transform 0.20s ease, box-shadow 0.20s ease !important;
-            letter-spacing: 0 !important;
-        }}
-        div[data-testid="stButton"]:has(> button[aria-label="{op}"]) > button:hover {{
-            transform: translateY(-7px) scale(1.07) !important;
-            box-shadow: 0 13px 0 rgba(80,10,25,0.46), 0 20px 36px rgba(158,63,82,0.46) !important;
-        }}
-        div[data-testid="stButton"]:has(> button[aria-label="{op}"]) > button:active {{
-            transform: translateY(2px) scale(0.95) !important;
-            box-shadow: 0 2px 0 rgba(80,10,25,0.50) !important;
-        }}
-        """
-    st.markdown(f"<style>{ops_css}</style>", unsafe_allow_html=True)
+    """Avatar grid — full-width card buttons, premium look, native Streamlit."""
 
-    cols_per_row = 3
+    st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap');
+
+    /* ── Operator card button ── */
+    div[class*="stButton"] button[data-baseweb="button"] {
+        font-family: 'Nunito', sans-serif !important;
+    }
+
+    .op-card-btn > div[data-testid="stButton"] > button {
+        background: #FFFFFF !important;
+        border: 1.5px solid #EDE9E4 !important;
+        border-radius: 16px !important;
+        height: 80px !important;
+        width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: 14px !important;
+        padding: 0 18px !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05) !important;
+        transition: all 0.18s ease !important;
+        color: #1A1714 !important;
+        font-size: 15px !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.3px !important;
+        text-align: left !important;
+    }
+    .op-card-btn > div[data-testid="stButton"] > button:hover {
+        border-color: #C8566A !important;
+        box-shadow: 0 6px 20px rgba(200,86,106,0.18), 0 2px 6px rgba(0,0,0,0.06) !important;
+        transform: translateY(-2px) !important;
+        background: #FFF8F9 !important;
+    }
+    .op-card-btn > div[data-testid="stButton"] > button:active {
+        transform: translateY(1px) !important;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.08) !important;
+    }
+    .op-card-btn > div[data-testid="stButton"] > button p {
+        display: flex !important;
+        align-items: center !important;
+        gap: 14px !important;
+        margin: 0 !important;
+        width: 100% !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    cols_per_row = 2
     rows_ops = [OPERADORES[i:i+cols_per_row] for i in range(0, len(OPERADORES), cols_per_row)]
-    for row in rows_ops:
+
+    COLORS = [
+        "#C8566A","#3B7DD8","#4A7C59","#E07B3A",
+        "#7C5CBF","#C8566A","#3B7DD8","#4A7C59","#E07B3A",
+    ]
+
+    for r_idx, row in enumerate(rows_ops):
         cols = st.columns(cols_per_row)
-        for col, op in zip(cols, row):
+        for c_idx, (col, op) in enumerate(zip(cols, row)):
+            op_idx = r_idx * cols_per_row + c_idx
+            color  = COLORS[op_idx % len(COLORS)]
+            initials = op[:2].upper() if len(op) >= 2 else op[0].upper()
             with col:
-                st.markdown(
-                    f'<div style="text-align:center;margin-bottom:2px;">'
-                    f'<div style="font-size:11px;font-weight:800;letter-spacing:0.5px;color:#2C2826;margin-top:6px;">{op}</div>'
-                    f'</div>',
-                    unsafe_allow_html=True
+                # Badge + name as button label using markdown trick
+                label = (
+                    f'<span style="display:inline-flex;align-items:center;justify-content:center;'
+                    f'width:44px;height:44px;border-radius:50%;'
+                    f'background:linear-gradient(145deg,{color}dd,{color});'
+                    f'color:#fff;font-size:16px;font-weight:900;flex-shrink:0;'
+                    f'box-shadow:0 3px 8px {color}55;">{initials}</span>'
+                    f'<span style="font-size:15px;font-weight:800;color:#1A1714;">{op}</span>'
                 )
-                if st.button(op[0].upper(), key=f"av_{on_click_key}_{op}",
-                             use_container_width=False, help=op):
+                st.markdown(f'<div class="op-card-btn">', unsafe_allow_html=True)
+                if st.button(f"  {initials}   {op}", key=f"av_{on_click_key}_{op}",
+                             use_container_width=True):
                     st.session_state.operador = op
                     st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
 
 
 def _go_producao(etapa_idx):
@@ -597,41 +627,74 @@ def tela_home():
     #  PASSO 1 — Escolher a etapa
     # ══════════════════════════════════
     if st.session_state.etapa_escolhida is None:
-        st.markdown('<div class="section-label">Selecione a Etapa</div>', unsafe_allow_html=True)
+        st.markdown("""
+        <div style="display:flex;align-items:center;gap:10px;margin:0 0 20px;">
+            <div style="flex:1;height:1px;background:#EDE9E4;"></div>
+            <div style="font-size:11px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;
+                color:#9C9490;white-space:nowrap;">Em qual etapa vai trabalhar?</div>
+            <div style="flex:1;height:1px;background:#EDE9E4;"></div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        icons_etapa = ["📦", "🗃️", "✅"]
-        descricoes  = [
-            "Separar peças conforme localização no pedido",
-            "Embalar conforme observação do pedido",
-            "Conferência via código de barras — envia ao faturamento",
+        ETAPA_CFG = [
+            {"icon":"📦","color":"#C8566A","bg":"#FFF0F2","shadow":"rgba(200,86,106,0.22)",
+             "desc":"Separar peças conforme localização no pedido","step":"01"},
+            {"icon":"🗃️","color":"#3B7DD8","bg":"#F0F5FF","shadow":"rgba(59,125,216,0.22)",
+             "desc":"Embalar conforme observação do pedido","step":"02"},
+            {"icon":"✅","color":"#4A7C59","bg":"#F0F7F3","shadow":"rgba(74,124,89,0.22)",
+             "desc":"Conferência via código de barras","step":"03"},
         ]
+        st.markdown("""
+        <style>
+        .etapa-card > div[data-testid="stButton"] > button {
+            background: #FFFFFF !important;
+            border: 1.5px solid #EDE9E4 !important;
+            border-radius: 18px !important;
+            height: 86px !important;
+            width: 100% !important;
+            text-align: left !important;
+            padding: 0 20px !important;
+            font-family: 'Nunito', sans-serif !important;
+            font-size: 16px !important;
+            font-weight: 800 !important;
+            color: #1A1714 !important;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05) !important;
+            transition: all 0.18s ease !important;
+        }
+        .etapa-card > div[data-testid="stButton"] > button:active {
+            transform: translateY(1px) !important;
+        }
+        </style>""", unsafe_allow_html=True)
+
         for i, lbl in enumerate(ETAPAS_LBL):
+            cfg = ETAPA_CFG[i]
             st.markdown(f"""
             <style>
-            .btn-etapa-{i} > button {{
-                background: linear-gradient(135deg,#C8566A,#9E3F52) !important;
-                color:#fff !important; border:none !important;
-                font-size:16px !important; height:68px !important; text-align:left !important;
-                padding-left:20px !important;
-                box-shadow:0 5px 0 rgba(100,20,35,0.40),0 8px 18px rgba(200,86,106,0.28) !important;
+            .etapa-card-{i} > div[data-testid="stButton"] > button {{
+                border-left: 5px solid {cfg["color"]} !important;
             }}
-            .btn-etapa-{i} > button:hover {{
-                transform:translateY(-2px) !important;
-                box-shadow:0 8px 0 rgba(100,20,35,0.38),0 14px 28px rgba(200,86,106,0.36) !important;
+            .etapa-card-{i} > div[data-testid="stButton"] > button:hover {{
+                background: {cfg["bg"]} !important;
+                border-color: {cfg["color"]} !important;
+                box-shadow: 0 8px 24px {cfg["shadow"]}, 0 2px 6px rgba(0,0,0,0.05) !important;
+                transform: translateY(-3px) !important;
             }}
             </style>
-            """, unsafe_allow_html=True)
-            st.markdown(f'<div class="btn-etapa-{i}">', unsafe_allow_html=True)
-            if st.button(f"{icons_etapa[i]}  {lbl}", use_container_width=True, key=f"etapa_btn_{i}"):
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;padding-left:4px;">
+                <span style="background:{cfg["color"]};color:#fff;font-size:9px;font-weight:900;
+                    letter-spacing:1.5px;padding:2px 8px;border-radius:20px;text-transform:uppercase;">
+                    Etapa {cfg["step"]}
+                </span>
+                <span style="font-size:11px;color:#9C9490;font-weight:600;">{cfg["desc"]}</span>
+            </div>""", unsafe_allow_html=True)
+            st.markdown(f'<div class="etapa-card etapa-card-{i}">', unsafe_allow_html=True)
+            if st.button(f'{cfg["icon"]}  {lbl}', use_container_width=True, key=f"etapa_btn_{i}"):
                 st.session_state.etapa_escolhida = i
                 st.session_state.operador = None
                 st.session_state.pedido   = None
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
-            st.markdown(
-                f'<div style="font-size:11px;color:#9C9490;text-align:center;margin:-4px 0 10px;">{descricoes[i]}</div>',
-                unsafe_allow_html=True
-            )
+            if i < 2: st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
         _, col_c, _ = st.columns([2, 1, 2])
@@ -656,7 +719,14 @@ def tela_home():
             f'Etapa: {etapa_lbl}</div>',
             unsafe_allow_html=True
         )
-        st.markdown('<div class="section-label">Quem é o operador?</div>', unsafe_allow_html=True)
+        st.markdown("""
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+            <div style="flex:1;height:1px;background:#EDE9E4;"></div>
+            <div style="font-size:11px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;
+                color:#9C9490;white-space:nowrap;">Selecione o Operador</div>
+            <div style="flex:1;height:1px;background:#EDE9E4;"></div>
+        </div>
+        """, unsafe_allow_html=True)
 
         render_avatar_grid(on_click_key="op")
 
