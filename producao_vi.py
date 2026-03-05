@@ -247,7 +247,16 @@ for k, v in {
     if k not in st.session_state:
         st.session_state[k] = v
 
-# (query param router removed — avatars now use native st.button)
+# ─────────────────────────────────────
+#  QUERY PARAM ROUTER — avatar HTML sends ?op=Name
+# ─────────────────────────────────────
+params = st.query_params
+if "op" in params:
+    op = params["op"]
+    if op in OPERADORES:
+        st.session_state.operador = op
+    st.query_params.clear()
+    st.rerun()
 
 # ─────────────────────────────────────
 #  CSS
@@ -523,104 +532,144 @@ def render_stepper(idx):
     st.markdown(html, unsafe_allow_html=True)
 
 def render_avatar_grid(on_click_key="home"):
-    """Avatar circular grid — 3 per row, perfect circles."""
+    """
+    Círculos renderizados via components.html (iframe isolado do Streamlit).
+    Clique usa window.parent.postMessage → capturado por JS injetado no head via st.markdown.
+    Fallback: query param se postMessage não funcionar.
+    """
+    import streamlit.components.v1 as _cv1
+    import json
 
     COLORS = [
         ("#C8566A","#7A2D3E"),("#3B7DD8","#1a4fa0"),("#4A7C59","#2a5038"),
-        ("#E07B3A","#9a4a15"),("#7C5CBF","#4a2e8a"),("#C8566A","#7A2D3E"),
-        ("#3B7DD8","#1a4fa0"),("#4A7C59","#2a5038"),("#E07B3A","#9a4a15"),
+        ("#E07B3A","#9a4a15"),("#7C5CBF","#4a2e8a"),("#B85C38","#7a2c10"),
+        ("#2E9E8F","#1a6860"),("#8E6BBF","#5a3a8a"),("#C8566A","#7A2D3E"),
     ]
 
-    # Inject global + per-operator CSS
-    css_parts = ["""
-    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap');
-    """]
+    # JS no parent que escuta postMessage e navega com query param
+    st.markdown("""
+    <script>
+    (function(){
+        if(window._opListenerAdded) return;
+        window._opListenerAdded = true;
+        window.addEventListener('message', function(e){
+            if(e.data && e.data.type === 'select_op'){
+                var base = window.location.href.split('?')[0];
+                window.location.href = base + '?op=' + encodeURIComponent(e.data.op);
+            }
+        });
+    })();
+    </script>
+    """, unsafe_allow_html=True)
 
-    for op_idx, op in enumerate(OPERADORES):
-        color, dark = COLORS[op_idx % len(COLORS)]
-        css_parts.append(f"""
-        /* force perfect circle for {op} */
-        div[data-testid="stButton"]:has(button[data-testid="baseButton-secondary"][aria-label="{op}"]) button,
-        div[data-testid="stButton"]:has(button[aria-label="{op}"]) button {{
-            width: 74px !important;
-            height: 74px !important;
-            min-width: 74px !important;
-            min-height: 74px !important;
-            max-width: 74px !important;
-            max-height: 74px !important;
-            border-radius: 50% !important;
-            -webkit-border-radius: 50% !important;
-            background: linear-gradient(145deg, {color} 0%, {dark} 100%) !important;
-            box-shadow:
-                0 5px 0 {dark}99,
-                0 8px 0 rgba(80,10,25,0.12),
-                0 10px 22px {color}55,
-                inset 0 2px 4px rgba(255,255,255,0.22) !important;
-            border: none !important;
-            outline: none !important;
-            padding: 0 !important;
-            margin: 0 auto !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            font-family: 'Nunito', sans-serif !important;
-            font-size: 19px !important;
-            font-weight: 900 !important;
-            color: #ffffff !important;
-            text-shadow: 0 1px 3px rgba(0,0,0,0.28) !important;
-            letter-spacing: 0.5px !important;
-            transition: transform 0.17s ease, box-shadow 0.17s ease !important;
-            cursor: pointer !important;
-        }}
-        div[data-testid="stButton"]:has(button[aria-label="{op}"]) button:hover {{
-            transform: translateY(-5px) scale(1.08) !important;
-            box-shadow:
-                0 11px 0 {dark}88,
-                0 18px 30px {color}66,
-                inset 0 2px 4px rgba(255,255,255,0.22) !important;
-        }}
-        div[data-testid="stButton"]:has(button[aria-label="{op}"]) button:active {{
-            transform: translateY(2px) scale(0.95) !important;
-            box-shadow:
-                0 2px 0 {dark}99,
-                0 4px 10px {color}44,
-                inset 0 3px 6px rgba(0,0,0,0.18) !important;
-        }}
-        div[data-testid="stButton"]:has(button[aria-label="{op}"]) button:focus {{
-            outline: none !important;
-            box-shadow:
-                0 5px 0 {dark}99,
-                0 10px 22px {color}55,
-                inset 0 2px 4px rgba(255,255,255,0.22) !important;
-        }}
-        """)
+    cards = ""
+    for i, op in enumerate(OPERADORES):
+        c1, c2 = COLORS[i % len(COLORS)]
+        ini = (op[0]+op[1]).upper() if len(op) >= 2 else op[0].upper()
+        op_js = op.replace("'", "\'")
+        cards += f"""
+        <div class="op">
+          <button class="av" style="background:linear-gradient(150deg,{c1} 0%,{c2} 100%);"
+                  onclick="sel('{op_js}')">
+            {ini}
+            <div class="shine"></div>
+          </button>
+          <div class="nm">{op}</div>
+        </div>"""
 
-    st.markdown(f"<style>{''.join(css_parts)}</style>", unsafe_allow_html=True)
+    n_rows = (len(OPERADORES) + 2) // 3
+    height = n_rows * 120 + 20
 
-    cols_per_row = 3
-    rows_ops = [OPERADORES[i:i+cols_per_row] for i in range(0, len(OPERADORES), cols_per_row)]
+    html = f"""<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&display=swap" rel="stylesheet">
+<style>
+  * {{ margin:0; padding:0; box-sizing:border-box; }}
+  body {{ background:transparent; font-family:'Nunito',sans-serif; padding:4px 0; }}
 
-    for r_idx, row in enumerate(rows_ops):
-        cols = st.columns(cols_per_row)
-        for c_idx, (col, op) in enumerate(zip(cols, row)):
-            initials = (op[0] + op[1]).upper() if len(op) >= 2 else op[0].upper()
-            with col:
-                st.markdown(
-                    f'<div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:4px 0;">',
-                    unsafe_allow_html=True
-                )
-                if st.button(initials, key=f"av_{on_click_key}_{op}",
-                             help=op, use_container_width=False):
-                    st.session_state.operador = op
-                    st.rerun()
-                st.markdown(
-                    f'<div style="font-family:Nunito,sans-serif;font-size:12px;font-weight:800;' +
-                    f'color:#2C2826;text-align:center;letter-spacing:0.1px;line-height:1.2;">{op}</div>' +
-                    '</div>',
-                    unsafe_allow_html=True
-                )
+  .grid {{
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px 6px;
+  }}
+  .op {{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }}
+  .av {{
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;          /* círculo */
+    border: none;
+    cursor: pointer;
+    color: #fff;
+    font-family: 'Nunito', sans-serif;
+    font-size: 19px;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+    text-shadow: 0 1px 3px rgba(0,0,0,.30);
+    position: relative;
+    overflow: hidden;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+    box-shadow:
+      0 6px 0 rgba(0,0,0,.28),
+      0 9px 20px rgba(0,0,0,.18),
+      inset 0 2px 6px rgba(255,255,255,.22);
+    transition: transform .15s ease, box-shadow .15s ease;
+  }}
+  .shine {{
+    position: absolute;
+    top: 9px; left: 13px;
+    width: 34px; height: 16px;
+    background: radial-gradient(ellipse, rgba(255,255,255,.30) 0%, transparent 72%);
+    border-radius: 50%;
+    pointer-events: none;
+  }}
+  .av:hover {{
+    transform: translateY(-6px) scale(1.09);
+    box-shadow:
+      0 13px 0 rgba(0,0,0,.22),
+      0 20px 32px rgba(0,0,0,.20),
+      inset 0 2px 6px rgba(255,255,255,.22);
+  }}
+  .av:active {{
+    transform: translateY(2px) scale(.95);
+    box-shadow:
+      0 2px 0 rgba(0,0,0,.32),
+      0 4px 8px rgba(0,0,0,.16),
+      inset 0 4px 8px rgba(0,0,0,.22);
+    transition: transform .06s, box-shadow .06s;
+  }}
+  .nm {{
+    font-size: 12px;
+    font-weight: 800;
+    color: #2C2826;
+    text-align: center;
+  }}
+</style>
+</head>
+<body>
+  <div class="grid">{cards}</div>
+  <script>
+    function sel(name) {{
+      // Try postMessage to parent first
+      try {{
+        window.parent.postMessage({{ type: 'select_op', op: name }}, '*');
+      }} catch(e) {{}}
+      // Fallback: navigate directly
+      setTimeout(function() {{
+        var base = window.parent.location.href.split('?')[0];
+        window.parent.location.href = base + '?op=' + encodeURIComponent(name);
+      }}, 80);
+    }}
+  </script>
+</body></html>"""
 
-        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+    _cv1.html(html, height=height, scrolling=False)
 
 
 def _go_producao(etapa_idx):
