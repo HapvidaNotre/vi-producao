@@ -1,5 +1,4 @@
 import streamlit as st
-import sqlite3
 import time
 import base64
 from datetime import datetime
@@ -8,6 +7,8 @@ import csv, io
 import streamlit.components.v1 as components
 import pandas as pd
 import re
+import requests
+import json
 
 st.set_page_config(
     page_title="Vi Lingerie - Producao",
@@ -23,34 +24,59 @@ OPERADORES  = ["Lucivanio","Enagio","Daniel","Italo","Cildenir","Samya","Neide",
 ETAPAS      = ["Separacao","Mesa_Embalagem","Conferencia"]
 ETAPAS_LBL  = ["Separação de Pedidos","Mesa de Embalagem","Conferência de Pedidos"]
 ADMIN_SENHA = "vi2026"
-DB_PATH     = Path(__file__).parent / "producao.db"
 
 # ─────────────────────────────────────
-#  DATABASE
+#  SUPABASE CONFIG
+# ─────────────────────────────────────
+try:
+    SB_URL = st.secrets["SUPABASE_URL"]
+    SB_KEY = st.secrets["SUPABASE_KEY"]
+except:
+    SB_URL = "https://uiybrhaqtcwejtbbctge.supabase.co"
+    SB_KEY = "sb_publishable_oIpsQMjK3QGL6IPkccJHqQ_OQCfrJf0"
+
+def _sb_headers():
+    return {
+        "apikey": SB_KEY,
+        "Authorization": f"Bearer {SB_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+    }
+
+def _get(table, params=""):
+    r = requests.get(f"{SB_URL}/rest/v1/{table}?{params}", headers=_sb_headers(), timeout=10)
+    return r.json() if r.ok else []
+
+def _post(table, data):
+    r = requests.post(f"{SB_URL}/rest/v1/{table}", headers=_sb_headers(),
+                      data=json.dumps(data), timeout=10)
+    return r.ok
+
+def _patch(table, match_params, data):
+    r = requests.patch(f"{SB_URL}/rest/v1/{table}?{match_params}",
+                       headers={**_sb_headers(), "Prefer": "return=minimal"},
+                       data=json.dumps(data), timeout=10)
+    return r.ok
+
+def _delete(table, params):
+    r = requests.delete(f"{SB_URL}/rest/v1/{table}?{params}",
+                        headers=_sb_headers(), timeout=10)
+    return r.ok
+
+def _upsert(table, data, on_conflict):
+    h = {**_sb_headers(), "Prefer": f"resolution=merge-duplicates,return=minimal"}
+    r = requests.post(f"{SB_URL}/rest/v1/{table}?on_conflict={on_conflict}",
+                      headers=h, data=json.dumps(data), timeout=10)
+    return r.ok
+
+# ─────────────────────────────────────
+#  DATABASE — Supabase REST API
 # ─────────────────────────────────────
 def init_db():
-    con = sqlite3.connect(DB_PATH)
-    con.execute("""CREATE TABLE IF NOT EXISTS registros (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        pedido TEXT, operador TEXT, etapa TEXT,
-        etapa_idx INTEGER, tempo_segundos INTEGER, data TEXT)""")
-    con.execute("""CREATE TABLE IF NOT EXISTS pedidos_base (
-        numero TEXT PRIMARY KEY,
-        cliente TEXT DEFAULT '',
-        produto TEXT DEFAULT '',
-        status TEXT DEFAULT 'aberto',
-        importado_em TEXT DEFAULT '')""")
-    con.commit(); con.close()
+    pass  # Tables created via supabase_setup.sql
 
-# ─── Pedidos base helpers ───
+# ─── Planilha / Pedidos base ───
 def importar_planilha(file_bytes, filename):
-    """
-    Parse the Vi Lingerie production spreadsheet.
-    Col 'Pedido'  = order number (col A)
-    Col '%.1'     = completion % — value 100 means done, anything else = open
-    Col 'Cliente' = client name (optional display)
-    Also supports generic xlsx/csv with auto-detection as fallback.
-    """
     try:
         if filename.lower().endswith(".csv"):
             df = pd.read_csv(io.BytesIO(file_bytes), dtype=str)
@@ -59,154 +85,112 @@ def importar_planilha(file_bytes, filename):
     except Exception as e:
         return False, f"Erro ao ler arquivo: {e}"
 
-    cols_orig = list(df.columns)
     df.columns = [str(c).strip() for c in df.columns]
 
-    # ── Detect numero column ──
-    # Priority: exact 'Pedido', then fallback heuristic
     num_col = None
     for c in df.columns:
-        if c.strip().lower() == "pedido":
-            num_col = c; break
+        if c.strip().lower() == "pedido": num_col = c; break
     if num_col is None:
         for c in df.columns:
-            cl = c.lower()
-            if any(k in cl for k in ["pedido","número","numero","order","cod"]):
+            if any(k in c.lower() for k in ["pedido","número","numero","order","cod"]):
                 num_col = c; break
-    if num_col is None:
-        num_col = df.columns[0]  # last resort: first column
+    if num_col is None: num_col = df.columns[0]
 
-    # ── Detect percent/status column ──
-    # Priority: exact '%.1' (Vi Lingerie format), then fallback
     pct_col = None
     for c in df.columns:
-        if c.strip() == "%.1":
-            pct_col = c; break
+        if c.strip() == "%.1": pct_col = c; break
     if pct_col is None:
         for c in df.columns:
-            cl = c.lower()
-            if any(k in cl for k in ["% total","% pronto","progresso","status","situação","%"]):
+            if any(k in c.lower() for k in ["% total","% pronto","progresso","status","situação","%"]):
                 pct_col = c; break
 
-    # ── Detect client column ──
     cli_col = next((c for c in df.columns if c.lower() in ("cliente","client","nome","comprador")), None)
 
     now_str = datetime.now().strftime("%d/%m/%Y %H:%M")
-    con = sqlite3.connect(DB_PATH)
-    count = 0
-    skipped = 0
+    rows = []
     for _, row in df.iterrows():
         num = str(row[num_col]).strip()
-        if not num or num.lower() in ("nan","none","","pedido"):
-            skipped += 1; continue
-
-        # Determine status from % column
+        if not num or num.lower() in ("nan","none","","pedido"): continue
         if pct_col:
             try:
                 pct_val = float(str(row[pct_col]).strip().replace(",","."))
                 sta = "concluido" if pct_val >= 100.0 else "aberto"
-            except:
-                sta = "aberto"
-        else:
-            sta = "aberto"
-
+            except: sta = "aberto"
+        else: sta = "aberto"
         cli = ""
         if cli_col:
             raw = str(row[cli_col]).strip()
             cli = "" if raw.lower() in ("nan","none","") else raw
+        rows.append({"numero": num, "cliente": cli, "produto": "",
+                     "status": sta, "importado_em": now_str})
 
-        con.execute("""INSERT INTO pedidos_base (numero,cliente,produto,status,importado_em)
-            VALUES (?,?,?,?,?) ON CONFLICT(numero) DO UPDATE SET
-            cliente=excluded.cliente,
-            status=excluded.status,
-            importado_em=excluded.importado_em""",
-            (num, cli, "", sta, now_str))
-        count += 1
-    con.commit(); con.close()
-    return True, count
+    if not rows: return False, "Nenhum pedido encontrado"
+    ok = _upsert("pedidos_base", rows, "numero")
+    return (True, len(rows)) if ok else (False, "Erro ao salvar no Supabase")
 
 def buscar_pedidos_base():
-    con = sqlite3.connect(DB_PATH)
-    rows = con.execute("SELECT numero,cliente,produto,status FROM pedidos_base ORDER BY numero").fetchall()
-    con.close(); return rows
+    rows = _get("pedidos_base", "select=numero,cliente,produto,status&order=numero.asc")
+    if isinstance(rows, list):
+        return [(r["numero"], r.get("cliente",""), r.get("produto",""), r.get("status","aberto"))
+                for r in rows]
+    return []
 
 def status_pedido(numero):
-    """Returns 'aberto','concluido','nao_encontrado'"""
-    con = sqlite3.connect(DB_PATH)
-    row = con.execute("SELECT status FROM pedidos_base WHERE numero=?", (numero,)).fetchone()
-    con.close()
-    if row is None: return "nao_encontrado"
-    return row[0]
+    rows = _get("pedidos_base", f"numero=eq.{numero}&select=status")
+    if not rows: return "nao_encontrado"
+    return rows[0].get("status", "nao_encontrado")
 
 def cadastrar_pedido_avulso(numero):
     now_str = datetime.now().strftime("%d/%m/%Y %H:%M")
-    con = sqlite3.connect(DB_PATH)
-    con.execute("""INSERT OR IGNORE INTO pedidos_base (numero,cliente,produto,status,importado_em)
-        VALUES (?,\'\',\'\','aberto',?)""", (numero, now_str))
-    con.commit(); con.close()
+    _upsert("pedidos_base",
+            {"numero": numero, "cliente": "", "produto": "",
+             "status": "aberto", "importado_em": now_str},
+            "numero")
 
 def marcar_concluido(numero):
-    con = sqlite3.connect(DB_PATH)
-    con.execute("UPDATE pedidos_base SET status=\'concluido\' WHERE numero=?", (numero,))
-    con.commit(); con.close()
+    _patch("pedidos_base", f"numero=eq.{numero}", {"status": "concluido"})
 
 def verificar_etapa_registro(pedido, etapa_idx):
-    """Verifica se esse pedido/etapa já tem registro. Retorna (existe, operador_anterior)."""
-    con = sqlite3.connect(DB_PATH)
-    row = con.execute(
-        "SELECT operador FROM registros WHERE pedido=? AND etapa_idx=? ORDER BY id DESC LIMIT 1",
-        (pedido, etapa_idx)
-    ).fetchone()
-    con.close()
-    if row: return True, row[0]
+    rows = _get("registros",
+        f"pedido=eq.{pedido}&etapa_idx=eq.{etapa_idx}&select=operador&order=id.desc&limit=1")
+    if rows: return True, rows[0].get("operador")
     return False, None
 
 def pedido_em_andamento(pedido, etapa_idx):
-    """Verifica se pedido está com timer ativo em outra sessão (via active_sessions table)."""
-    con = sqlite3.connect(DB_PATH)
-    con.execute("""CREATE TABLE IF NOT EXISTS sessoes_ativas (
-        pedido TEXT, etapa_idx INTEGER, operador TEXT, iniciado_em INTEGER,
-        PRIMARY KEY (pedido, etapa_idx))""")
-    row = con.execute(
-        "SELECT operador, iniciado_em FROM sessoes_ativas WHERE pedido=? AND etapa_idx=?",
-        (pedido, etapa_idx)
-    ).fetchone()
-    con.close()
-    if row:
-        # Considera ativa se foi iniciada há menos de 4 horas
-        if int(time.time()) - row[1] < 14400:
-            return True, row[0]
+    rows = _get("sessoes_ativas",
+        f"pedido=eq.{pedido}&etapa_idx=eq.{etapa_idx}&select=operador,iniciado_em")
+    if rows:
+        r = rows[0]
+        if int(time.time()) - int(r.get("iniciado_em", 0)) < 14400:
+            return True, r.get("operador")
     return False, None
 
 def registrar_sessao_ativa(pedido, etapa_idx, operador):
-    con = sqlite3.connect(DB_PATH)
-    con.execute("""CREATE TABLE IF NOT EXISTS sessoes_ativas (
-        pedido TEXT, etapa_idx INTEGER, operador TEXT, iniciado_em INTEGER,
-        PRIMARY KEY (pedido, etapa_idx))""")
-    con.execute("""INSERT OR REPLACE INTO sessoes_ativas VALUES (?,?,?,?)""",
-        (pedido, etapa_idx, operador, int(time.time())))
-    con.commit(); con.close()
+    _upsert("sessoes_ativas",
+            {"pedido": pedido, "etapa_idx": etapa_idx,
+             "operador": operador, "iniciado_em": int(time.time())},
+            "pedido,etapa_idx")
 
 def remover_sessao_ativa(pedido, etapa_idx):
-    con = sqlite3.connect(DB_PATH)
-    con.execute("DELETE FROM sessoes_ativas WHERE pedido=? AND etapa_idx=?", (pedido, etapa_idx))
-    con.commit(); con.close()
+    _delete("sessoes_ativas", f"pedido=eq.{pedido}&etapa_idx=eq.{etapa_idx}")
 
 def salvar(pedido, operador, etapa, etapa_idx, tempo):
-    con = sqlite3.connect(DB_PATH)
-    con.execute("INSERT INTO registros VALUES (NULL,?,?,?,?,?,?)",
-        (pedido, operador, etapa, etapa_idx, tempo, datetime.now().strftime("%d/%m/%Y %H:%M")))
-    con.commit(); con.close()
+    _post("registros", {
+        "pedido": pedido, "operador": operador, "etapa": etapa,
+        "etapa_idx": etapa_idx, "tempo_segundos": tempo,
+        "data": datetime.now().strftime("%d/%m/%Y %H:%M")
+    })
 
 def buscar():
-    con = sqlite3.connect(DB_PATH)
-    rows = con.execute("SELECT * FROM registros ORDER BY id DESC").fetchall()
-    con.close(); return rows
+    rows = _get("registros", "select=*&order=id.desc")
+    if isinstance(rows, list):
+        return [(r.get("id"), r.get("pedido"), r.get("operador"), r.get("etapa"),
+                 r.get("etapa_idx"), r.get("tempo_segundos"), r.get("data"))
+                for r in rows]
+    return []
 
 def limpar():
-    con = sqlite3.connect(DB_PATH)
-    con.execute("DELETE FROM registros")
-    con.commit(); con.close()
+    _delete("registros", "id=gte.0")
 
 init_db()
 
