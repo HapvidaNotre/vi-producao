@@ -247,16 +247,7 @@ for k, v in {
     if k not in st.session_state:
         st.session_state[k] = v
 
-# ─────────────────────────────────────
-#  QUERY PARAM ROUTER — avatar HTML sends ?op=Name
-# ─────────────────────────────────────
-params = st.query_params
-if "op" in params:
-    op = params["op"]
-    if op in OPERADORES:
-        st.session_state.operador = op
-    st.query_params.clear()
-    st.rerun()
+# (avatar selection via st.button overlay — no query params needed)
 
 # ─────────────────────────────────────
 #  CSS
@@ -533,12 +524,11 @@ def render_stepper(idx):
 
 def render_avatar_grid(on_click_key="home"):
     """
-    Círculos renderizados via components.html (iframe isolado do Streamlit).
-    Clique usa window.parent.postMessage → capturado por JS injetado no head via st.markdown.
-    Fallback: query param se postMessage não funcionar.
+    Grid de avatares circulares.
+    Usa st.button nativo mas com CSS injetado via components.html ANTES dos botões,
+    dentro do mesmo contexto de renderização — forçando override no shadow DOM.
     """
     import streamlit.components.v1 as _cv1
-    import json
 
     COLORS = [
         ("#C8566A","#7A2D3E"),("#3B7DD8","#1a4fa0"),("#4A7C59","#2a5038"),
@@ -546,130 +536,73 @@ def render_avatar_grid(on_click_key="home"):
         ("#2E9E8F","#1a6860"),("#8E6BBF","#5a3a8a"),("#C8566A","#7A2D3E"),
     ]
 
-    # JS no parent que escuta postMessage e navega com query param
-    st.markdown("""
-    <script>
-    (function(){
-        if(window._opListenerAdded) return;
-        window._opListenerAdded = true;
-        window.addEventListener('message', function(e){
-            if(e.data && e.data.type === 'select_op'){
-                var base = window.location.href.split('?')[0];
-                window.location.href = base + '?op=' + encodeURIComponent(e.data.op);
-            }
-        });
-    })();
-    </script>
-    """, unsafe_allow_html=True)
+    cols_per_row = 3
+    rows_ops = [OPERADORES[i:i+cols_per_row] for i in range(0, len(OPERADORES), cols_per_row)]
 
-    cards = ""
-    for i, op in enumerate(OPERADORES):
-        c1, c2 = COLORS[i % len(COLORS)]
-        ini = (op[0]+op[1]).upper() if len(op) >= 2 else op[0].upper()
-        op_js = op.replace("'", "\'")
-        cards += f"""
-        <div class="op">
-          <button class="av" style="background:linear-gradient(150deg,{c1} 0%,{c2} 100%);"
-                  onclick="sel('{op_js}')">
-            {ini}
-            <div class="shine"></div>
-          </button>
-          <div class="nm">{op}</div>
-        </div>"""
+    for r_idx, row in enumerate(rows_ops):
+        cols = st.columns(cols_per_row)
+        for c_idx, (col, op) in enumerate(zip(cols, row)):
+            op_idx = r_idx * cols_per_row + c_idx
+            c1, c2 = COLORS[op_idx % len(COLORS)]
+            ini = (op[0]+op[1]).upper() if len(op) >= 2 else op[0].upper()
 
-    n_rows = (len(OPERADORES) + 2) // 3
-    height = n_rows * 120 + 20
-
-    html = f"""<!DOCTYPE html>
+            with col:
+                # Render circle purely via HTML (visual only)
+                _cv1.html(f"""<!DOCTYPE html>
 <html><head>
-<meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@900&display=swap" rel="stylesheet">
 <style>
-  * {{ margin:0; padding:0; box-sizing:border-box; }}
-  body {{ background:transparent; font-family:'Nunito',sans-serif; padding:4px 0; }}
-
-  .grid {{
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px 6px;
-  }}
-  .op {{
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-  }}
-  .av {{
-    width: 72px;
-    height: 72px;
-    border-radius: 50%;          /* círculo */
-    border: none;
-    cursor: pointer;
-    color: #fff;
-    font-family: 'Nunito', sans-serif;
-    font-size: 19px;
-    font-weight: 900;
-    letter-spacing: 0.5px;
-    text-shadow: 0 1px 3px rgba(0,0,0,.30);
-    position: relative;
-    overflow: hidden;
-    outline: none;
-    -webkit-tap-highlight-color: transparent;
-    box-shadow:
-      0 6px 0 rgba(0,0,0,.28),
-      0 9px 20px rgba(0,0,0,.18),
-      inset 0 2px 6px rgba(255,255,255,.22);
+* {{ margin:0; padding:0; box-sizing:border-box; }}
+body {{ background:transparent; display:flex; flex-direction:column;
+        align-items:center; gap:7px; padding:4px 0 0; font-family:'Nunito',sans-serif; }}
+.av {{
+    width:68px; height:68px; border-radius:50%;
+    background: linear-gradient(150deg, {c1}, {c2});
+    display:flex; align-items:center; justify-content:center;
+    color:#fff; font-size:19px; font-weight:900; letter-spacing:.5px;
+    text-shadow: 0 1px 3px rgba(0,0,0,.28);
+    box-shadow: 0 6px 0 rgba(0,0,0,.28), 0 9px 20px rgba(0,0,0,.15),
+                inset 0 2px 5px rgba(255,255,255,.22);
+    position:relative; overflow:hidden;
+    cursor:pointer;
     transition: transform .15s ease, box-shadow .15s ease;
-  }}
-  .shine {{
-    position: absolute;
-    top: 9px; left: 13px;
-    width: 34px; height: 16px;
+    user-select:none;
+}}
+.shine {{
+    position:absolute; top:8px; left:12px; width:32px; height:15px;
     background: radial-gradient(ellipse, rgba(255,255,255,.30) 0%, transparent 72%);
-    border-radius: 50%;
-    pointer-events: none;
-  }}
-  .av:hover {{
-    transform: translateY(-6px) scale(1.09);
-    box-shadow:
-      0 13px 0 rgba(0,0,0,.22),
-      0 20px 32px rgba(0,0,0,.20),
-      inset 0 2px 6px rgba(255,255,255,.22);
-  }}
-  .av:active {{
-    transform: translateY(2px) scale(.95);
-    box-shadow:
-      0 2px 0 rgba(0,0,0,.32),
-      0 4px 8px rgba(0,0,0,.16),
-      inset 0 4px 8px rgba(0,0,0,.22);
-    transition: transform .06s, box-shadow .06s;
-  }}
-  .nm {{
-    font-size: 12px;
-    font-weight: 800;
-    color: #2C2826;
-    text-align: center;
-  }}
-</style>
-</head>
+    border-radius:50%; pointer-events:none;
+}}
+.av:hover {{ transform: translateY(-5px) scale(1.09);
+    box-shadow: 0 12px 0 rgba(0,0,0,.22), 0 18px 28px rgba(0,0,0,.18),
+                inset 0 2px 5px rgba(255,255,255,.22); }}
+.av:active {{ transform: translateY(2px) scale(.95);
+    box-shadow: 0 2px 0 rgba(0,0,0,.32), inset 0 4px 8px rgba(0,0,0,.22);
+    transition: transform .06s, box-shadow .06s; }}
+.nm {{ font-size:11px; font-weight:800; color:#2C2826; text-align:center; }}
+</style></head>
 <body>
-  <div class="grid">{cards}</div>
-  <script>
-    function sel(name) {{
-      // Try postMessage to parent first
-      try {{
-        window.parent.postMessage({{ type: 'select_op', op: name }}, '*');
-      }} catch(e) {{}}
-      // Fallback: navigate directly
-      setTimeout(function() {{
-        var base = window.parent.location.href.split('?')[0];
-        window.parent.location.href = base + '?op=' + encodeURIComponent(name);
-      }}, 80);
-    }}
-  </script>
-</body></html>"""
+  <div class="av"><div class="shine"></div>{ini}</div>
+  <div class="nm">{op}</div>
+</body></html>""", height=100, scrolling=False)
 
-    _cv1.html(html, height=height, scrolling=False)
+                # St.button invisível mas clicável sobre o círculo
+                st.markdown(f"""
+                <style>
+                div[data-testid="stButton"]:has(button[key="{on_click_key}_{op_idx}"]) {{
+                    position: relative;
+                    margin-top: -96px;
+                    height: 75px;
+                    z-index: 10;
+                    opacity: 0;
+                }}
+                </style>""", unsafe_allow_html=True)
+                if st.button("x", key=f"{on_click_key}_{op_idx}",
+                             use_container_width=True):
+                    st.session_state.operador = op
+                    st.rerun()
+
+        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
 
 def _go_producao(etapa_idx):
