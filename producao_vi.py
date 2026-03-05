@@ -247,7 +247,7 @@ for k, v in {
     if k not in st.session_state:
         st.session_state[k] = v
 
-# (avatar selection via st.button overlay — no query params needed)
+# (seleção via st.selectbox nativo — sem query params)
 
 # ─────────────────────────────────────
 #  CSS
@@ -523,96 +523,119 @@ def render_stepper(idx):
     st.markdown(html, unsafe_allow_html=True)
 
 def render_avatar_grid(on_click_key="home"):
+    """Seleção de operador — selectbox nativo estilizado, 100% funcional."""
     import streamlit.components.v1 as _cv1
 
     COLORS = [
-        ("#C8566A","#7A2D3E"),("#3B7DD8","#1a4fa0"),("#4A7C59","#2a5038"),
-        ("#E07B3A","#9a4a15"),("#7C5CBF","#4a2e8a"),("#B85C38","#7a2c10"),
-        ("#2E9E8F","#1a6860"),("#8E6BBF","#5a3a8a"),("#C8566A","#7A2D3E"),
+        "#C8566A","#3B7DD8","#4A7C59","#E07B3A",
+        "#7C5CBF","#B85C38","#2E9E8F","#8E6BBF","#C8566A",
     ]
 
-    # CSS global: esconde TODOS os botões "x" da grid e os posiciona sobre os círculos
+    # Card visual acima do selectbox (só decorativo)
+    selecionado = st.session_state.get("operador")
+    if selecionado and selecionado in OPERADORES:
+        idx_op = OPERADORES.index(selecionado)
+        cor    = COLORS[idx_op % len(COLORS)]
+        ini    = (selecionado[0]+selecionado[1]).upper()
+    else:
+        cor, ini = "#9C9490", "?"
+
+    _cv1.html(f"""<!DOCTYPE html><html><head>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+*{{margin:0;padding:0;box-sizing:border-box;}}
+body{{background:transparent;font-family:'Nunito',sans-serif;}}
+.card{{
+    display:flex;align-items:center;gap:14px;
+    background:#fff;border:2px solid #E8E2DC;
+    border-radius:16px 16px 0 0;
+    padding:14px 18px 10px;
+    box-shadow:0 2px 12px rgba(0,0,0,.06);
+    border-bottom: none;
+}}
+.av{{width:44px;height:44px;border-radius:50%;flex-shrink:0;
+    background:linear-gradient(145deg,{cor},{cor}bb);
+    display:flex;align-items:center;justify-content:center;
+    font-size:15px;font-weight:900;color:#fff;
+    box-shadow:0 3px 10px rgba(0,0,0,.20);}}
+.label{{font-size:10px;font-weight:800;letter-spacing:1.8px;
+    text-transform:uppercase;color:#9C9490;margin-bottom:3px;}}
+.value{{font-size:16px;font-weight:900;color:#1A1714;}}
+.hint{{font-size:11px;color:#9C9490;margin-top:2px;font-weight:600;}}
+.arrow{{margin-left:auto;font-size:18px;color:#C8566A;}}
+</style></head>
+<body>
+<div class="card">
+    <div class="av">{ini}</div>
+    <div>
+        <div class="label">Operador</div>
+        <div class="value">{"Nenhum selecionado" if not selecionado else selecionado}</div>
+        <div class="hint">{"Escolha abaixo ↓" if not selecionado else "✓ Selecionado"}</div>
+    </div>
+    <div class="arrow">⌄</div>
+</div>
+</body></html>""", height=86, scrolling=False)
+
+    # CSS para grudar o selectbox embaixo do card e estilizá-lo
     st.markdown("""
     <style>
-    .av-overlay-btn > div[data-testid="stButton"] > button {
-        position: absolute !important;
-        top: 0 !important; left: 0 !important;
-        width: 68px !important;
-        height: 68px !important;
-        border-radius: 50% !important;
-        opacity: 0 !important;
-        cursor: pointer !important;
-        z-index: 999 !important;
-        padding: 0 !important;
-        border: none !important;
-        background: transparent !important;
-        box-shadow: none !important;
-        font-size: 0 !important;
+    /* Remove label */
+    div[data-testid="stSelectbox"] label { display:none !important; }
+
+    /* Caixa do selectbox */
+    div[data-testid="stSelectbox"] > div > div {
+        border: 2px solid #E8E2DC !important;
+        border-top: none !important;
+        border-radius: 0 0 16px 16px !important;
+        background: #fff !important;
+        padding: 4px 8px !important;
+        font-family: 'Nunito', sans-serif !important;
+        font-size: 15px !important;
+        font-weight: 800 !important;
+        color: #1A1714 !important;
+        box-shadow: 0 8px 24px rgba(0,0,0,.08) !important;
+        margin-top: -2px !important;
     }
-    .av-overlay-btn {
-        position: absolute !important;
-        top: 4px !important;
-        left: 50% !important;
-        transform: translateX(-50%) !important;
-        width: 68px !important;
-        height: 68px !important;
-        z-index: 999 !important;
+    div[data-testid="stSelectbox"] > div > div:focus-within {
+        border-color: #C8566A !important;
+        box-shadow: 0 8px 24px rgba(200,86,106,.12) !important;
     }
-    .av-cell {
-        position: relative !important;
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
+    /* Dropdown list */
+    div[data-testid="stSelectbox"] ul {
+        background: #fff !important;
+        border: 2px solid #C8566A !important;
+        border-radius: 12px !important;
+        padding: 6px !important;
+        box-shadow: 0 16px 40px rgba(0,0,0,.14) !important;
+        font-family: 'Nunito', sans-serif !important;
+    }
+    div[data-testid="stSelectbox"] ul li {
+        border-radius: 8px !important;
+        font-weight: 800 !important;
+        font-size: 14px !important;
+        padding: 10px 14px !important;
+    }
+    div[data-testid="stSelectbox"] ul li:hover {
+        background: #FFF0F2 !important;
+        color: #C8566A !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-    cols_per_row = 3
-    rows_ops = [OPERADORES[i:i+cols_per_row] for i in range(0, len(OPERADORES), cols_per_row)]
+    opcoes  = ["— Selecione o operador —"] + OPERADORES
+    idx_cur = 0
+    if selecionado and selecionado in OPERADORES:
+        idx_cur = OPERADORES.index(selecionado) + 1
 
-    for r_idx, row in enumerate(rows_ops):
-        cols = st.columns(cols_per_row)
-        for c_idx, (col, op) in enumerate(zip(cols, row)):
-            op_idx = r_idx * cols_per_row + c_idx
-            c1, c2  = COLORS[op_idx % len(COLORS)]
-            ini = (op[0]+op[1]).upper() if len(op) >= 2 else op[0].upper()
+    escolha = st.selectbox("op", opcoes,
+                           index=idx_cur,
+                           key=f"op_sel_{on_click_key}",
+                           label_visibility="collapsed")
 
-            with col:
-                st.markdown('<div class="av-cell">', unsafe_allow_html=True)
-
-                # 1. Círculo HTML perfeito (visual)
-                _cv1.html(f"""<!DOCTYPE html><html><head>
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@900&display=swap" rel="stylesheet">
-<style>
-*{{margin:0;padding:0;box-sizing:border-box;}}
-body{{background:transparent;display:flex;flex-direction:column;
-     align-items:center;gap:7px;padding:4px 0 0;font-family:'Nunito',sans-serif;}}
-.av{{width:68px;height:68px;border-radius:50%;
-    background:linear-gradient(150deg,{c1},{c2});
-    display:flex;align-items:center;justify-content:center;
-    color:#fff;font-size:19px;font-weight:900;letter-spacing:.5px;
-    text-shadow:0 1px 3px rgba(0,0,0,.28);
-    box-shadow:0 6px 0 rgba(0,0,0,.28),0 9px 20px rgba(0,0,0,.15),
-               inset 0 2px 5px rgba(255,255,255,.22);
-    position:relative;overflow:hidden;}}
-.shine{{position:absolute;top:8px;left:12px;width:32px;height:15px;
-    background:radial-gradient(ellipse,rgba(255,255,255,.30) 0%,transparent 72%);
-    border-radius:50%;pointer-events:none;}}
-.nm{{font-size:11px;font-weight:800;color:#2C2826;text-align:center;}}
-</style></head><body>
-  <div class="av"><div class="shine"></div>{ini}</div>
-  <div class="nm">{op}</div>
-</body></html>""", height=100, scrolling=False)
-
-                # 2. Botão invisível sobreposto (clicável)
-                st.markdown('<div class="av-overlay-btn">', unsafe_allow_html=True)
-                if st.button(" ", key=f"av_{on_click_key}_{op_idx}",
-                             use_container_width=False):
-                    st.session_state.operador = op
-                    st.rerun()
-                st.markdown('</div></div>', unsafe_allow_html=True)
-
-        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+    if escolha and escolha != "— Selecione o operador —":
+        if st.session_state.get("operador") != escolha:
+            st.session_state.operador = escolha
+            st.rerun()
 
 
 def _go_producao(etapa_idx):
