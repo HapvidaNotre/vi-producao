@@ -140,6 +140,30 @@ def buscar():
 def limpar():
     _delete("registros", "id=gte.0")
 
+def buscar_pedidos_avulsos():
+    """
+    Retorna pedidos cadastrados manualmente (avulsos).
+    Critério: cliente vazio E percentual nulo — campos que o Programa A
+    sempre preenche na sincronização, mas o cadastro avulso nunca preenche.
+    """
+    rows = _get(
+        "pedidos_base",
+        "select=numero,status,importado_em"
+        "&cliente=eq."
+        "&percentual=is.null"
+        "&order=importado_em.desc"
+    )
+    if isinstance(rows, list):
+        return [(r["numero"], r.get("status","aberto"), r.get("importado_em",""))
+                for r in rows]
+    return []
+
+def excluir_pedido_avulso(numero):
+    """Remove o pedido e todos os seus rastros em cascata."""
+    _delete("sessoes_ativas", f"pedido=eq.{numero}")
+    _delete("registros",      f"pedido=eq.{numero}")
+    _delete("pedidos_base",   f"numero=eq.{numero}")
+
 init_db()
 
 # ─────────────────────────────────────
@@ -1354,6 +1378,122 @@ def tela_admin():
             </div>
         </div>
         """, unsafe_allow_html=True)
+
+    # ── 🗑️ GERENCIAR PEDIDOS AVULSOS ──────────────────────────────────────────
+    avulsos = buscar_pedidos_avulsos()
+
+    with st.expander(
+        f"🗑️ Gerenciar Pedidos Avulsos  {'— ' + str(len(avulsos)) + ' encontrado(s)' if avulsos else '— nenhum cadastrado'}",
+        expanded=bool(avulsos)
+    ):
+        if not avulsos:
+            components.html("""
+            <!DOCTYPE html><html><body style="background:transparent;font-family:sans-serif;">
+            <div style="background:#F0F7F3;border:1.5px solid #4A7C59;border-radius:12px;
+                        padding:18px 20px;text-align:center;">
+                <div style="font-size:22px;margin-bottom:6px;">✅</div>
+                <div style="font-size:13px;font-weight:700;color:#2d5a3d;">
+                    Nenhum pedido avulso cadastrado.</div>
+                <div style="font-size:11px;color:#4A7C59;margin-top:4px;font-weight:600;">
+                    Todos os pedidos vieram da planilha do Programa A.</div>
+            </div></body></html>""", height=100, scrolling=False)
+        else:
+            st.markdown("""
+            <div style="background:#FFFBEB;border:1.5px solid #F59E0B;border-radius:10px;
+                        padding:12px 16px;font-size:12px;font-weight:700;color:#92400E;margin-bottom:12px;">
+                ⚠️ Pedidos avulsos são cadastros manuais feitos durante a operação que
+                <strong>não existem na planilha</strong>. Exclua apenas os que foram
+                digitados por engano.
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Inicializa estado de confirmação por pedido
+            if "confirm_excluir" not in st.session_state:
+                st.session_state.confirm_excluir = {}
+
+            for numero, status, importado_em in avulsos:
+                # Verifica se tem registros de produção vinculados
+                regs_vinculados = _get("registros", f"pedido=eq.{numero}&select=id")
+                tem_registros   = isinstance(regs_vinculados, list) and len(regs_vinculados) > 0
+                cor_status      = "#4A7C59" if status == "aberto" else "#C8566A"
+                lbl_status      = "aberto" if status == "aberto" else "concluído"
+
+                col_info, col_btn = st.columns([4, 1])
+                with col_info:
+                    aviso_reg = (
+                        f' &nbsp;·&nbsp; <span style="color:#C47B2A;font-size:10px;">'
+                        f'⚠ {len(regs_vinculados)} registro(s) de produção serão removidos</span>'
+                        if tem_registros else ""
+                    )
+                    st.markdown(f"""
+                    <div style="background:#fff;border:1.5px solid #EDE9E4;border-radius:10px;
+                                padding:11px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                        <span style="font-family:monospace;font-size:14px;font-weight:800;
+                                     color:#1A1714;">{numero}</span>
+                        <span style="background:{cor_status}22;color:{cor_status};font-size:10px;
+                                     font-weight:800;padding:2px 10px;border-radius:20px;
+                                     text-transform:uppercase;">{lbl_status}</span>
+                        <span style="font-size:11px;color:#9C9490;">
+                            Cadastrado em: {importado_em or "—"}</span>
+                        {aviso_reg}
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                with col_btn:
+                    chave_confirm = f"confirm_{numero}"
+                    em_confirmacao = st.session_state.confirm_excluir.get(numero, False)
+
+                    if not em_confirmacao:
+                        st.markdown("""
+                        <style>
+                        .btn-del > button {
+                            background:#FEF2F2 !important; color:#C8566A !important;
+                            border:1.5px solid #FECACA !important; border-radius:10px !important;
+                            font-size:12px !important; font-weight:800 !important;
+                            height:46px !important;
+                        }
+                        .btn-del > button:hover {
+                            background:#C8566A !important; color:#fff !important;
+                            border-color:#C8566A !important;
+                        }
+                        </style>""", unsafe_allow_html=True)
+                        st.markdown('<div class="btn-del">', unsafe_allow_html=True)
+                        if st.button("🗑 Excluir", key=f"del_{numero}", use_container_width=True):
+                            st.session_state.confirm_excluir[numero] = True
+                            st.rerun()
+                        st.markdown('</div>', unsafe_allow_html=True)
+                    else:
+                        # Linha de confirmação
+                        st.markdown("""
+                        <div style="font-size:10px;font-weight:800;color:#C8566A;
+                                    text-align:center;margin-bottom:4px;">Confirmar?</div>
+                        """, unsafe_allow_html=True)
+                        ca, cb = st.columns(2)
+                        with ca:
+                            st.markdown("""
+                            <style>
+                            .btn-sim > button {
+                                background:#C8566A !important; color:#fff !important;
+                                border:none !important; border-radius:8px !important;
+                                font-size:11px !important; font-weight:800 !important;
+                                height:38px !important;
+                            }
+                            </style>""", unsafe_allow_html=True)
+                            st.markdown('<div class="btn-sim">', unsafe_allow_html=True)
+                            if st.button("✓ Sim", key=f"sim_{numero}", use_container_width=True):
+                                excluir_pedido_avulso(numero)
+                                st.session_state.confirm_excluir.pop(numero, None)
+                                st.toast(f"✅ Pedido {numero} excluído com sucesso.", icon="🗑️")
+                                st.rerun()
+                            st.markdown('</div>', unsafe_allow_html=True)
+                        with cb:
+                            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+                            if st.button("✕", key=f"nao_{numero}", use_container_width=True):
+                                st.session_state.confirm_excluir[numero] = False
+                                st.rerun()
+                            st.markdown('</div>', unsafe_allow_html=True)
+
+                st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
 
     st.markdown("<br style='line-height:0.3'>", unsafe_allow_html=True)
 
