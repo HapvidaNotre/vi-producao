@@ -198,6 +198,7 @@ for k, v in {
     "erro_pedido":False, "erro_senha":False,
     "pedido_status":None, "pedido_confirm":False,
     "etapa_escolhida":None, "duplicata_info":None,
+    "pedido_validado":False,  # True quando pedido foi buscado e validado
 }.items():
     if k not in st.session_state:
         st.session_state[k] = v
@@ -600,220 +601,256 @@ def tela_home():
     etapa_idx = st.session_state.etapa_escolhida
     etapa_lbl = ETAPAS_LBL[etapa_idx]
 
-    if st.session_state.operador is None:
+    # ── PASSO 2: Digitar Pedido + BUSCAR ─────────────────────────────────────
+    if not st.session_state.pedido_validado:
         render_stepper(etapa_idx)
         st.markdown(
             f'<div style="background:#F5E8EB;border-left:4px solid #C8566A;border-radius:0 10px 10px 0;'
             f'padding:10px 16px;margin-bottom:20px;font-size:14px;font-weight:700;color:#1A1714;">'
-            f'Etapa: {etapa_lbl}</div>',
+            f'Etapa selecionada: <strong>{etapa_lbl}</strong></div>',
             unsafe_allow_html=True
         )
         st.markdown("""
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
             <div style="flex:1;height:1px;background:#EDE9E4;"></div>
             <div style="font-size:11px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;
-                color:#9C9490;white-space:nowrap;">Selecione o Operador</div>
+                color:#9C9490;white-space:nowrap;">Nº do Pedido</div>
             <div style="flex:1;height:1px;background:#EDE9E4;"></div>
         </div>
         """, unsafe_allow_html=True)
 
-        render_avatar_grid(on_click_key="op")
+        pedidos_db      = buscar_pedidos_base()
+        pedidos_abertos = [p[0] for p in pedidos_db if p[3] == "aberto"]
+        pedidos_info    = {p[0]: p[1] for p in pedidos_db if p[3] == "aberto"}
+        has_base        = len(pedidos_db) > 0
 
-        st.markdown("<br>", unsafe_allow_html=True)
-        _, col_v, _ = st.columns([2, 2, 2])
-        with col_v:
-            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
-            if st.button("← Voltar", use_container_width=True, key="home_op_voltar"):
-                st.session_state.etapa_escolhida = None; st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-        return
+        st.markdown("""
+        <style>
+        div[data-testid="stTextInput"] label { display:none !important; }
+        div[data-testid="stSelectbox"] label { display:none !important; }
+        </style>""", unsafe_allow_html=True)
 
-    render_stepper(etapa_idx)
-    op = st.session_state.operador
-    st.markdown(
-        f'<div style="background:#F5E8EB;border-left:4px solid #C8566A;border-radius:0 10px 10px 0;'
-        f'padding:10px 16px;margin-bottom:16px;font-size:14px;font-weight:700;color:#1A1714;">'
-        f'<span style="color:#9C9490;font-weight:600;font-size:12px;">Operador</span><br>{op} &nbsp;·&nbsp; {etapa_lbl}'
-        f'</div>',
-        unsafe_allow_html=True
-    )
-    st.markdown('<div class="section-label">Selecione o pedido</div>', unsafe_allow_html=True)
+        pedido_inp = ""
 
-    pedidos_db      = buscar_pedidos_base()
-    pedidos_abertos = [p[0] for p in pedidos_db if p[3] == "aberto"]
-    pedidos_info    = {p[0]: p[1] for p in pedidos_db if p[3] == "aberto"}
-    has_base        = len(pedidos_db) > 0
-
-    st.markdown("""
-    <style>
-    div[data-testid="stTextInput"] label { display:none !important; }
-    div[data-testid="stSelectbox"] label { display:none !important; }
-    </style>""", unsafe_allow_html=True)
-
-    pedido_inp = ""
-
-    if has_base and pedidos_abertos:
-        def fmt_op_ped(n):
-            cli = pedidos_info.get(n, "")
-            return f"{n}  —  {cli}" if cli else n
-        opcoes_disp = ["— Selecione ou digite —"] + [fmt_op_ped(n) for n in sorted(pedidos_abertos)]
-        opcoes_map  = {"— Selecione ou digite —": ""} | {fmt_op_ped(n): n for n in sorted(pedidos_abertos)}
-        _, col_sel, _ = st.columns([0.3, 4, 0.3])
-        with col_sel:
-            sel = st.selectbox("_sel", opcoes_disp, key="home_pedido_sel")
-        pedido_inp = opcoes_map.get(sel, "")
-        if pedido_inp:
-            cli_nome = pedidos_info.get(pedido_inp, "")
-            if cli_nome:
+        if has_base and pedidos_abertos:
+            def fmt_op_ped(n):
+                cli = pedidos_info.get(n, "")
+                return f"{n}  —  {cli}" if cli else n
+            opcoes_disp = ["— Selecione ou digite —"] + [fmt_op_ped(n) for n in sorted(pedidos_abertos)]
+            opcoes_map  = {"— Selecione ou digite —": ""} | {fmt_op_ped(n): n for n in sorted(pedidos_abertos)}
+            _, col_sel, _ = st.columns([0.3, 4, 0.3])
+            with col_sel:
+                sel = st.selectbox("_sel", opcoes_disp, key="home_pedido_sel")
+            pedido_inp = opcoes_map.get(sel, "")
+            if pedido_inp:
+                cli_nome = pedidos_info.get(pedido_inp, "")
+                if cli_nome:
+                    import streamlit.components.v1 as _cv1
+                    _cv1.html(
+                        f'<div style="background:#F0F7F3;border:1.5px solid #4A7C59;border-radius:10px;'
+                        f'padding:10px 16px;font-family:sans-serif;display:flex;align-items:center;gap:10px;margin:6px 0;">'
+                        f'<div style="font-size:18px;">🛍</div>'
+                        f'<div><div style="font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#4A7C59;margin-bottom:2px;">Cliente</div>'
+                        f'<div style="font-size:13px;font-weight:800;color:#1A1714;">{cli_nome}</div></div></div>',
+                        height=58, scrolling=False
+                    )
+            with st.expander("✏ Digitar número manualmente"):
+                manual = st.text_input("Número manual", placeholder="Ex: 49735", key="home_pedido_manual")
+                if manual.strip(): pedido_inp = manual.strip()
+        else:
+            _, col_inp, _ = st.columns([0.3, 4, 0.3])
+            with col_inp:
+                pedido_inp = st.text_input("_ped", placeholder="Ex: 49735", key="home_pedido_txt")
+            if has_base and not pedidos_abertos:
                 import streamlit.components.v1 as _cv1
                 _cv1.html(
-                    f'<div style="background:#F0F7F3;border:1.5px solid #4A7C59;border-radius:10px;'
-                    f'padding:10px 16px;font-family:sans-serif;display:flex;align-items:center;gap:10px;margin:6px 0;">'
-                    f'<div style="font-size:18px;">🛍</div>'
-                    f'<div><div style="font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#4A7C59;margin-bottom:2px;">Cliente</div>'
-                    f'<div style="font-size:13px;font-weight:800;color:#1A1714;">{cli_nome}</div></div></div>',
-                    height=58, scrolling=False
+                    '<div style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:10px;'
+                    'padding:10px 14px;font-family:sans-serif;font-size:12px;font-weight:700;color:#92400E;text-align:center;">'
+                    '⚠ Nenhum pedido em aberto na base.</div>',
+                    height=50, scrolling=False
                 )
-        with st.expander("✏ Digitar número manualmente"):
-            manual = st.text_input("Número manual", placeholder="Ex: 49735", key="home_pedido_manual")
-            if manual.strip(): pedido_inp = manual.strip()
-    else:
-        _, col_inp, _ = st.columns([0.3, 4, 0.3])
-        with col_inp:
-            pedido_inp = st.text_input("_ped", placeholder="Ex: 49735", key="home_pedido_txt")
-        if has_base and not pedidos_abertos:
+
+        # ── Alertas de validação ──
+        if st.session_state.pedido_status == "concluido":
             import streamlit.components.v1 as _cv1
             _cv1.html(
-                '<div style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:10px;'
-                'padding:10px 14px;font-family:sans-serif;font-size:12px;font-weight:700;color:#92400E;text-align:center;">'
-                '⚠ Nenhum pedido em aberto na base.</div>',
-                height=50, scrolling=False
+                '<div style="background:#FEF2F2;border:2px solid #FCA5A5;border-radius:14px;'
+                'padding:16px 20px;font-family:sans-serif;text-align:center;margin:8px 0;">'
+                '<div style="font-size:22px;margin-bottom:6px;">🔒</div>'
+                '<div style="font-size:14px;font-weight:800;color:#991B1B;margin-bottom:4px;">Pedido Já Concluído</div>'
+                '<div style="font-size:12px;color:#B91C1C;font-weight:600;">Este pedido já foi encerrado no sistema.</div>'
+                '</div>',
+                height=110, scrolling=False
             )
-
-    if st.session_state.pedido_status == "concluido":
-        import streamlit.components.v1 as _cv1
-        _cv1.html(
-            '<div style="background:#FEF2F2;border:2px solid #FCA5A5;border-radius:14px;'
-            'padding:16px 20px;font-family:sans-serif;text-align:center;margin:8px 0;">'
-            '<div style="font-size:22px;margin-bottom:6px;">🔒</div>'
-            '<div style="font-size:14px;font-weight:800;color:#991B1B;margin-bottom:4px;">Pedido Já Concluído</div>'
-            '<div style="font-size:12px;color:#B91C1C;font-weight:600;">Este pedido já foi encerrado no sistema.</div>'
-            '</div>',
-            height=110, scrolling=False
-        )
-        if st.button("← Escolher outro pedido"):
-            st.session_state.pedido_status = None; st.rerun()
-        return
-
-    if st.session_state.pedido_status == "nao_encontrado":
-        num_pend = st.session_state.get("_pedido_validando", "")
-        import streamlit.components.v1 as _cv1
-        _cv1.html(
-            f'<div style="background:#FFFBEB;border:2px solid #FCD34D;border-radius:14px;'
-            f'padding:16px 20px;font-family:sans-serif;text-align:center;margin:8px 0;">'
-            f'<div style="font-size:22px;margin-bottom:6px;">❓</div>'
-            f'<div style="font-size:14px;font-weight:800;color:#92400E;margin-bottom:4px;">Pedido Não Encontrado</div>'
-            f'<div style="font-size:12px;color:#B45309;font-weight:600;">'
-            f'Pedido <b>{num_pend}</b> não está na base. Deseja cadastrá-lo?</div>'
-            f'</div>',
-            height=115, scrolling=False
-        )
-        cc1, cc2 = st.columns(2)
-        with cc1:
-            st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
-            if st.button("✓ Cadastrar", use_container_width=True):
-                cadastrar_pedido_avulso(num_pend)
-                st.session_state.pedido_status = None
-                st.session_state.pedido = num_pend
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-        with cc2:
-            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
-            if st.button("✕ Cancelar", use_container_width=True):
+            if st.button("← Buscar outro pedido"):
                 st.session_state.pedido_status = None; st.rerun()
+            return
+
+        if st.session_state.pedido_status == "nao_encontrado":
+            num_pend = st.session_state.get("_pedido_validando", "")
+            import streamlit.components.v1 as _cv1
+            _cv1.html(
+                f'<div style="background:#FFFBEB;border:2px solid #FCD34D;border-radius:14px;'
+                f'padding:16px 20px;font-family:sans-serif;text-align:center;margin:8px 0;">'
+                f'<div style="font-size:22px;margin-bottom:6px;">❓</div>'
+                f'<div style="font-size:14px;font-weight:800;color:#92400E;margin-bottom:4px;">Pedido Não Encontrado</div>'
+                f'<div style="font-size:12px;color:#B45309;font-weight:600;">'
+                f'Pedido <b>{num_pend}</b> não está na base. Deseja cadastrá-lo?</div>'
+                f'</div>',
+                height=115, scrolling=False
+            )
+            cc1, cc2 = st.columns(2)
+            with cc1:
+                st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
+                if st.button("✓ Cadastrar", use_container_width=True):
+                    cadastrar_pedido_avulso(num_pend)
+                    st.session_state.pedido_status  = None
+                    st.session_state.pedido         = num_pend
+                    st.session_state.pedido_validado = True
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            with cc2:
+                st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+                if st.button("✕ Cancelar", use_container_width=True):
+                    st.session_state.pedido_status = None; st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            return
+
+        if st.session_state.duplicata_info:
+            info   = st.session_state.duplicata_info
+            op_ant = info["operador_anterior"]
+            etl    = ETAPAS_LBL[etapa_idx]
+            msg_tp = "está sendo processado agora" if info["em_andamento"] else "já passou pela fase de"
+            import streamlit.components.v1 as _cv1
+            _cv1.html(
+                f'<div style="background:#FFF7ED;border:2px solid #F97316;border-radius:14px;'
+                f'padding:18px 22px;font-family:sans-serif;margin:8px 0;">'
+                f'<div style="font-size:22px;text-align:center;margin-bottom:8px;">⚠️</div>'
+                f'<div style="font-size:14px;font-weight:800;color:#9A3412;text-align:center;margin-bottom:8px;">Atenção — Pedido em Conflito</div>'
+                f'<div style="font-size:13px;color:#7C2D12;font-weight:600;text-align:center;line-height:1.6;">'
+                f'Pedido {info["pedido"]} {msg_tp} <b>{etl}</b>'
+                f'{(" (por " + op_ant + ")") if op_ant else ""}.<br><br>'
+                f'Deseja mesmo assim prosseguir?</div>'
+                f'</div>',
+                height=175, scrolling=False
+            )
+            cc1, cc2 = st.columns(2)
+            with cc1:
+                st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
+                if st.button("✓ Sim, prosseguir", use_container_width=True):
+                    st.session_state.pedido          = info["pedido"]
+                    st.session_state.duplicata_info  = None
+                    st.session_state.pedido_validado = True
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            with cc2:
+                st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+                if st.button("✕ Não", use_container_width=True):
+                    st.session_state.duplicata_info = None; st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            return
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        c1, _, c2 = st.columns([3, 0.3, 1.5])
+        with c1:
+            st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
+            if st.button("🔍  BUSCAR", use_container_width=True, key="home_buscar"):
+                num = pedido_inp.strip() if isinstance(pedido_inp, str) else ""
+                if not num:
+                    st.session_state.erro_pedido = True; st.rerun()
+                st.session_state.erro_pedido = False
+                pst = status_pedido(num)
+                if pst == "concluido":
+                    st.session_state.pedido_status       = "concluido"
+                    st.session_state._pedido_validando   = num; st.rerun()
+                elif pst == "nao_encontrado" and has_base:
+                    st.session_state.pedido_status       = "nao_encontrado"
+                    st.session_state._pedido_validando   = num; st.rerun()
+                else:
+                    em_and, op_and = pedido_em_andamento(num, etapa_idx)
+                    ja_reg, op_reg = verificar_etapa_registro(num, etapa_idx)
+                    op_ant = op_and or op_reg
+                    if em_and or ja_reg:
+                        st.session_state._pedido_validando = num
+                        st.session_state.duplicata_info = {
+                            "pedido": num, "operador_anterior": op_ant, "em_andamento": em_and,
+                        }
+                        st.rerun()
+                    else:
+                        st.session_state.pedido          = num
+                        st.session_state.pedido_status   = None
+                        st.session_state.pedido_validado = True
+                        st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
+        with c2:
+            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+            if st.button("← Voltar", use_container_width=True, key="home_ped_voltar"):
+                st.session_state.etapa_escolhida = None
+                st.session_state.pedido_status   = None; st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        if st.session_state.erro_pedido:
+            st.markdown(
+                '<div style="text-align:center;color:#C8566A;font-size:13px;font-weight:800;margin-top:6px;">'
+                '⚠ Selecione ou digite o número do pedido.</div>',
+                unsafe_allow_html=True
+            )
         return
 
-    if st.session_state.duplicata_info:
-        info    = st.session_state.duplicata_info
-        op_ant  = info["operador_anterior"]
-        etl     = ETAPAS_LBL[etapa_idx]
-        num     = info["pedido"]
-        msg_tp  = "está sendo processado agora" if info["em_andamento"] else "já passou pela fase de"
-        import streamlit.components.v1 as _cv1
-        _cv1.html(
-            f'<div style="background:#FFF7ED;border:2px solid #F97316;border-radius:14px;'
-            f'padding:18px 22px;font-family:sans-serif;margin:8px 0;">'
-            f'<div style="font-size:22px;text-align:center;margin-bottom:8px;">⚠️</div>'
-            f'<div style="font-size:14px;font-weight:800;color:#9A3412;text-align:center;margin-bottom:8px;">Atenção — Pedido em Conflito</div>'
-            f'<div style="font-size:13px;color:#7C2D12;font-weight:600;text-align:center;line-height:1.6;">'
-            f'<b>{op}</b>, este pedido {msg_tp} <b>{etl}</b>'
-            f'{(" (por " + op_ant + ")") if op_ant else ""}.<br><br>'
-            f'Deseja mesmo assim realizar uma alteração nesta etapa?</div>'
-            f'</div>',
-            height=175, scrolling=False
-        )
-        cc1, cc2 = st.columns(2)
-        with cc1:
+    # ── PASSO 3: Selecionar Operador ─────────────────────────────────────────
+    pedido_val = st.session_state.pedido
+    pedidos_db = buscar_pedidos_base()
+    pedidos_info = {p[0]: p[1] for p in pedidos_db}
+    cli_nome = pedidos_info.get(pedido_val, "")
+
+    render_stepper(etapa_idx)
+
+    # Card pedido confirmado
+    import streamlit.components.v1 as _cv1
+    _cv1.html(
+        f'<div style="background:#F0F7F3;border:1.5px solid #4A7C59;border-radius:12px;'
+        f'padding:12px 18px;font-family:sans-serif;display:flex;align-items:center;gap:14px;margin-bottom:4px;">'
+        f'<div style="width:38px;height:38px;border-radius:50%;background:#4A7C59;flex-shrink:0;'
+        f'display:flex;align-items:center;justify-content:center;font-size:18px;">✓</div>'
+        f'<div>'
+        f'<div style="font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#4A7C59;margin-bottom:2px;">Pedido Encontrado</div>'
+        f'<div style="font-size:16px;font-weight:900;color:#1A1714;font-family:monospace;">{pedido_val}'
+        f'{"  · " + cli_nome if cli_nome else ""}</div>'
+        f'<div style="font-size:11px;color:#9C9490;margin-top:2px;">Etapa: {etapa_lbl}</div>'
+        f'</div></div>',
+        height=80, scrolling=False
+    )
+
+    st.markdown("<br style='line-height:0.3'>", unsafe_allow_html=True)
+    st.markdown("""
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <div style="flex:1;height:1px;background:#EDE9E4;"></div>
+        <div style="font-size:11px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;
+            color:#9C9490;white-space:nowrap;">Identificar Operador</div>
+        <div style="flex:1;height:1px;background:#EDE9E4;"></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    render_avatar_grid(on_click_key="op_step3")
+
+    if st.session_state.operador:
+        st.markdown("<br style='line-height:0.3'>", unsafe_allow_html=True)
+        _, col_ini, _ = st.columns([0.3, 4, 0.3])
+        with col_ini:
             st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
-            if st.button("✓ Sim, prosseguir", use_container_width=True):
-                st.session_state.pedido = info["pedido"]
-                st.session_state.duplicata_info = None
+            if st.button("▶  INICIAR OPERAÇÃO", use_container_width=True, key="home_iniciar_op"):
                 _go_producao(etapa_idx)
             st.markdown('</div>', unsafe_allow_html=True)
-        with cc2:
-            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
-            if st.button("✕ Não", use_container_width=True):
-                st.session_state.duplicata_info = None; st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-        return
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    c1, _, c2 = st.columns([3, 0.3, 1.5])
-    with c1:
-        st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
-        if st.button("▶  INICIAR", use_container_width=True, key="home_iniciar"):
-            num = pedido_inp.strip() if isinstance(pedido_inp, str) else ""
-            if not num:
-                st.session_state.erro_pedido = True; st.rerun()
-            st.session_state.erro_pedido = False
-            pst = status_pedido(num)
-            if pst == "concluido":
-                st.session_state.pedido_status = "concluido"
-                st.session_state._pedido_validando = num; st.rerun()
-            elif pst == "nao_encontrado" and has_base:
-                st.session_state.pedido_status = "nao_encontrado"
-                st.session_state._pedido_validando = num; st.rerun()
-            else:
-                em_and, op_and = pedido_em_andamento(num, etapa_idx)
-                ja_reg, op_reg = verificar_etapa_registro(num, etapa_idx)
-                op_ant = op_and or op_reg
-                if em_and or ja_reg:
-                    st.session_state._pedido_validando = num
-                    st.session_state.duplicata_info = {
-                        "pedido": num,
-                        "operador_anterior": op_ant,
-                        "em_andamento": em_and,
-                    }
-                    st.rerun()
-                else:
-                    st.session_state.pedido = num
-                    st.session_state.pedido_status = None
-                    _go_producao(etapa_idx)
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c2:
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    _, col_v, _ = st.columns([2, 2, 2])
+    with col_v:
         st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
-        if st.button("← Voltar", use_container_width=True, key="home_ped_voltar"):
-            st.session_state.operador = None
-            st.session_state.pedido_status = None; st.rerun()
+        if st.button("← Voltar", use_container_width=True, key="home_op_voltar"):
+            st.session_state.pedido_validado = False
+            st.session_state.pedido          = None
+            st.session_state.operador        = None; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
-
-    if st.session_state.erro_pedido:
-        st.markdown(
-            '<div style="text-align:center;color:#C8566A;font-size:13px;font-weight:800;margin-top:6px;">'
-            '⚠ Selecione ou digite o número do pedido.</div>',
-            unsafe_allow_html=True
-        )
 
 
 # ─────────────────────────────────────
@@ -975,12 +1012,14 @@ def tela_producao():
         """, height=280, scrolling=False)
         st.markdown("<br style='line-height:0.2'>", unsafe_allow_html=True)
         st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
-        if st.button("← Voltar ao Menu Principal", use_container_width=True, key="proxima_home"):
-            st.session_state.modal = None; st.session_state.pedido = None
-            st.session_state.etapa_idx = 0; st.session_state.acum = 0
-            st.session_state.operador = None
-            st.session_state.etapa_escolhida = None
-            st.session_state.tela = "home"; st.rerun()
+        if st.button("▶  Próximo Pedido", use_container_width=True, key="proxima_home"):
+            st.session_state.modal          = None
+            st.session_state.pedido         = None
+            st.session_state.pedido_validado = False
+            st.session_state.etapa_idx      = 0
+            st.session_state.acum           = 0
+            st.session_state.tela           = "home"
+            st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
     # ── Modal: pedido concluído ──
@@ -1017,12 +1056,14 @@ def tela_producao():
         """, height=300, scrolling=False)
         st.markdown("<br style='line-height:0.2'>", unsafe_allow_html=True)
         st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
-        if st.button("← Voltar ao Menu Principal", use_container_width=True):
-            st.session_state.modal = None; st.session_state.pedido = None
-            st.session_state.etapa_idx = 0; st.session_state.acum = 0
-            st.session_state.operador = None
-            st.session_state.etapa_escolhida = None
-            st.session_state.tela = "home"; st.rerun()
+        if st.button("▶  Próximo Pedido", use_container_width=True):
+            st.session_state.modal          = None
+            st.session_state.pedido         = None
+            st.session_state.pedido_validado = False
+            st.session_state.etapa_idx      = 0
+            st.session_state.acum           = 0
+            st.session_state.tela           = "home"
+            st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
 
@@ -1537,6 +1578,54 @@ def tela_admin():
         if r[4]==1: op_map[op]["conf"].append(r[5])
         if r[4]==2: op_map[op]["emb"].append(r[5])
 
+    # ── Filtros do painel gestor ──────────────────────────────────────────────
+    st.markdown("<br style='line-height:0.3'>", unsafe_allow_html=True)
+
+    todas_datas_regs = sorted({
+        r[6].split(" ")[0] for r in regs if r[6] and " " in str(r[6])
+    }, reverse=True) if regs else []
+    todos_ops_regs = sorted({r[2] for r in regs if r[2]}) if regs else []
+
+    fc1, fc2 = st.columns(2)
+    with fc1:
+        opcoes_data = ["Todos os dias"] + todas_datas_regs
+        filtro_data = st.selectbox("📅 Filtrar por dia", opcoes_data, key="admin_filtro_data")
+    with fc2:
+        opcoes_op = ["Todos os operadores"] + todos_ops_regs
+        filtro_op = st.selectbox("👤 Filtrar por operador", opcoes_op, key="admin_filtro_op")
+
+    regs_filtrados = regs
+    if filtro_data != "Todos os dias":
+        regs_filtrados = [r for r in regs_filtrados if str(r[6]).startswith(filtro_data)]
+    if filtro_op != "Todos os operadores":
+        regs_filtrados = [r for r in regs_filtrados if r[2] == filtro_op]
+
+    tem_filtro = filtro_data != "Todos os dias" or filtro_op != "Todos os operadores"
+    if tem_filtro:
+        partes_filtro = []
+        if filtro_data != "Todos os dias": partes_filtro.append(f"📅 {filtro_data}")
+        if filtro_op   != "Todos os operadores": partes_filtro.append(f"👤 {filtro_op}")
+        ped_filt = len({r[1] for r in regs_filtrados})
+        st.markdown(
+            f'<div style="background:#F0F7F3;border:1.5px solid #4A7C59;border-radius:10px;'
+            f'padding:10px 16px;font-size:13px;font-weight:700;color:#2d5a3d;margin-bottom:4px;">'
+            f'Filtro ativo: {" · ".join(partes_filtro)} &nbsp;→&nbsp; '
+            f'<strong>{ped_filt} pedido(s)</strong> · {len(regs_filtrados)} registro(s)</div>',
+            unsafe_allow_html=True
+        )
+
+    regs_para_tabela = regs_filtrados
+
+    # ── Tabela de operadores ──
+    op_map = {}
+    for r in regs_filtrados:
+        op = r[2]
+        if op not in op_map: op_map[op] = {"p":set(),"sep":[],"conf":[],"emb":[]}
+        op_map[op]["p"].add(r[1])
+        if r[4]==0: op_map[op]["sep"].append(r[5])
+        if r[4]==1: op_map[op]["conf"].append(r[5])
+        if r[4]==2: op_map[op]["emb"].append(r[5])
+
     st.markdown("<br style='line-height:0.4'>", unsafe_allow_html=True)
 
     if op_map:
@@ -1578,7 +1667,7 @@ def tela_admin():
         tbody tr{{border-bottom:1px solid #F2EEE9;transition:background .15s;}}
         tbody tr:last-child{{border-bottom:none;}} tbody tr:hover{{background:#FDFAF9;}}
         </style></head><body>
-        <div class="lbl">Desempenho por Operador</div>
+        <div class="lbl">Desempenho por Operador{" · " + filtro_data if filtro_data != "Todos os dias" else ""}</div>
         <div class="wrap"><table><thead><tr>
           <th style="color:rgba(255,255,255,0.45);">Operador</th>
           <th style="color:rgba(255,255,255,0.45);">Pedidos</th>
@@ -1592,7 +1681,7 @@ def tela_admin():
         components.html("""<!DOCTYPE html><html><body style="background:transparent;font-family:sans-serif;">
         <div style="background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;
                     padding:40px;text-align:center;color:#9C9490;font-size:14px;font-weight:600;">
-            Nenhum registro ainda.</div></body></html>""", height=120, scrolling=False)
+            Nenhum registro encontrado para o filtro selecionado.</div></body></html>""", height=120, scrolling=False)
 
     st.markdown("<br style='line-height:0.4'>", unsafe_allow_html=True)
 
@@ -1607,9 +1696,9 @@ def tela_admin():
         2: '<span style="background:#E8F2EC;color:#4A7C59;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;">Embalagem</span>',
     }
 
-    if regs:
+    if regs_para_tabela:
         hist_rows = ""
-        for r in regs[:80]:
+        for r in regs_para_tabela[:80]:
             hist_rows += f"""<tr>
               <td style="padding:11px 16px;font-family:monospace;font-size:12px;font-weight:700;color:#1A1714;">{r[1]}</td>
               <td style="padding:11px 10px;font-size:13px;font-weight:700;color:#1A1714;">{r[2]}</td>
@@ -1618,7 +1707,7 @@ def tela_admin():
               <td style="padding:11px 10px;font-size:11px;color:#9C9490;text-align:center;">{r[6]}</td>
             </tr>"""
 
-        n_hist = min(len(regs), 80)
+        n_hist = min(len(regs_para_tabela), 80)
         hist_height = 56 + (n_hist * 46) + 20
 
         components.html(f"""
@@ -1640,11 +1729,6 @@ def tela_admin():
         </tr></thead><tbody>{hist_rows}</tbody></table></div>
         </body></html>
         """, height=min(hist_height, 600), scrolling=hist_height > 600)
-    else:
-        components.html("""<!DOCTYPE html><html><body style="background:transparent;font-family:sans-serif;">
-        <div style="background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;
-                    padding:40px;text-align:center;color:#9C9490;font-size:14px;font-weight:600;">
-            Nenhum registro ainda.</div></body></html>""", height=120, scrolling=False)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
