@@ -584,9 +584,10 @@ def render_pip():
     if not sessoes:
         return
 
-    cards_js = ""
     cards_html = ""
-    for i, s in enumerate(sessoes):
+    cards_js   = ""
+
+    for s in sessoes:
         ped     = s.get("pedido", "")
         op      = s.get("operador", "")
         eta_idx = int(s.get("etapa_idx", 0))
@@ -598,110 +599,125 @@ def render_pip():
 
         cards_html += f"""
         <div class="pip-card" id="pip-card-{uid}" style="border-top:3px solid {cor};">
-            <div class="pip-drag-handle" id="pip-handle-{uid}">
-                <span style="font-size:11px;opacity:0.7;">⠿</span>
-                <span style="font-size:10px;font-weight:800;letter-spacing:1px;opacity:0.7;flex:1;text-align:center;text-transform:uppercase;">{icon} {lbl}</span>
-                <span class="pip-minimize" onclick="togglePip('{uid}')" title="Minimizar">─</span>
-            </div>
-            <div class="pip-body" id="pip-body-{uid}">
-                <div style="font-size:11px;opacity:0.6;margin-bottom:2px;">Pedido <strong style="opacity:1;color:#fff;">{ped}</strong> · {op}</div>
-                <div class="pip-timer" id="pip-timer-{uid}">00:00:00</div>
-                <button class="pip-btn-fin" onclick="finalizarPip('{ped}',{eta_idx},'{op}',{ini})">■ FINALIZAR</button>
-            </div>
+          <div class="pip-drag-handle" id="pip-handle-{uid}">
+            <span style="font-size:11px;opacity:0.6;">⠿</span>
+            <span style="font-size:10px;font-weight:800;letter-spacing:1px;opacity:0.7;flex:1;text-align:center;text-transform:uppercase;">{icon} {lbl}</span>
+            <span class="pip-minimize" onclick="togglePip('{uid}')" title="Minimizar">─</span>
+          </div>
+          <div class="pip-body" id="pip-body-{uid}">
+            <div style="font-size:11px;opacity:0.6;margin-bottom:2px;">Pedido <strong style="opacity:1;color:#fff;">{ped}</strong> · {op}</div>
+            <div class="pip-timer" id="pip-timer-{uid}">00:00:00</div>
+            <button class="pip-btn-fin" onclick="finalizarPip('{ped}',{eta_idx},'{op}',{ini})">&#9632; FINALIZAR</button>
+          </div>
         </div>"""
 
         cards_js += f"startTimer('{uid}', {ini});\n"
 
-    st.markdown(f"""
-    <style>
-    #pip-container {{
-        position: fixed;
-        bottom: 24px;
-        right: 24px;
-        z-index: 99999;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        max-width: 280px;
-        min-width: 220px;
-    }}
-    .pip-card {{
-        background: rgba(26,23,20,0.94);
-        border-radius: 14px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.45);
-        overflow: hidden;
-        resize: both;
-        min-width: 200px;
-        min-height: 120px;
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
-    }}
-    .pip-drag-handle {{
-        padding: 8px 12px;
-        background: rgba(255,255,255,0.06);
-        cursor: grab;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        color: rgba(255,255,255,0.65);
-        user-select: none;
-        font-family: 'Nunito', sans-serif;
-    }}
-    .pip-drag-handle:active {{ cursor: grabbing; }}
-    .pip-minimize {{
-        cursor: pointer;
-        font-size: 14px;
-        padding: 0 4px;
-        opacity: 0.6;
-        transition: opacity 0.15s;
-    }}
-    .pip-minimize:hover {{ opacity: 1; }}
-    .pip-body {{
-        padding: 10px 14px 14px;
-        font-family: 'Nunito', sans-serif;
-        color: #fff;
-    }}
-    .pip-timer {{
-        font-family: 'DM Mono', monospace;
-        font-size: 34px;
-        font-weight: 500;
-        color: #fff;
-        letter-spacing: -1px;
-        margin: 6px 0 10px;
-        line-height: 1;
-    }}
-    .pip-btn-fin {{
-        width: 100%;
-        background: #C8566A;
-        color: #fff;
-        border: none;
-        border-radius: 8px;
-        padding: 9px 0;
-        font-family: 'Nunito', sans-serif;
-        font-size: 13px;
-        font-weight: 800;
-        cursor: pointer;
-        letter-spacing: 0.5px;
-        transition: background 0.15s, transform 0.1s;
-    }}
-    .pip-btn-fin:hover {{ background: #a83050; transform: translateY(-1px); }}
-    .pip-btn-fin:active {{ transform: translateY(0); }}
-    </style>
-
-    <div id="pip-container">
-        {cards_html}
-    </div>
-
+    # Injeta no documento PAI via iframe trick (necessário no Streamlit)
+    components.html(f"""
     <script>
     (function() {{
-        function startTimer(uid, iniciado_em) {{
-            const el = document.getElementById('pip-timer-' + uid);
+        var pd = window.parent.document;
+
+        // Evita duplicar
+        if (pd.getElementById('pip-container')) {{
+            pd.getElementById('pip-container').remove();
+        }}
+        if (pd.getElementById('pip-styles')) {{
+            pd.getElementById('pip-styles').remove();
+        }}
+
+        // Estilos
+        var style = pd.createElement('style');
+        style.id = 'pip-styles';
+        style.textContent = `
+            #pip-container {{
+                position: fixed;
+                bottom: 24px;
+                right: 24px;
+                z-index: 99999;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                pointer-events: none;
+            }}
+            .pip-card {{
+                pointer-events: all;
+                background: rgba(26,23,20,0.94);
+                border-radius: 14px;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+                overflow: hidden;
+                resize: both;
+                min-width: 210px;
+                min-height: 110px;
+                width: 260px;
+                backdrop-filter: blur(8px);
+            }}
+            .pip-drag-handle {{
+                padding: 8px 12px;
+                background: rgba(255,255,255,0.06);
+                cursor: grab;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                color: rgba(255,255,255,0.65);
+                user-select: none;
+                font-family: 'Nunito', sans-serif;
+            }}
+            .pip-drag-handle:active {{ cursor: grabbing; }}
+            .pip-minimize {{
+                cursor: pointer;
+                font-size: 14px;
+                padding: 0 4px;
+                opacity: 0.6;
+            }}
+            .pip-minimize:hover {{ opacity: 1; }}
+            .pip-body {{
+                padding: 10px 14px 14px;
+                font-family: 'Nunito', sans-serif;
+                color: #fff;
+            }}
+            .pip-timer {{
+                font-family: 'DM Mono', 'Courier New', monospace;
+                font-size: 34px;
+                font-weight: 500;
+                color: #fff;
+                letter-spacing: -1px;
+                margin: 6px 0 10px;
+                line-height: 1;
+            }}
+            .pip-btn-fin {{
+                width: 100%;
+                background: #C8566A;
+                color: #fff;
+                border: none;
+                border-radius: 8px;
+                padding: 9px 0;
+                font-family: 'Nunito', sans-serif;
+                font-size: 13px;
+                font-weight: 800;
+                cursor: pointer;
+                letter-spacing: 0.5px;
+            }}
+            .pip-btn-fin:hover {{ background: #a83050; }}
+        `;
+        pd.head.appendChild(style);
+
+        // Container + cards
+        var container = pd.createElement('div');
+        container.id = 'pip-container';
+        container.innerHTML = `{cards_html}`;
+        pd.body.appendChild(container);
+
+        // Funções globais
+        window.parent.startTimer = function(uid, iniciado_em) {{
+            var el = pd.getElementById('pip-timer-' + uid);
             if (!el) return;
             function update() {{
-                const elapsed = Math.floor(Date.now() / 1000) - iniciado_em;
-                const h = Math.floor(elapsed / 3600);
-                const m = Math.floor((elapsed % 3600) / 60);
-                const s = elapsed % 60;
+                var elapsed = Math.floor(Date.now() / 1000) - iniciado_em;
+                var h = Math.floor(elapsed / 3600);
+                var m = Math.floor((elapsed % 3600) / 60);
+                var s = elapsed % 60;
                 el.textContent =
                     String(h).padStart(2,'0') + ':' +
                     String(m).padStart(2,'0') + ':' +
@@ -709,32 +725,32 @@ def render_pip():
             }}
             update();
             setInterval(update, 1000);
-        }}
+        }};
 
-        function finalizarPip(pedido, etapa, operador, iniciado_em) {{
-            const url = new URL(window.location.href);
+        window.parent.finalizarPip = function(pedido, etapa, operador, iniciado_em) {{
+            var url = new URL(window.parent.location.href);
             url.searchParams.set('pip_action', 'finalizar');
             url.searchParams.set('pedido', pedido);
             url.searchParams.set('etapa', etapa);
             url.searchParams.set('operador', operador);
             url.searchParams.set('iniciado_em', iniciado_em);
-            window.location.href = url.toString();
-        }}
+            window.parent.location.href = url.toString();
+        }};
 
-        function togglePip(uid) {{
-            const body = document.getElementById('pip-body-' + uid);
+        window.parent.togglePip = function(uid) {{
+            var body = pd.getElementById('pip-body-' + uid);
             if (!body) return;
             body.style.display = body.style.display === 'none' ? 'block' : 'none';
-        }}
+        }};
 
-        // ── Drag logic (por card) ──
-        document.querySelectorAll('.pip-drag-handle').forEach(handle => {{
-            const card = handle.closest('.pip-card');
-            let dragging = false, sx, sy, ox, oy;
-            handle.addEventListener('mousedown', e => {{
+        // Drag mouse
+        pd.querySelectorAll('.pip-drag-handle').forEach(function(handle) {{
+            var card = handle.closest('.pip-card');
+            var dragging = false, sx, sy, ox, oy;
+            handle.addEventListener('mousedown', function(e) {{
                 dragging = true;
                 sx = e.clientX; sy = e.clientY;
-                const rect = card.getBoundingClientRect();
+                var rect = card.getBoundingClientRect();
                 ox = rect.left; oy = rect.top;
                 card.style.position = 'fixed';
                 card.style.left = ox + 'px';
@@ -742,30 +758,30 @@ def render_pip():
                 card.style.margin = '0';
                 e.preventDefault();
             }});
-            document.addEventListener('mousemove', e => {{
+            pd.addEventListener('mousemove', function(e) {{
                 if (!dragging) return;
                 card.style.left = (ox + e.clientX - sx) + 'px';
                 card.style.top  = (oy + e.clientY - sy) + 'px';
             }});
-            document.addEventListener('mouseup', () => dragging = false);
+            pd.addEventListener('mouseup', function() {{ dragging = false; }});
         }});
 
-        // ── Touch drag ──
-        document.querySelectorAll('.pip-drag-handle').forEach(handle => {{
-            const card = handle.closest('.pip-card');
-            let ox, oy, sx, sy;
-            handle.addEventListener('touchstart', e => {{
-                const t = e.touches[0];
+        // Drag touch
+        pd.querySelectorAll('.pip-drag-handle').forEach(function(handle) {{
+            var card = handle.closest('.pip-card');
+            var ox, oy, sx, sy;
+            handle.addEventListener('touchstart', function(e) {{
+                var t = e.touches[0];
                 sx = t.clientX; sy = t.clientY;
-                const rect = card.getBoundingClientRect();
+                var rect = card.getBoundingClientRect();
                 ox = rect.left; oy = rect.top;
                 card.style.position = 'fixed';
                 card.style.left = ox + 'px';
                 card.style.top  = oy + 'px';
                 card.style.margin = '0';
             }}, {{passive:true}});
-            handle.addEventListener('touchmove', e => {{
-                const t = e.touches[0];
+            handle.addEventListener('touchmove', function(e) {{
+                var t = e.touches[0];
                 card.style.left = (ox + t.clientX - sx) + 'px';
                 card.style.top  = (oy + t.clientY - sy) + 'px';
                 e.preventDefault();
@@ -776,7 +792,7 @@ def render_pip():
         {cards_js}
     }})();
     </script>
-    """, unsafe_allow_html=True)
+    """, height=0, scrolling=False)
 
 
 # ─────────────────────────────────────
