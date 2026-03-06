@@ -175,6 +175,10 @@ def buscar():
 def limpar():
     _delete("registros", "id=gte.0")
 
+def limpar_sessoes_ativas():
+    """Remove todas as sessões ativas (PiPs fantasmas)."""
+    _delete("sessoes_ativas", "id=gte.0")
+
 def buscar_pedidos_avulsos():
     rows = _get(
         "pedidos_base",
@@ -194,6 +198,13 @@ def excluir_pedido_avulso(numero):
     _delete("pedidos_base",   f"numero=eq.{numero}")
 
 init_db()
+
+# ── Limpeza automática de sessões expiradas (>12h) ──
+def _limpar_sessoes_expiradas():
+    limite = int(time.time()) - 43200
+    _delete("sessoes_ativas", f"iniciado_em=lt.{limite}")
+
+_limpar_sessoes_expiradas()
 
 # ─────────────────────────────────────
 #  QUERY PARAM — PiP FINALIZAR
@@ -1979,8 +1990,22 @@ def tela_admin():
 
     st.markdown("<br style='line-height:0.4'>", unsafe_allow_html=True)
 
-    h1, h2 = st.columns([3, 1])
+    h1, h2, h3 = st.columns([2, 1.2, 1.2])
     with h2:
+        st.markdown("""
+        <style>
+        .btn-warn > button {
+            background:#FEF3C7 !important; color:#92400E !important;
+            border:1.5px solid #F59E0B !important; border-radius:10px !important;
+            font-size:12px !important; font-weight:800 !important; height:40px !important;
+        }
+        .btn-warn > button:hover { background:#F59E0B !important; color:#fff !important; }
+        </style>""", unsafe_allow_html=True)
+        st.markdown('<div class="btn-warn">', unsafe_allow_html=True)
+        if st.button("⊘  Limpar PIPs", use_container_width=True, help="Remove todos os PIPs/sessões ativas fantasmas"):
+            limpar_sessoes_ativas(); st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+    with h3:
         if st.button("🗑 Limpar dados", use_container_width=True):
             limpar(); st.rerun()
 
