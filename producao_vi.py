@@ -217,18 +217,23 @@ def finalizar_pip(pedido, etapa_idx, operador, iniciado_em):
     if etapa_idx == 2:
         marcar_concluido(pedido)
 
-def salvar(pedido, operador, etapa, etapa_idx, tempo):
+def salvar(pedido, operador, etapa, etapa_idx, tempo, qtd_pecas=None):
+    fim_dt   = datetime.now()
+    inicio_dt = fim_dt - __import__('datetime').timedelta(seconds=tempo)
     _post("registros", {
         "pedido": pedido, "operador": operador, "etapa": etapa,
         "etapa_idx": etapa_idx, "tempo_segundos": tempo,
-        "data": datetime.now().strftime("%d/%m/%Y %H:%M")
+        "data":    fim_dt.strftime("%d/%m/%Y %H:%M"),
+        "inicio":  inicio_dt.strftime("%d/%m/%Y %H:%M"),
+        "qtd_pecas": qtd_pecas if qtd_pecas else None,
     })
 
 def buscar():
     rows = _get("registros", "select=*&order=id.desc")
     if isinstance(rows, list):
         return [(r.get("id"), r.get("pedido"), r.get("operador"), r.get("etapa"),
-                 r.get("etapa_idx"), r.get("tempo_segundos"), r.get("data"))
+                 r.get("etapa_idx"), r.get("tempo_segundos"), r.get("data"),
+                 r.get("inicio"), r.get("qtd_pecas"))
                 for r in rows]
     return []
 
@@ -1719,13 +1724,38 @@ def tela_producao():
 
         _, col_fin, _ = st.columns([0.5, 5, 0.5])
         with col_fin:
+            st.markdown("""
+            <style>
+            div[data-testid="stNumberInput"] label { display:none !important; }
+            div[data-testid="stNumberInput"] input {
+                border: 2px solid #E0DBD4 !important; border-radius: 12px !important;
+                background: #fff !important; font-family: 'Nunito', sans-serif !important;
+                font-size: 16px !important; font-weight: 700 !important;
+                padding: 14px 18px !important; height: 52px !important;
+                text-align: center !important;
+            }
+            div[data-testid="stNumberInput"] input:focus {
+                border-color: #C8566A !important;
+                box-shadow: 0 0 0 4px rgba(200,86,106,0.10) !important;
+            }
+            </style>""", unsafe_allow_html=True)
+            st.markdown(
+                '<div style="font-size:10px;font-weight:800;letter-spacing:2px;color:#9C9490;'
+                'text-transform:uppercase;margin-bottom:6px;text-align:center;">Qtd de Peças</div>',
+                unsafe_allow_html=True
+            )
+            qtd_pecas_val = st.number_input("_qtd_pecas", min_value=0, value=0,
+                                             step=1, key="qtd_pecas_input",
+                                             label_visibility="collapsed")
+            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
             st.markdown('<div class="btn-finalizar">', unsafe_allow_html=True)
             if st.button("■  FINALIZAR ETAPA", use_container_width=True):
                 tempo = get_elapsed()
                 st.session_state.acum    = tempo
                 st.session_state.rodando = False
                 st.session_state.inicio  = None
-                salvar(st.session_state.pedido, op, ETAPAS[etapa_idx], etapa_idx, tempo)
+                qtd = int(qtd_pecas_val) if qtd_pecas_val and qtd_pecas_val > 0 else None
+                salvar(st.session_state.pedido, op, ETAPAS[etapa_idx], etapa_idx, tempo, qtd)
                 remover_sessao_ativa(st.session_state.pedido, etapa_idx)
                 if etapa_idx == 2:
                     marcar_concluido(st.session_state.pedido)
@@ -2413,8 +2443,8 @@ def tela_admin():
                 <span style="background:#F5E8EB;color:#C8566A;font-weight:800;font-size:13px;padding:4px 14px;border-radius:100px;">{len(d["p"])}</span>
               </td>
               <td style="padding:13px 10px;text-align:center;font-family:monospace;font-size:13px;color:#3B5EC6;font-weight:700;vertical-align:middle;">{sep_t}</td>
-              <td style="padding:13px 10px;text-align:center;font-family:monospace;font-size:13px;color:#C47B2A;font-weight:700;vertical-align:middle;">{conf_t}</td>
               <td style="padding:13px 10px;text-align:center;font-family:monospace;font-size:13px;color:#4A7C59;font-weight:700;vertical-align:middle;">{emb_t}</td>
+              <td style="padding:13px 10px;text-align:center;font-family:monospace;font-size:13px;color:#C47B2A;font-weight:700;vertical-align:middle;">{conf_t}</td>
             </tr>"""
 
         n_ops = len(op_map)
@@ -2436,8 +2466,8 @@ def tela_admin():
           <th style="color:rgba(255,255,255,0.45);">Operador</th>
           <th style="color:rgba(255,255,255,0.45);">Pedidos</th>
           <th style="color:#7B9FE0;">Separação</th>
-          <th style="color:#D4A45A;">Conferência</th>
           <th style="color:#7AB895;">Embalagem</th>
+          <th style="color:#D4A45A;">Conferência</th>
         </tr></thead><tbody>{op_rows}</tbody></table></div>
         </body></html>
         """, height=56 + (n_ops * 62) + 20, scrolling=False)
@@ -2477,12 +2507,18 @@ def tela_admin():
     if regs_para_tabela:
         hist_rows = ""
         for r in regs_para_tabela[:80]:
+            # r: (id, pedido, operador, etapa, etapa_idx, tempo_s, data_fim, inicio, qtd_pecas)
+            fim_str    = r[6] if r[6] else "—"
+            inicio_str = r[7] if r[7] else "—"
+            qtd_str    = str(r[8]) if r[8] is not None else "—"
             hist_rows += f"""<tr>
               <td style="padding:11px 16px;font-family:monospace;font-size:12px;font-weight:700;color:#1A1714;">{r[1]}</td>
               <td style="padding:11px 10px;font-size:13px;font-weight:700;color:#1A1714;">{r[2]}</td>
               <td style="padding:11px 10px;">{tag_html.get(r[4], r[3])}</td>
               <td style="padding:11px 10px;font-family:monospace;font-size:12px;font-weight:700;color:#4A7C59;text-align:center;">{fmt(r[5])}</td>
-              <td style="padding:11px 10px;font-size:11px;color:#9C9490;text-align:center;">{r[6]}</td>
+              <td style="padding:11px 10px;font-size:11px;font-weight:700;color:#3B5EC6;text-align:center;">{qtd_str}</td>
+              <td style="padding:11px 10px;font-size:11px;color:#9C9490;text-align:center;">{inicio_str}</td>
+              <td style="padding:11px 10px;font-size:11px;color:#9C9490;text-align:center;">{fim_str}</td>
             </tr>"""
 
         n_hist = min(len(regs_para_tabela), 80)
@@ -2503,7 +2539,10 @@ def tela_admin():
         </style></head><body>
         <div class="lbl">Histórico de Pedidos</div>
         <div class="wrap"><table><thead><tr>
-          <th>Pedido</th><th>Operador</th><th>Etapa</th><th>Tempo</th><th>Data</th>
+          <th>Pedido</th><th>Operador</th><th>Etapa</th><th>Tempo</th>
+          <th style="color:#7B9FE0;">Qtd Peças</th>
+          <th style="color:#A0C8E0;">Início</th>
+          <th style="color:#A0C8E0;">Fim</th>
         </tr></thead><tbody>{hist_rows}</tbody></table></div>
         </body></html>
         """, height=min(hist_height, 600), scrolling=hist_height > 600)
@@ -2526,12 +2565,12 @@ def tela_admin():
 
         buf_csv = io.StringIO()
         csv.writer(buf_csv).writerows(
-            [["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data"]] + list(regs))
+            [["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data Fim","Início","Qtd Peças"]] + list(regs))
 
         pdf_bytes = gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg)
 
         # ── Gerar XLS ──
-        df_xls = pd.DataFrame(list(regs), columns=["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data"])
+        df_xls = pd.DataFrame(list(regs), columns=["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data Fim","Início","Qtd Peças"])
         buf_xls = io.BytesIO()
         with pd.ExcelWriter(buf_xls, engine="openpyxl") as writer:
             df_xls.to_excel(writer, index=False, sheet_name="Producao")
