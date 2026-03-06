@@ -122,6 +122,48 @@ def registrar_sessao_ativa(pedido, etapa_idx, operador):
 def remover_sessao_ativa(pedido, etapa_idx):
     _delete("sessoes_ativas", f"pedido=eq.{pedido}&etapa_idx=eq.{etapa_idx}")
 
+def buscar_pedidos_por_etapa(etapa_idx):
+    """Retorna (numero, cliente) dos pedidos prontos para a etapa especificada.
+    Etapa 0 (Separação)  : pedidos abertos sem nenhum registro de etapa 0
+    Etapa 1 (Embalagem)  : tem etapa 0, não tem etapa 1
+    Etapa 2 (Conferência): tem etapa 1, não tem etapa 2
+    """
+    pedidos_rows = _get("pedidos_base", "select=numero,cliente&status=eq.aberto&order=numero.asc")
+    if not isinstance(pedidos_rows, list):
+        return []
+    regs_rows = _get("registros", "select=pedido,etapa_idx")
+    if not isinstance(regs_rows, list):
+        regs_rows = []
+    etapas_feitas = {}
+    for r in regs_rows:
+        p = r.get("pedido"); e = r.get("etapa_idx")
+        if p not in etapas_feitas: etapas_feitas[p] = set()
+        if e is not None: etapas_feitas[p].add(int(e))
+    resultado = []
+    for p in pedidos_rows:
+        num = p["numero"]; cli = p.get("cliente", "")
+        feitas = etapas_feitas.get(num, set())
+        if etapa_idx == 0 and 0 not in feitas:
+            resultado.append((num, cli))
+        elif etapa_idx == 1 and 0 in feitas and 1 not in feitas:
+            resultado.append((num, cli))
+        elif etapa_idx == 2 and 1 in feitas and 2 not in feitas:
+            resultado.append((num, cli))
+    return resultado
+
+def buscar_todas_sessoes_ativas():
+    """Retorna todas as sessões ativas para exibir no PiP."""
+    rows = _get("sessoes_ativas", "select=*&order=iniciado_em.asc")
+    return rows if isinstance(rows, list) else []
+
+def finalizar_pip(pedido, etapa_idx, operador, iniciado_em):
+    """Processa FINALIZAR vindo do PiP (query param)."""
+    tempo = max(int(time.time()) - int(iniciado_em), 1)
+    salvar(pedido, operador, ETAPAS[etapa_idx], etapa_idx, tempo)
+    remover_sessao_ativa(pedido, etapa_idx)
+    if etapa_idx == 2:
+        marcar_concluido(pedido)
+
 def salvar(pedido, operador, etapa, etapa_idx, tempo):
     _post("registros", {
         "pedido": pedido, "operador": operador, "etapa": etapa,
@@ -165,6 +207,23 @@ def excluir_pedido_avulso(numero):
     _delete("pedidos_base",   f"numero=eq.{numero}")
 
 init_db()
+
+# ─────────────────────────────────────
+#  QUERY PARAM — PiP FINALIZAR
+# ─────────────────────────────────────
+_qp = st.query_params
+if _qp.get("pip_action") == "finalizar":
+    try:
+        _ped = _qp.get("pedido", "")
+        _eta = int(_qp.get("etapa", 0))
+        _op  = _qp.get("operador", "")
+        _ini = int(_qp.get("iniciado_em", 0))
+        if _ped and _op and _ini:
+            finalizar_pip(_ped, _eta, _op, _ini)
+    except Exception:
+        pass
+    st.query_params.clear()
+    st.rerun()
 
 # ─────────────────────────────────────
 #  HELPERS
@@ -514,6 +573,213 @@ def _go_producao(etapa_idx):
     st.rerun()
 
 # ─────────────────────────────────────
+#  PiP — JANELA FLUTUANTE
+# ─────────────────────────────────────
+ETAPA_CORES = ["#C8566A", "#3B7DD8", "#4A7C59"]
+ETAPA_ICONS = ["📦", "🗃️", "✅"]
+
+def render_pip():
+    """Renderiza janelas PiP flutuantes para todas as sessões ativas."""
+    sessoes = buscar_todas_sessoes_ativas()
+    if not sessoes:
+        return
+
+    cards_js = ""
+    cards_html = ""
+    for i, s in enumerate(sessoes):
+        ped     = s.get("pedido", "")
+        op      = s.get("operador", "")
+        eta_idx = int(s.get("etapa_idx", 0))
+        ini     = int(s.get("iniciado_em", 0))
+        cor     = ETAPA_CORES[eta_idx]
+        icon    = ETAPA_ICONS[eta_idx]
+        lbl     = ETAPAS_LBL[eta_idx]
+        uid     = f"{ped}_{eta_idx}"
+
+        cards_html += f"""
+        <div class="pip-card" id="pip-card-{uid}" style="border-top:3px solid {cor};">
+            <div class="pip-drag-handle" id="pip-handle-{uid}">
+                <span style="font-size:11px;opacity:0.7;">⠿</span>
+                <span style="font-size:10px;font-weight:800;letter-spacing:1px;opacity:0.7;flex:1;text-align:center;text-transform:uppercase;">{icon} {lbl}</span>
+                <span class="pip-minimize" onclick="togglePip('{uid}')" title="Minimizar">─</span>
+            </div>
+            <div class="pip-body" id="pip-body-{uid}">
+                <div style="font-size:11px;opacity:0.6;margin-bottom:2px;">Pedido <strong style="opacity:1;color:#fff;">{ped}</strong> · {op}</div>
+                <div class="pip-timer" id="pip-timer-{uid}">00:00:00</div>
+                <button class="pip-btn-fin" onclick="finalizarPip('{ped}',{eta_idx},'{op}',{ini})">■ FINALIZAR</button>
+            </div>
+        </div>"""
+
+        cards_js += f"startTimer('{uid}', {ini});\n"
+
+    st.markdown(f"""
+    <style>
+    #pip-container {{
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-width: 280px;
+        min-width: 220px;
+    }}
+    .pip-card {{
+        background: rgba(26,23,20,0.94);
+        border-radius: 14px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+        overflow: hidden;
+        resize: both;
+        min-width: 200px;
+        min-height: 120px;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }}
+    .pip-drag-handle {{
+        padding: 8px 12px;
+        background: rgba(255,255,255,0.06);
+        cursor: grab;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: rgba(255,255,255,0.65);
+        user-select: none;
+        font-family: 'Nunito', sans-serif;
+    }}
+    .pip-drag-handle:active {{ cursor: grabbing; }}
+    .pip-minimize {{
+        cursor: pointer;
+        font-size: 14px;
+        padding: 0 4px;
+        opacity: 0.6;
+        transition: opacity 0.15s;
+    }}
+    .pip-minimize:hover {{ opacity: 1; }}
+    .pip-body {{
+        padding: 10px 14px 14px;
+        font-family: 'Nunito', sans-serif;
+        color: #fff;
+    }}
+    .pip-timer {{
+        font-family: 'DM Mono', monospace;
+        font-size: 34px;
+        font-weight: 500;
+        color: #fff;
+        letter-spacing: -1px;
+        margin: 6px 0 10px;
+        line-height: 1;
+    }}
+    .pip-btn-fin {{
+        width: 100%;
+        background: #C8566A;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 9px 0;
+        font-family: 'Nunito', sans-serif;
+        font-size: 13px;
+        font-weight: 800;
+        cursor: pointer;
+        letter-spacing: 0.5px;
+        transition: background 0.15s, transform 0.1s;
+    }}
+    .pip-btn-fin:hover {{ background: #a83050; transform: translateY(-1px); }}
+    .pip-btn-fin:active {{ transform: translateY(0); }}
+    </style>
+
+    <div id="pip-container">
+        {cards_html}
+    </div>
+
+    <script>
+    (function() {{
+        function startTimer(uid, iniciado_em) {{
+            const el = document.getElementById('pip-timer-' + uid);
+            if (!el) return;
+            function update() {{
+                const elapsed = Math.floor(Date.now() / 1000) - iniciado_em;
+                const h = Math.floor(elapsed / 3600);
+                const m = Math.floor((elapsed % 3600) / 60);
+                const s = elapsed % 60;
+                el.textContent =
+                    String(h).padStart(2,'0') + ':' +
+                    String(m).padStart(2,'0') + ':' +
+                    String(s).padStart(2,'0');
+            }}
+            update();
+            setInterval(update, 1000);
+        }}
+
+        function finalizarPip(pedido, etapa, operador, iniciado_em) {{
+            const url = new URL(window.location.href);
+            url.searchParams.set('pip_action', 'finalizar');
+            url.searchParams.set('pedido', pedido);
+            url.searchParams.set('etapa', etapa);
+            url.searchParams.set('operador', operador);
+            url.searchParams.set('iniciado_em', iniciado_em);
+            window.location.href = url.toString();
+        }}
+
+        function togglePip(uid) {{
+            const body = document.getElementById('pip-body-' + uid);
+            if (!body) return;
+            body.style.display = body.style.display === 'none' ? 'block' : 'none';
+        }}
+
+        // ── Drag logic (por card) ──
+        document.querySelectorAll('.pip-drag-handle').forEach(handle => {{
+            const card = handle.closest('.pip-card');
+            let dragging = false, sx, sy, ox, oy;
+            handle.addEventListener('mousedown', e => {{
+                dragging = true;
+                sx = e.clientX; sy = e.clientY;
+                const rect = card.getBoundingClientRect();
+                ox = rect.left; oy = rect.top;
+                card.style.position = 'fixed';
+                card.style.left = ox + 'px';
+                card.style.top  = oy + 'px';
+                card.style.margin = '0';
+                e.preventDefault();
+            }});
+            document.addEventListener('mousemove', e => {{
+                if (!dragging) return;
+                card.style.left = (ox + e.clientX - sx) + 'px';
+                card.style.top  = (oy + e.clientY - sy) + 'px';
+            }});
+            document.addEventListener('mouseup', () => dragging = false);
+        }});
+
+        // ── Touch drag ──
+        document.querySelectorAll('.pip-drag-handle').forEach(handle => {{
+            const card = handle.closest('.pip-card');
+            let ox, oy, sx, sy;
+            handle.addEventListener('touchstart', e => {{
+                const t = e.touches[0];
+                sx = t.clientX; sy = t.clientY;
+                const rect = card.getBoundingClientRect();
+                ox = rect.left; oy = rect.top;
+                card.style.position = 'fixed';
+                card.style.left = ox + 'px';
+                card.style.top  = oy + 'px';
+                card.style.margin = '0';
+            }}, {{passive:true}});
+            handle.addEventListener('touchmove', e => {{
+                const t = e.touches[0];
+                card.style.left = (ox + t.clientX - sx) + 'px';
+                card.style.top  = (oy + t.clientY - sy) + 'px';
+                e.preventDefault();
+            }}, {{passive:false}});
+        }});
+
+        // Iniciar timers
+        {cards_js}
+    }})();
+    </script>
+    """, unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────
 #  TELA: HOME
 # ─────────────────────────────────────
 def tela_home():
@@ -619,10 +885,10 @@ def tela_home():
         </div>
         """, unsafe_allow_html=True)
 
-        pedidos_db      = buscar_pedidos_base()
-        pedidos_abertos = [p[0] for p in pedidos_db if p[3] == "aberto"]
-        pedidos_info    = {p[0]: p[1] for p in pedidos_db if p[3] == "aberto"}
-        has_base        = len(pedidos_db) > 0
+        pedidos_etapa   = buscar_pedidos_por_etapa(etapa_idx)
+        pedidos_abertos = [p[0] for p in pedidos_etapa]
+        pedidos_info    = {p[0]: p[1] for p in pedidos_etapa}
+        has_base        = len(pedidos_etapa) > 0
 
         st.markdown("""
         <style>
@@ -661,12 +927,12 @@ def tela_home():
             _, col_inp, _ = st.columns([0.3, 4, 0.3])
             with col_inp:
                 pedido_inp = st.text_input("_ped", placeholder="Ex: 49735", key="home_pedido_txt")
-            if has_base and not pedidos_abertos:
+            if not pedidos_abertos:
                 import streamlit.components.v1 as _cv1
                 _cv1.html(
-                    '<div style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:10px;'
-                    'padding:10px 14px;font-family:sans-serif;font-size:12px;font-weight:700;color:#92400E;text-align:center;">'
-                    '⚠ Nenhum pedido em aberto na base.</div>',
+                    f'<div style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:10px;'
+                    f'padding:10px 14px;font-family:sans-serif;font-size:12px;font-weight:700;color:#92400E;text-align:center;">'
+                    f'⚠ Nenhum pedido aguardando {etapa_lbl} no momento.</div>',
                     height=50, scrolling=False
                 )
 
@@ -798,9 +1064,13 @@ def tela_home():
         return
 
     # ── PASSO 3: Selecionar Operador ─────────────────────────────────────────
-    pedido_val = st.session_state.pedido
-    pedidos_db = buscar_pedidos_base()
-    pedidos_info = {p[0]: p[1] for p in pedidos_db}
+    pedido_val   = st.session_state.pedido
+    pedidos_etapa = buscar_pedidos_por_etapa(etapa_idx)
+    pedidos_info  = {p[0]: p[1] for p in pedidos_etapa}
+    # Fallback: busca diretamente no banco se não achar
+    if pedido_val not in pedidos_info:
+        _rows = _get("pedidos_base", f"numero=eq.{pedido_val}&select=cliente")
+        if _rows: pedidos_info[pedido_val] = _rows[0].get("cliente", "")
     cli_nome = pedidos_info.get(pedido_val, "")
 
     render_stepper(etapa_idx)
@@ -839,7 +1109,16 @@ def tela_home():
         with col_ini:
             st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
             if st.button("▶  INICIAR OPERAÇÃO", use_container_width=True, key="home_iniciar_op"):
-                _go_producao(etapa_idx)
+                registrar_sessao_ativa(
+                    st.session_state.pedido, etapa_idx, st.session_state.operador
+                )
+                # Volta ao menu principal — PiP assume o controle
+                st.session_state.pedido_validado = False
+                st.session_state.pedido          = None
+                st.session_state.operador        = None
+                st.session_state.etapa_escolhida = None
+                st.session_state.pedido_status   = None
+                st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
@@ -1796,6 +2075,8 @@ def tela_admin():
 # ─────────────────────────────────────
 #  ROUTER
 # ─────────────────────────────────────
+render_pip()
+
 {
     "home":        tela_home,
     "producao":    tela_producao,
