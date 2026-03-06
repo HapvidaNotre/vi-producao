@@ -176,8 +176,16 @@ def limpar():
     _delete("registros", "id=gte.0")
 
 def limpar_sessoes_ativas():
-    """Remove todas as sessões ativas (PiPs fantasmas)."""
-    _delete("sessoes_ativas", "id=gte.0")
+    """Remove todas as sessões ativas buscando e deletando uma a uma."""
+    rows = _get("sessoes_ativas", "select=pedido,etapa_idx")
+    if isinstance(rows, list):
+        for r in rows:
+            ped = r.get("pedido", "")
+            eta = r.get("etapa_idx", 0)
+            if ped != "":
+                _delete("sessoes_ativas", f"pedido=eq.{ped}&etapa_idx=eq.{eta}")
+    # fallback: deleta por campo operador sempre preenchido
+    _delete("sessoes_ativas", "operador=neq.___x___")
 
 def buscar_pedidos_avulsos():
     rows = _get(
@@ -201,8 +209,19 @@ init_db()
 
 # ── Limpeza automática de sessões expiradas (>12h) ──
 def _limpar_sessoes_expiradas():
+    """Remove sessões com mais de 12h buscando e deletando individualmente."""
     limite = int(time.time()) - 43200
-    _delete("sessoes_ativas", f"iniciado_em=lt.{limite}")
+    rows = _get("sessoes_ativas", "select=pedido,etapa_idx,iniciado_em")
+    if isinstance(rows, list):
+        for r in rows:
+            try:
+                if int(r.get("iniciado_em", 0)) < limite:
+                    ped = r.get("pedido", "")
+                    eta = r.get("etapa_idx", 0)
+                    if ped:
+                        _delete("sessoes_ativas", f"pedido=eq.{ped}&etapa_idx=eq.{eta}")
+            except Exception:
+                pass
 
 _limpar_sessoes_expiradas()
 
@@ -210,7 +229,9 @@ _limpar_sessoes_expiradas()
 #  QUERY PARAM — PiP FINALIZAR
 # ─────────────────────────────────────
 _qp = st.query_params
-if _qp.get("pip_action") == "finalizar":
+_pip_action = _qp.get("pip_action", "")
+
+if _pip_action == "finalizar":
     try:
         _ped = _qp.get("pedido", "")
         _eta = int(_qp.get("etapa", 0))
@@ -218,6 +239,18 @@ if _qp.get("pip_action") == "finalizar":
         _ini = int(_qp.get("iniciado_em", 0))
         if _ped and _op and _ini:
             finalizar_pip(_ped, _eta, _op, _ini)
+    except Exception:
+        pass
+    st.query_params.clear()
+    st.rerun()
+
+elif _pip_action == "fechar":
+    # Fecha o PiP sem salvar o tempo — apenas remove a sessão ativa
+    try:
+        _ped = _qp.get("pedido", "")
+        _eta = int(_qp.get("etapa", 0))
+        if _ped:
+            remover_sessao_ativa(_ped, _eta)
     except Exception:
         pass
     st.query_params.clear()
@@ -587,15 +620,27 @@ def render_pip():
 
         cards_html += f"""
         <div class="pip-card" id="pip-card-{uid}" style="border-top:3px solid {cor};">
+          <!-- Header -->
           <div class="pip-drag-handle" id="pip-handle-{uid}">
-            <span style="font-size:11px;opacity:0.6;">⠿</span>
+            <span style="font-size:11px;opacity:0.5;flex-shrink:0;">⠿</span>
             <span style="font-size:10px;font-weight:800;letter-spacing:1px;opacity:0.7;flex:1;text-align:center;text-transform:uppercase;">{icon} {lbl}</span>
             <span class="pip-minimize" onclick="togglePip('{uid}')" title="Minimizar">─</span>
+            <span class="pip-close-btn" onclick="pedirFechamento('{uid}','{ped}',{eta_idx},'{op}',{ini})" title="Fechar PiP">✕</span>
           </div>
+          <!-- Body normal -->
           <div class="pip-body" id="pip-body-{uid}">
             <div style="font-size:11px;opacity:0.6;margin-bottom:2px;">Pedido <strong style="opacity:1;color:#fff;">{ped}</strong> · {op}</div>
             <div class="pip-timer" id="pip-timer-{uid}">00:00:00</div>
             <button class="pip-btn-fin" onclick="finalizarPip('{ped}',{eta_idx},'{op}',{ini})">&#9632; FINALIZAR</button>
+          </div>
+          <!-- Popup de confirmação (oculto por padrão) -->
+          <div class="pip-confirm" id="pip-confirm-{uid}">
+            <div class="pip-confirm-icon">⚠️</div>
+            <div class="pip-confirm-msg">Fechar o PiP <strong>descarta o tempo</strong> sem salvar.<br>Tem certeza?</div>
+            <div class="pip-confirm-btns">
+              <button class="pip-confirm-yes" onclick="fecharPip('{uid}','{ped}',{eta_idx})">Sim, fechar</button>
+              <button class="pip-confirm-no"  onclick="cancelarFechamento('{uid}')">Cancelar</button>
+            </div>
           </div>
         </div>"""
 
@@ -685,6 +730,53 @@ def render_pip():
                 letter-spacing: 0.5px;
             }}
             .pip-btn-fin:hover {{ background: #a83050; }}
+
+            /* ── Botão X fechar ── */
+            .pip-close-btn {{
+                cursor: pointer;
+                font-size: 13px;
+                padding: 0 2px 0 6px;
+                opacity: 0.45;
+                color: #fff;
+                flex-shrink: 0;
+                line-height: 1;
+                transition: opacity .15s, color .15s;
+            }}
+            .pip-close-btn:hover {{ opacity: 1; color: #FF6B6B; }}
+
+            /* ── Popup de confirmação ── */
+            .pip-confirm {{
+                display: none;
+                padding: 16px 14px 14px;
+                font-family: 'Nunito', sans-serif;
+                color: #fff;
+                text-align: center;
+                animation: fadeIn .15s ease;
+            }}
+            @keyframes fadeIn {{ from{{opacity:0;transform:translateY(4px)}} to{{opacity:1;transform:translateY(0)}} }}
+            .pip-confirm-icon {{ font-size: 26px; margin-bottom: 8px; }}
+            .pip-confirm-msg {{
+                font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.8);
+                line-height: 1.55; margin-bottom: 14px;
+            }}
+            .pip-confirm-msg strong {{ color: #FF6B6B; }}
+            .pip-confirm-btns {{ display: flex; gap: 8px; }}
+            .pip-confirm-yes {{
+                flex: 1; background: rgba(200,86,106,0.25); color: #FF8FA3;
+                border: 1.5px solid rgba(200,86,106,0.5); border-radius: 8px;
+                padding: 8px 0; font-family: 'Nunito', sans-serif;
+                font-size: 12px; font-weight: 800; cursor: pointer;
+                transition: background .15s;
+            }}
+            .pip-confirm-yes:hover {{ background: #C8566A; color: #fff; border-color: #C8566A; }}
+            .pip-confirm-no {{
+                flex: 1; background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.65);
+                border: 1.5px solid rgba(255,255,255,0.15); border-radius: 8px;
+                padding: 8px 0; font-family: 'Nunito', sans-serif;
+                font-size: 12px; font-weight: 800; cursor: pointer;
+                transition: background .15s;
+            }}
+            .pip-confirm-no:hover {{ background: rgba(255,255,255,0.14); color: #fff; }}
         `;
         pd.head.appendChild(style);
 
@@ -724,6 +816,41 @@ def render_pip():
             var body = pd.getElementById('pip-body-' + uid);
             if (!body) return;
             body.style.display = body.style.display === 'none' ? 'block' : 'none';
+        }};
+
+        /* Abre o popup de confirmação de fechamento */
+        window.parent.pedirFechamento = function(uid, pedido, etapa, operador, iniciado_em) {{
+            var body    = pd.getElementById('pip-body-' + uid);
+            var confirm = pd.getElementById('pip-confirm-' + uid);
+            if (!body || !confirm) return;
+            body.style.display    = 'none';
+            confirm.style.display = 'block';
+        }};
+
+        /* Usuário confirmou — remove do DOM + chama endpoint para deletar sessão */
+        window.parent.fecharPip = function(uid, pedido, etapa) {{
+            var card = pd.getElementById('pip-card-' + uid);
+            if (card) {{
+                card.style.transition = 'opacity .2s, transform .2s';
+                card.style.opacity = '0';
+                card.style.transform = 'scale(0.92)';
+                setTimeout(function() {{ if (card) card.remove(); }}, 220);
+            }}
+            // Redireciona com ação de fechar (sem salvar tempo)
+            var url = new URL(window.parent.location.href);
+            url.searchParams.set('pip_action', 'fechar');
+            url.searchParams.set('pedido', pedido);
+            url.searchParams.set('etapa', etapa);
+            window.parent.location.href = url.toString();
+        }};
+
+        /* Usuário cancelou — volta ao body normal */
+        window.parent.cancelarFechamento = function(uid) {{
+            var body    = pd.getElementById('pip-body-' + uid);
+            var confirm = pd.getElementById('pip-confirm-' + uid);
+            if (!body || !confirm) return;
+            confirm.style.display = 'none';
+            body.style.display    = 'block';
         }};
 
         pd.querySelectorAll('.pip-drag-handle').forEach(function(handle) {{
@@ -852,12 +979,29 @@ def tela_home():
             if i < 2: st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
-        _, col_c, _ = st.columns([2, 1, 2])
-        with col_c:
+        col_adm, col_pip = st.columns(2)
+        with col_adm:
             st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
             if st.button("⚙ Admin", use_container_width=True):
                 st.session_state.tela = "admin_login"; st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
+        with col_pip:
+            sessoes_ativas_agora = buscar_todas_sessoes_ativas()
+            if sessoes_ativas_agora:
+                st.markdown("""
+                <style>
+                .btn-pip-clear > button {
+                    background:#FEF3C7 !important; color:#92400E !important;
+                    border:1.5px solid #F59E0B !important; border-radius:12px !important;
+                    font-size:13px !important; font-weight:800 !important; height:54px !important;
+                }
+                .btn-pip-clear > button:hover { background:#F59E0B !important; color:#fff !important; }
+                </style>""", unsafe_allow_html=True)
+                st.markdown('<div class="btn-pip-clear">', unsafe_allow_html=True)
+                if st.button(f"⊘ Limpar {len(sessoes_ativas_agora)} PiP(s)", use_container_width=True):
+                    limpar_sessoes_ativas()
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
         return
 
     etapa_idx = st.session_state.etapa_escolhida
