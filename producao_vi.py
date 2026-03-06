@@ -1087,6 +1087,16 @@ def tela_home():
 
     # ── PASSO 2: Digitar Pedido + BUSCAR ─────────────────────────────────────
     if not st.session_state.pedido_validado:
+
+        # ── PAINEL DE STATUS — tratado antes do formulário ───────────────────
+        if st.session_state.pedido_status == "mostrar_status":
+            num    = st.session_state.get("_pedido_validando", "")
+            _status_completo = buscar_status_completo_pedido(num)
+            st.session_state["_status_cache"] = _status_completo
+            # Rerun para entrar no bloco abaixo (fora do if not validado)
+            st.session_state.pedido_status = "mostrar_status_ok"
+            st.rerun()
+
         render_stepper(etapa_idx)
         st.markdown(
             f'<div style="background:#F5E8EB;border-left:4px solid #C8566A;border-radius:0 10px 10px 0;'
@@ -1262,9 +1272,9 @@ def tela_home():
         return
 
     # ── PAINEL DE STATUS DO PEDIDO ────────────────────────────────────────────
-    if st.session_state.pedido_status == "mostrar_status":
+    if st.session_state.pedido_status == "mostrar_status_ok":
         num    = st.session_state.get("_pedido_validando", "")
-        status = buscar_status_completo_pedido(num)
+        status = st.session_state.get("_status_cache") or buscar_status_completo_pedido(num)
         render_stepper(etapa_idx)
 
         base_st   = status["base_status"]
