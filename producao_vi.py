@@ -565,12 +565,12 @@ def render_avatar_grid(on_click_key="home"):
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
 <style>
 *{{margin:0;padding:0;box-sizing:border-box;}}
-body{{background:transparent;font-family:'Nunito',sans-serif;}}
+body{{background:transparent;font-family:'Nunito',sans-serif;overflow:visible;}}
 .card{{
     display:flex;align-items:center;gap:14px;
     background:#fff;border:2px solid #E8E2DC;
     border-radius:16px 16px 0 0;
-    padding:14px 18px 10px;
+    padding:14px 18px 12px;
     box-shadow:0 2px 12px rgba(0,0,0,.06);
     border-bottom: none;
 }}
@@ -595,7 +595,7 @@ body{{background:transparent;font-family:'Nunito',sans-serif;}}
     </div>
     <div class="arrow">⌄</div>
 </div>
-</body></html>""", height=86, scrolling=False)
+</body></html>""", height=96, scrolling=False)
 
     st.markdown("""
     <style>
@@ -1735,6 +1735,25 @@ def tela_producao():
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
+        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+        _, col_menu, _ = st.columns([0.5, 5, 0.5])
+        with col_menu:
+            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+            if st.button("← Voltar ao Menu", use_container_width=True, key="voltar_menu_rodando"):
+                # Remove sessão ativa e volta ao menu principal
+                remover_sessao_ativa(st.session_state.pedido, etapa_idx)
+                st.session_state.rodando         = False
+                st.session_state.inicio          = None
+                st.session_state.acum            = 0
+                st.session_state.pedido          = None
+                st.session_state.pedido_status   = None
+                st.session_state.pedido_validado = False
+                st.session_state.operador        = None
+                st.session_state.etapa_escolhida = None
+                st.session_state.tela            = "home"
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+
         time.sleep(1); st.rerun()
 
     # ── Modal: próxima etapa ──
@@ -2511,27 +2530,13 @@ def tela_admin():
 
         pdf_bytes = gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg)
 
-        import xml.etree.ElementTree as ET
-        from xml.dom import minidom
-        root = ET.Element("RelatorioProducao")
-        root.set("gerado_em", datetime.now().strftime("%d/%m/%Y %H:%M"))
-        root.set("total_registros", str(len(regs)))
-        summary = ET.SubElement(root, "Resumo")
-        ET.SubElement(summary, "PedidosConcluidos").text = str(len(ped_comp))
-        ET.SubElement(summary, "OperadoresAtivos").text  = str(ops_ativ)
-        ET.SubElement(summary, "TempoMedioSegundos").text = str(avg)
-        registros_el = ET.SubElement(root, "Registros")
-        for r in regs:
-            reg = ET.SubElement(registros_el, "Registro")
-            reg.set("id", str(r[0]))
-            ET.SubElement(reg, "Pedido").text         = str(r[1])
-            ET.SubElement(reg, "Operador").text       = str(r[2])
-            ET.SubElement(reg, "Etapa").text          = str(r[3])
-            ET.SubElement(reg, "EtapaIdx").text       = str(r[4])
-            ET.SubElement(reg, "TempoSegundos").text  = str(r[5])
-            ET.SubElement(reg, "TempoFormatado").text = fmt(r[5])
-            ET.SubElement(reg, "Data").text           = str(r[6])
-        xml_bytes = minidom.parseString(ET.tostring(root, encoding="unicode")).toprettyxml(indent="  ").encode("utf-8")
+        # ── Gerar XLS ──
+        df_xls = pd.DataFrame(list(regs), columns=["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data"])
+        buf_xls = io.BytesIO()
+        with pd.ExcelWriter(buf_xls, engine="openpyxl") as writer:
+            df_xls.to_excel(writer, index=False, sheet_name="Producao")
+        buf_xls.seek(0)
+        xls_bytes = buf_xls.read()
 
         c1, c2, c3 = st.columns(3)
         with c1:
@@ -2541,8 +2546,8 @@ def tela_admin():
             st.markdown('</div>', unsafe_allow_html=True)
         with c2:
             st.markdown('<div class="btn-xml">', unsafe_allow_html=True)
-            st.download_button("🗂  Exportar XML", data=xml_bytes,
-                file_name=f"vi_producao_{ts}.xml", mime="application/xml", use_container_width=True)
+            st.download_button("📊  Exportar XLS", data=xls_bytes,
+                file_name=f"vi_producao_{ts}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
             st.markdown('</div>', unsafe_allow_html=True)
         with c3:
             st.markdown('<div class="btn-pdf">', unsafe_allow_html=True)
