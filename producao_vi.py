@@ -123,11 +123,6 @@ def remover_sessao_ativa(pedido, etapa_idx):
     _delete("sessoes_ativas", f"pedido=eq.{pedido}&etapa_idx=eq.{etapa_idx}")
 
 def buscar_pedidos_por_etapa(etapa_idx):
-    """Retorna (numero, cliente) dos pedidos prontos para a etapa especificada.
-    Etapa 0 (Separação)  : pedidos abertos sem nenhum registro de etapa 0
-    Etapa 1 (Embalagem)  : tem etapa 0, não tem etapa 1
-    Etapa 2 (Conferência): tem etapa 1, não tem etapa 2
-    """
     pedidos_rows = _get("pedidos_base", "select=numero,cliente&status=eq.aberto&order=numero.asc")
     if not isinstance(pedidos_rows, list):
         return []
@@ -152,12 +147,10 @@ def buscar_pedidos_por_etapa(etapa_idx):
     return resultado
 
 def buscar_todas_sessoes_ativas():
-    """Retorna todas as sessões ativas para exibir no PiP."""
     rows = _get("sessoes_ativas", "select=*&order=iniciado_em.asc")
     return rows if isinstance(rows, list) else []
 
 def finalizar_pip(pedido, etapa_idx, operador, iniciado_em):
-    """Processa FINALIZAR vindo do PiP (query param)."""
     tempo = max(int(time.time()) - int(iniciado_em), 1)
     salvar(pedido, operador, ETAPAS[etapa_idx], etapa_idx, tempo)
     remover_sessao_ativa(pedido, etapa_idx)
@@ -183,11 +176,6 @@ def limpar():
     _delete("registros", "id=gte.0")
 
 def buscar_pedidos_avulsos():
-    """
-    Retorna pedidos cadastrados manualmente (avulsos).
-    Critério: cliente vazio E percentual nulo — campos que o Programa A
-    sempre preenche na sincronização, mas o cadastro avulso nunca preenche.
-    """
     rows = _get(
         "pedidos_base",
         "select=numero,status,importado_em"
@@ -201,7 +189,6 @@ def buscar_pedidos_avulsos():
     return []
 
 def excluir_pedido_avulso(numero):
-    """Remove o pedido e todos os seus rastros em cascata."""
     _delete("sessoes_ativas", f"pedido=eq.{numero}")
     _delete("registros",      f"pedido=eq.{numero}")
     _delete("pedidos_base",   f"numero=eq.{numero}")
@@ -257,7 +244,7 @@ for k, v in {
     "erro_pedido":False, "erro_senha":False,
     "pedido_status":None, "pedido_confirm":False,
     "etapa_escolhida":None, "duplicata_info":None,
-    "pedido_validado":False,  # True quando pedido foi buscado e validado
+    "pedido_validado":False,
 }.items():
     if k not in st.session_state:
         st.session_state[k] = v
@@ -562,16 +549,6 @@ body{{background:transparent;font-family:'Nunito',sans-serif;}}
             st.rerun()
 
 
-def _go_producao(etapa_idx):
-    registrar_sessao_ativa(st.session_state.pedido, etapa_idx, st.session_state.operador)
-    st.session_state.etapa_idx = etapa_idx
-    st.session_state.rodando   = False
-    st.session_state.inicio    = None
-    st.session_state.acum      = 0
-    st.session_state.modal     = None
-    st.session_state.tela      = "producao"
-    st.rerun()
-
 # ─────────────────────────────────────
 #  PiP — JANELA FLUTUANTE
 # ─────────────────────────────────────
@@ -579,7 +556,7 @@ ETAPA_CORES = ["#C8566A", "#3B7DD8", "#4A7C59"]
 ETAPA_ICONS = ["📦", "🗃️", "✅"]
 
 def render_pip():
-    """Renderiza janelas PiP flutuantes para todas as sessões ativas."""
+    """Renderiza janelas PiP flutuantes — só aparece para sessões com cronômetro ativo."""
     sessoes = buscar_todas_sessoes_ativas()
     if not sessoes:
         return
@@ -613,13 +590,11 @@ def render_pip():
 
         cards_js += f"startTimer('{uid}', {ini});\n"
 
-    # Injeta no documento PAI via iframe trick (necessário no Streamlit)
     components.html(f"""
     <script>
     (function() {{
         var pd = window.parent.document;
 
-        // Evita duplicar
         if (pd.getElementById('pip-container')) {{
             pd.getElementById('pip-container').remove();
         }}
@@ -627,7 +602,6 @@ def render_pip():
             pd.getElementById('pip-styles').remove();
         }}
 
-        // Estilos
         var style = pd.createElement('style');
         style.id = 'pip-styles';
         style.textContent = `
@@ -703,13 +677,11 @@ def render_pip():
         `;
         pd.head.appendChild(style);
 
-        // Container + cards
         var container = pd.createElement('div');
         container.id = 'pip-container';
         container.innerHTML = `{cards_html}`;
         pd.body.appendChild(container);
 
-        // Funções globais
         window.parent.startTimer = function(uid, iniciado_em) {{
             var el = pd.getElementById('pip-timer-' + uid);
             if (!el) return;
@@ -743,7 +715,6 @@ def render_pip():
             body.style.display = body.style.display === 'none' ? 'block' : 'none';
         }};
 
-        // Drag mouse
         pd.querySelectorAll('.pip-drag-handle').forEach(function(handle) {{
             var card = handle.closest('.pip-card');
             var dragging = false, sx, sy, ox, oy;
@@ -766,7 +737,6 @@ def render_pip():
             pd.addEventListener('mouseup', function() {{ dragging = false; }});
         }});
 
-        // Drag touch
         pd.querySelectorAll('.pip-drag-handle').forEach(function(handle) {{
             var card = handle.closest('.pip-card');
             var ox, oy, sx, sy;
@@ -788,7 +758,6 @@ def render_pip():
             }}, {{passive:false}});
         }});
 
-        // Iniciar timers
         {cards_js}
     }})();
     </script>
@@ -952,7 +921,6 @@ def tela_home():
                     height=50, scrolling=False
                 )
 
-        # ── Alertas de validação ──
         if st.session_state.pedido_status == "concluido":
             import streamlit.components.v1 as _cv1
             _cv1.html(
@@ -1083,7 +1051,6 @@ def tela_home():
     pedido_val   = st.session_state.pedido
     pedidos_etapa = buscar_pedidos_por_etapa(etapa_idx)
     pedidos_info  = {p[0]: p[1] for p in pedidos_etapa}
-    # Fallback: busca diretamente no banco se não achar
     if pedido_val not in pedidos_info:
         _rows = _get("pedidos_base", f"numero=eq.{pedido_val}&select=cliente")
         if _rows: pedidos_info[pedido_val] = _rows[0].get("cliente", "")
@@ -1091,7 +1058,6 @@ def tela_home():
 
     render_stepper(etapa_idx)
 
-    # Card pedido confirmado
     import streamlit.components.v1 as _cv1
     _cv1.html(
         f'<div style="background:#F0F7F3;border:1.5px solid #4A7C59;border-radius:12px;'
@@ -1125,15 +1091,16 @@ def tela_home():
         with col_ini:
             st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
             if st.button("▶  INICIAR OPERAÇÃO", use_container_width=True, key="home_iniciar_op"):
-                registrar_sessao_ativa(
-                    st.session_state.pedido, etapa_idx, st.session_state.operador
-                )
-                # Volta ao menu principal — PiP assume o controle
-                st.session_state.pedido_validado = False
-                st.session_state.pedido          = None
-                st.session_state.operador        = None
-                st.session_state.etapa_escolhida = None
-                st.session_state.pedido_status   = None
+                # ✅ CORREÇÃO: NÃO registra sessão ativa aqui.
+                # A sessão só é registrada quando o operador clicar em
+                # "INICIAR CRONÔMETRO" na tela de produção.
+                # Isso garante que o PiP só aparece com o cronômetro rodando.
+                st.session_state.etapa_idx       = etapa_idx
+                st.session_state.rodando         = False
+                st.session_state.inicio          = None
+                st.session_state.acum            = 0
+                st.session_state.modal           = None
+                st.session_state.tela            = "producao"
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1203,6 +1170,8 @@ def tela_producao():
         with c1:
             st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
             if st.button("▶  INICIAR CRONÔMETRO", use_container_width=True):
+                # ✅ SESSÃO REGISTRADA AQUI — único momento correto.
+                # O PiP só aparece a partir deste ponto.
                 st.session_state.rodando = True
                 st.session_state.inicio  = time.time()
                 st.session_state.acum    = 0
@@ -1215,12 +1184,15 @@ def tela_producao():
         with c2:
             st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
             if st.button("← Voltar ao Menu", use_container_width=True):
-                remover_sessao_ativa(pedido_val, etapa_idx)
-                st.session_state.pedido = None
-                st.session_state.pedido_status = None
-                st.session_state.operador = None
+                # Sem sessão ativa registrada, nada para remover.
+                # Limpa estado e volta ao lobby.
+                st.session_state.pedido          = None
+                st.session_state.pedido_status   = None
+                st.session_state.pedido_validado = False
+                st.session_state.operador        = None
                 st.session_state.etapa_escolhida = None
-                st.session_state.tela = "home"; st.rerun()
+                st.session_state.tela            = "home"
+                st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
     # ── Timer rodando ──
@@ -1257,6 +1229,43 @@ def tela_producao():
         </body></html>
         """, height=200, scrolling=False)
 
+        # ── Botão: Retornar ao Lobby (cronômetro continua no PiP) ──
+        _, col_pip, _ = st.columns([0.5, 5, 0.5])
+        with col_pip:
+            st.markdown("""
+            <style>
+            .btn-pip > button {
+                background: rgba(26,23,20,0.85) !important;
+                color: rgba(255,255,255,0.85) !important;
+                border: 1.5px solid rgba(255,255,255,0.15) !important;
+                font-size: 13px !important;
+                height: 46px !important;
+                border-radius: 12px !important;
+                letter-spacing: 0.5px !important;
+            }
+            .btn-pip > button:hover {
+                background: rgba(40,36,32,0.95) !important;
+                border-color: rgba(200,86,106,0.5) !important;
+                color: #fff !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+            st.markdown('<div class="btn-pip">', unsafe_allow_html=True)
+            if st.button("⊞  Retornar ao Lobby  (PiP continua ativo)", use_container_width=True):
+                # ✅ Mantém sessão ativa no banco — PiP aparece no lobby
+                st.session_state.rodando         = False
+                st.session_state.inicio          = None
+                st.session_state.acum            = 0
+                st.session_state.pedido          = None
+                st.session_state.pedido_validado = False
+                st.session_state.operador        = None
+                st.session_state.etapa_escolhida = None
+                st.session_state.tela            = "home"
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
         _, col_fin, _ = st.columns([0.5, 5, 0.5])
         with col_fin:
             st.markdown('<div class="btn-finalizar">', unsafe_allow_html=True)
@@ -1266,7 +1275,7 @@ def tela_producao():
                 st.session_state.rodando = False
                 st.session_state.inicio  = None
                 salvar(st.session_state.pedido, op, ETAPAS[etapa_idx], etapa_idx, tempo)
-                # ✅ CORREÇÃO: marcar_concluido e definição do modal DENTRO do bloco do botão
+                remover_sessao_ativa(st.session_state.pedido, etapa_idx)
                 if etapa_idx == 2:
                     marcar_concluido(st.session_state.pedido)
                     st.session_state.modal = "concluido"
@@ -1685,7 +1694,6 @@ def tela_admin():
             st.session_state.tela = "home"; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # ── ✅ INFO: planilha gerenciada pelo Programa A ──
     pedidos_base_count = len(buscar_pedidos_base())
     if pedidos_base_count > 0:
         pb = buscar_pedidos_base()
@@ -1715,7 +1723,6 @@ def tela_admin():
         </div>
         """, unsafe_allow_html=True)
 
-    # ── 🗑️ GERENCIAR PEDIDOS AVULSOS ──────────────────────────────────────────
     avulsos = buscar_pedidos_avulsos()
 
     with st.expander(
@@ -1743,12 +1750,10 @@ def tela_admin():
             </div>
             """, unsafe_allow_html=True)
 
-            # Inicializa estado de confirmação por pedido
             if "confirm_excluir" not in st.session_state:
                 st.session_state.confirm_excluir = {}
 
             for numero, status, importado_em in avulsos:
-                # Verifica se tem registros de produção vinculados
                 regs_vinculados = _get("registros", f"pedido=eq.{numero}&select=id")
                 tem_registros   = isinstance(regs_vinculados, list) and len(regs_vinculados) > 0
                 cor_status      = "#4A7C59" if status == "aberto" else "#C8566A"
@@ -1776,7 +1781,6 @@ def tela_admin():
                     """, unsafe_allow_html=True)
 
                 with col_btn:
-                    chave_confirm = f"confirm_{numero}"
                     em_confirmacao = st.session_state.confirm_excluir.get(numero, False)
 
                     if not em_confirmacao:
@@ -1799,7 +1803,6 @@ def tela_admin():
                             st.rerun()
                         st.markdown('</div>', unsafe_allow_html=True)
                     else:
-                        # Linha de confirmação
                         st.markdown("""
                         <div style="font-size:10px;font-weight:800;color:#C8566A;
                                     text-align:center;margin-bottom:4px;">Confirmar?</div>
@@ -1839,7 +1842,6 @@ def tela_admin():
     avg      = media([r[5] for r in regs]) // 60 if regs else 0
     total_r  = len(regs)
 
-    # ── KPI Cards ──
     kpi_html = f"""
     <!DOCTYPE html><html><head>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -1863,7 +1865,6 @@ def tela_admin():
     </body></html>"""
     components.html(kpi_html, height=115, scrolling=False)
 
-    # ── Tabela de operadores ──
     op_map = {}
     for r in regs:
         op = r[2]
@@ -1873,7 +1874,6 @@ def tela_admin():
         if r[4]==1: op_map[op]["conf"].append(r[5])
         if r[4]==2: op_map[op]["emb"].append(r[5])
 
-    # ── Filtros do painel gestor ──────────────────────────────────────────────
     st.markdown("<br style='line-height:0.3'>", unsafe_allow_html=True)
 
     todas_datas_regs = sorted({
@@ -1911,7 +1911,6 @@ def tela_admin():
 
     regs_para_tabela = regs_filtrados
 
-    # ── Tabela de operadores ──
     op_map = {}
     for r in regs_filtrados:
         op = r[2]
@@ -2027,7 +2026,6 @@ def tela_admin():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ── Exportações ──
     if regs:
         st.markdown("""
         <style>
