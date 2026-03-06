@@ -150,6 +150,66 @@ def buscar_todas_sessoes_ativas():
     rows = _get("sessoes_ativas", "select=*&order=iniciado_em.asc")
     return rows if isinstance(rows, list) else []
 
+def buscar_status_completo_pedido(numero):
+    """
+    Retorna dict com o status detalhado de cada etapa do pedido:
+    {
+      "base_status": "aberto"|"concluido"|"nao_encontrado",
+      "etapas": [
+        {"idx":0, "label":"Separação", "feita":True/False, "em_andamento":False,
+         "operador":"...", "tempo":120, "data":"..."},
+        ...
+      ]
+    }
+    """
+    # Status base
+    base_rows = _get("pedidos_base", f"numero=eq.{numero}&select=status,cliente")
+    if not base_rows:
+        return {"base_status": "nao_encontrado", "cliente": "", "etapas": []}
+    base_status = base_rows[0].get("status", "aberto")
+    cliente     = base_rows[0].get("cliente", "")
+
+    # Registros finalizados por etapa
+    reg_rows = _get("registros",
+        f"pedido=eq.{numero}&select=etapa_idx,operador,tempo_segundos,data&order=id.asc")
+    regs_por_etapa = {}
+    if isinstance(reg_rows, list):
+        for r in reg_rows:
+            ei = r.get("etapa_idx")
+            if ei is not None:
+                regs_por_etapa[int(ei)] = r
+
+    # Sessões ativas (em andamento agora)
+    sess_rows = _get("sessoes_ativas",
+        f"pedido=eq.{numero}&select=etapa_idx,operador,iniciado_em")
+    sess_por_etapa = {}
+    if isinstance(sess_rows, list):
+        for r in sess_rows:
+            ei = r.get("etapa_idx")
+            if ei is not None:
+                sess_por_etapa[int(ei)] = r
+
+    etapas = []
+    for idx, lbl in enumerate(ETAPAS_LBL):
+        reg  = regs_por_etapa.get(idx)
+        sess = sess_por_etapa.get(idx)
+        etapas.append({
+            "idx":          idx,
+            "label":        lbl,
+            "feita":        reg is not None,
+            "em_andamento": sess is not None,
+            "operador":     (reg or sess or {}).get("operador", ""),
+            "tempo":        (reg or {}).get("tempo_segundos"),
+            "data":         (reg or {}).get("data", ""),
+            "iniciado_em":  (sess or {}).get("iniciado_em"),
+        })
+
+    return {
+        "base_status": base_status,
+        "cliente":     cliente,
+        "etapas":      etapas,
+    }
+
 def finalizar_pip(pedido, etapa_idx, operador, iniciado_em):
     tempo = max(int(time.time()) - int(iniciado_em), 1)
     salvar(pedido, operador, ETAPAS[etapa_idx], etapa_idx, tempo)
@@ -289,6 +349,7 @@ for k, v in {
     "pedido_status":None, "pedido_confirm":False,
     "etapa_escolhida":None, "duplicata_info":None,
     "pedido_validado":False,
+    "op_filtro_andamento": "Todos",
 }.items():
     if k not in st.session_state:
         st.session_state[k] = v
@@ -979,29 +1040,46 @@ def tela_home():
             if i < 2: st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
-        col_adm, col_pip = st.columns(2)
-        with col_adm:
+
+        # ── Botão de Operações em Andamento ──────────────────────────────────
+        sessoes_ativas_agora = buscar_todas_sessoes_ativas()
+        n_sess = len(sessoes_ativas_agora)
+        if n_sess > 0:
+            st.markdown(f"""
+            <style>
+            .btn-andamento > button {{
+                background: linear-gradient(135deg, #1c1917, #2d2925) !important;
+                color: #fff !important; border: none !important;
+                border-radius: 14px !important; height: 64px !important;
+                font-size: 15px !important; font-weight: 800 !important;
+                box-shadow: 0 5px 0 rgba(0,0,0,0.40), 0 8px 20px rgba(0,0,0,0.20) !important;
+                position: relative !important;
+            }}
+            .btn-andamento > button:hover {{
+                background: linear-gradient(135deg, #292524, #3d3530) !important;
+                transform: translateY(-2px) !important;
+            }}
+            </style>
+            <div style="position:relative;margin-bottom:8px;">
+              <div style="position:absolute;top:-10px;right:12px;z-index:10;
+                background:#C8566A;color:#fff;font-size:11px;font-weight:900;
+                padding:3px 10px;border-radius:20px;border:2px solid #F7F5F2;
+                letter-spacing:.5px;">
+                {n_sess} em andamento
+              </div>
+            </div>""", unsafe_allow_html=True)
+            st.markdown('<div class="btn-andamento">', unsafe_allow_html=True)
+            if st.button("⏱  Ver Operações em Andamento", use_container_width=True):
+                st.session_state.tela = "operacoes"; st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+        _, col_c, _ = st.columns([2, 1, 2])
+        with col_c:
             st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
             if st.button("⚙ Admin", use_container_width=True):
                 st.session_state.tela = "admin_login"; st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
-        with col_pip:
-            sessoes_ativas_agora = buscar_todas_sessoes_ativas()
-            if sessoes_ativas_agora:
-                st.markdown("""
-                <style>
-                .btn-pip-clear > button {
-                    background:#FEF3C7 !important; color:#92400E !important;
-                    border:1.5px solid #F59E0B !important; border-radius:12px !important;
-                    font-size:13px !important; font-weight:800 !important; height:54px !important;
-                }
-                .btn-pip-clear > button:hover { background:#F59E0B !important; color:#fff !important; }
-                </style>""", unsafe_allow_html=True)
-                st.markdown('<div class="btn-pip-clear">', unsafe_allow_html=True)
-                if st.button(f"⊘ Limpar {len(sessoes_ativas_agora)} PiP(s)", use_container_width=True):
-                    limpar_sessoes_ativas()
-                    st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
         return
 
     etapa_idx = st.session_state.etapa_escolhida
@@ -1163,29 +1241,10 @@ def tela_home():
                 num = pedido_inp.strip() if isinstance(pedido_inp, str) else ""
                 if not num:
                     st.session_state.erro_pedido = True; st.rerun()
-                st.session_state.erro_pedido = False
-                pst = status_pedido(num)
-                if pst == "concluido":
-                    st.session_state.pedido_status       = "concluido"
-                    st.session_state._pedido_validando   = num; st.rerun()
-                elif pst == "nao_encontrado" and has_base:
-                    st.session_state.pedido_status       = "nao_encontrado"
-                    st.session_state._pedido_validando   = num; st.rerun()
-                else:
-                    em_and, op_and = pedido_em_andamento(num, etapa_idx)
-                    ja_reg, op_reg = verificar_etapa_registro(num, etapa_idx)
-                    op_ant = op_and or op_reg
-                    if em_and or ja_reg:
-                        st.session_state._pedido_validando = num
-                        st.session_state.duplicata_info = {
-                            "pedido": num, "operador_anterior": op_ant, "em_andamento": em_and,
-                        }
-                        st.rerun()
-                    else:
-                        st.session_state.pedido          = num
-                        st.session_state.pedido_status   = None
-                        st.session_state.pedido_validado = True
-                        st.rerun()
+                st.session_state.erro_pedido       = False
+                st.session_state._pedido_validando = num
+                st.session_state.pedido_status     = "mostrar_status"
+                st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
         with c2:
             st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
@@ -1201,6 +1260,250 @@ def tela_home():
                 unsafe_allow_html=True
             )
         return
+
+    # ── PAINEL DE STATUS DO PEDIDO ────────────────────────────────────────────
+    if st.session_state.pedido_status == "mostrar_status":
+        num    = st.session_state.get("_pedido_validando", "")
+        status = buscar_status_completo_pedido(num)
+        render_stepper(etapa_idx)
+
+        base_st   = status["base_status"]
+        cliente   = status.get("cliente", "")
+        etapas    = status["etapas"]
+        etapa_lbl = ETAPAS_LBL[etapa_idx]
+        etapa_info = etapas[etapa_idx]  # dados da etapa que foi selecionada
+
+        COR = ["#C8566A", "#3B7DD8", "#4A7C59"]
+
+        # ── Header do pedido ─────────────────────────────────────────────────
+        cor_h = COR[etapa_idx]
+        import streamlit.components.v1 as _cv1
+        _cv1.html(f"""
+        <style>*{{margin:0;padding:0;box-sizing:border-box;}}
+        body{{font-family:'Nunito',sans-serif;background:transparent;}}</style>
+        <div style="background:linear-gradient(135deg,{cor_h},{cor_h}bb);
+                    border-radius:14px;padding:14px 18px;display:flex;
+                    align-items:center;gap:14px;">
+          <div>
+            <div style="font-size:9px;font-weight:800;letter-spacing:2px;
+                 color:rgba(255,255,255,0.55);text-transform:uppercase;">Pedido</div>
+            <div style="font-size:22px;font-weight:900;color:#fff;
+                 font-family:monospace;">#{num}</div>
+            {(f'<div style="font-size:12px;color:rgba(255,255,255,0.7);margin-top:1px;">{cliente}</div>') if cliente else ""}
+          </div>
+          <div style="margin-left:auto;text-align:right;">
+            <div style="font-size:9px;font-weight:800;letter-spacing:2px;
+                 color:rgba(255,255,255,0.55);text-transform:uppercase;">Etapa atual</div>
+            <div style="font-size:14px;font-weight:800;color:#fff;">{etapa_lbl}</div>
+          </div>
+        </div>""", height=74, scrolling=False)
+
+        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+        # ── CASO 1: Pedido não encontrado ────────────────────────────────────
+        if base_st == "nao_encontrado":
+            _cv1.html("""
+            <div style="background:#FFFBEB;border:2px solid #F59E0B;border-radius:14px;
+                        padding:20px;text-align:center;font-family:sans-serif;">
+              <div style="font-size:28px;margin-bottom:8px;">❓</div>
+              <div style="font-size:14px;font-weight:800;color:#92400E;">Pedido não encontrado na base</div>
+              <div style="font-size:12px;color:#B45309;margin-top:4px;font-weight:600;">
+                Deseja cadastrá-lo como pedido avulso?</div>
+            </div>""", height=110, scrolling=False)
+            ca, cb = st.columns(2)
+            with ca:
+                st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
+                if st.button("✓ Cadastrar e Continuar", use_container_width=True):
+                    cadastrar_pedido_avulso(num)
+                    st.session_state.pedido          = num
+                    st.session_state.pedido_status   = None
+                    st.session_state.pedido_validado = True
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            with cb:
+                st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+                if st.button("✕ Cancelar", use_container_width=True):
+                    st.session_state.pedido_status = None; st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            return
+
+        # ── Timeline resumida das 3 etapas ───────────────────────────────────
+        tl_html = '<div style="display:flex;gap:0;margin-bottom:12px;">'
+        for e in etapas:
+            if e["feita"]:
+                bg_c, txt_c, ic = "#4A7C59", "#fff", "✓"
+            elif e["em_andamento"]:
+                bg_c, txt_c, ic = "#E07B3A", "#fff", "⏱"
+            else:
+                bg_c, txt_c, ic = "#EDE9E4", "#9C9490", str(e["idx"]+1)
+            brd = "3px solid #1A1714" if e["idx"] == etapa_idx else "none"
+            tl_html += f'''<div style="flex:1;background:{bg_c};padding:8px 4px;
+                text-align:center;outline:{brd};position:relative;">
+              <div style="font-size:16px;">{ic}</div>
+              <div style="font-size:9px;font-weight:800;color:{txt_c};
+                   opacity:0.85;margin-top:2px;letter-spacing:.5px;">{e["label"].split()[0].upper()}</div>
+            </div>'''
+        tl_html += '</div>'
+        _cv1.html(f"""<style>*{{margin:0;padding:0;box-sizing:border-box;}}
+        body{{font-family:sans-serif;background:transparent;}}</style>
+        <div style="border-radius:12px;overflow:hidden;border:1.5px solid #EDE9E4;">
+          {tl_html}
+        </div>""", height=68, scrolling=False)
+
+        # ── CASO 2: Pedido totalmente concluído ──────────────────────────────
+        if base_st == "concluido":
+            _cv1.html("""
+            <div style="background:#F0F7F3;border:2px solid #4A7C59;border-radius:14px;
+                        padding:20px;text-align:center;font-family:sans-serif;">
+              <div style="font-size:28px;margin-bottom:8px;">🎉</div>
+              <div style="font-size:14px;font-weight:800;color:#2d5a3d;">Pedido totalmente concluído!</div>
+              <div style="font-size:12px;color:#4A7C59;margin-top:4px;font-weight:600;">
+                Todas as 3 etapas foram finalizadas com sucesso.</div>
+            </div>""", height=110, scrolling=False)
+            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+            if st.button("← Buscar outro pedido", use_container_width=True):
+                st.session_state.pedido_status = None; st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+            return
+
+        # ── CASO 3: Esta etapa está EM ANDAMENTO agora ───────────────────────
+        if etapa_info["em_andamento"]:
+            op_and     = etapa_info["operador"]
+            ini_ts     = etapa_info["iniciado_em"]
+            elapsed, _ = fmt_elapsed(ini_ts) if ini_ts else ("--:--:--", 0)
+            _cv1.html(f"""
+            <style>*{{margin:0;padding:0;box-sizing:border-box;}}
+            body{{font-family:'Nunito',sans-serif;background:transparent;}}</style>
+            <div style="background:#FFF8F0;border:2px solid #E07B3A;border-radius:14px;padding:18px 20px;">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                <div style="font-size:24px;">⏱</div>
+                <div>
+                  <div style="font-size:14px;font-weight:900;color:#9A3412;">Em andamento agora</div>
+                  <div style="font-size:12px;color:#C2410C;font-weight:600;">
+                    Etapa: <strong>{etapa_lbl}</strong> &nbsp;·&nbsp; Operador: <strong>{op_and}</strong></div>
+                </div>
+                <div style="margin-left:auto;font-family:monospace;font-size:26px;
+                     font-weight:500;color:#E07B3A;">{elapsed}</div>
+              </div>
+              <div style="font-size:13px;color:#7C2D12;font-weight:700;text-align:center;
+                   background:rgba(224,123,58,0.08);border-radius:8px;padding:8px;">
+                Deseja finalizar o temporizador deste pedido?
+              </div>
+            </div>""", height=130, scrolling=False)
+            ca, cb = st.columns(2)
+            with ca:
+                st.markdown('<div class="btn-finalizar">', unsafe_allow_html=True)
+                if st.button("■  Sim, Finalizar", use_container_width=True):
+                    tempo = max(int(time.time()) - int(ini_ts), 1)
+                    salvar(num, op_and, ETAPAS[etapa_idx], etapa_idx, tempo)
+                    remover_sessao_ativa(num, etapa_idx)
+                    if etapa_idx == 2:
+                        marcar_concluido(num)
+                    st.toast(f"✅ {op_and} · Pedido #{num} finalizado em {fmt(tempo)}!", icon="🎉")
+                    st.session_state.pedido_status = None
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            with cb:
+                st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+                if st.button("✕ Não", use_container_width=True):
+                    st.session_state.pedido_status = None; st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            return
+
+        # ── CASO 4: Esta etapa já foi finalizada ─────────────────────────────
+        if etapa_info["feita"]:
+            op_fin   = etapa_info["operador"]
+            tempo_fin = fmt(etapa_info["tempo"]) if etapa_info["tempo"] else "—"
+            data_fin  = etapa_info["data"] or ""
+            prox_idx  = etapa_idx + 1
+            tem_prox  = prox_idx < len(ETAPAS_LBL)
+            prox_lbl  = ETAPAS_LBL[prox_idx] if tem_prox else ""
+            _cv1.html(f"""
+            <style>*{{margin:0;padding:0;box-sizing:border-box;}}
+            body{{font-family:'Nunito',sans-serif;background:transparent;}}</style>
+            <div style="background:#F0F7F3;border:2px solid #4A7C59;border-radius:14px;padding:18px 20px;">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                <div style="font-size:24px;">✅</div>
+                <div>
+                  <div style="font-size:14px;font-weight:900;color:#2d5a3d;">Etapa já finalizada</div>
+                  <div style="font-size:12px;color:#4A7C59;font-weight:600;">
+                    <strong>{etapa_lbl}</strong> &nbsp;·&nbsp; por <strong>{op_fin}</strong>
+                    &nbsp;·&nbsp; {tempo_fin}</div>
+                </div>
+                <div style="margin-left:auto;font-size:11px;color:#9C9490;text-align:right;">{data_fin}</div>
+              </div>
+              {(f'<div style="font-size:13px;color:#2d5a3d;font-weight:700;text-align:center;background:rgba(74,124,89,0.08);border-radius:8px;padding:8px;">Deseja ir para a próxima etapa: <strong>{prox_lbl}</strong>?</div>') if tem_prox else
+               '<div style="font-size:13px;color:#2d5a3d;font-weight:700;text-align:center;background:rgba(74,124,89,0.08);border-radius:8px;padding:8px;">Este pedido já passou por todas as etapas.</div>'}
+            </div>""", height=130, scrolling=False)
+            if tem_prox:
+                ca, cb = st.columns(2)
+                with ca:
+                    st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
+                    if st.button(f"▶  Sim, ir para {prox_lbl}", use_container_width=True):
+                        st.session_state.etapa_escolhida = prox_idx
+                        st.session_state.pedido          = num
+                        st.session_state.pedido_status   = None
+                        st.session_state.pedido_validado = True
+                        st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
+                with cb:
+                    st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+                    if st.button("✕ Não", use_container_width=True):
+                        st.session_state.pedido_status = None; st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
+            else:
+                st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+                if st.button("← Buscar outro pedido", use_container_width=True):
+                    st.session_state.pedido_status = None; st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            return
+
+        # ── CASO 5: Etapa anterior não concluída ─────────────────────────────
+        if etapa_idx > 0 and not etapas[etapa_idx - 1]["feita"] and not etapas[etapa_idx - 1]["em_andamento"]:
+            et_ant = ETAPAS_LBL[etapa_idx - 1]
+            _cv1.html(f"""
+            <div style="background:#FEF2F2;border:2px solid #FCA5A5;border-radius:14px;
+                        padding:20px;text-align:center;font-family:sans-serif;">
+              <div style="font-size:28px;margin-bottom:8px;">🔒</div>
+              <div style="font-size:14px;font-weight:800;color:#991B1B;">Etapa bloqueada</div>
+              <div style="font-size:12px;color:#B91C1C;margin-top:4px;font-weight:600;">
+                A etapa anterior (<strong>{et_ant}</strong>) ainda não foi concluída.</div>
+            </div>""", height=110, scrolling=False)
+            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+            if st.button("← Voltar", use_container_width=True):
+                st.session_state.pedido_status = None; st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+            return
+
+        # ── CASO 6: Pronto para iniciar ──────────────────────────────────────
+        _cv1.html(f"""
+        <div style="background:#F0F7F3;border:2px solid #4A7C59;border-radius:14px;
+                    padding:16px 20px;text-align:center;font-family:sans-serif;">
+          <div style="font-size:24px;margin-bottom:6px;">✅</div>
+          <div style="font-size:14px;font-weight:800;color:#2d5a3d;">
+            Pedido pronto para <strong>{etapa_lbl}</strong></div>
+          <div style="font-size:12px;color:#4A7C59;margin-top:4px;font-weight:600;">
+            Selecione o operador e inicie o processo.</div>
+        </div>""", height=100, scrolling=False)
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        ca, cb = st.columns(2)
+        with ca:
+            st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
+            if st.button("▶  Continuar", use_container_width=True):
+                st.session_state.pedido          = num
+                st.session_state.pedido_status   = None
+                st.session_state.pedido_validado = True
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        with cb:
+            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+            if st.button("← Voltar", use_container_width=True):
+                st.session_state.pedido_status = None; st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        return
+
 
     # ── PASSO 3: Selecionar Operador ─────────────────────────────────────────
     pedido_val   = st.session_state.pedido
@@ -1384,30 +1687,13 @@ def tela_producao():
         </body></html>
         """, height=200, scrolling=False)
 
-        # ── Botão: Retornar ao Lobby (cronômetro continua no PiP) ──
-        _, col_pip, _ = st.columns([0.5, 5, 0.5])
-        with col_pip:
-            st.markdown("""
-            <style>
-            .btn-pip > button {
-                background: rgba(26,23,20,0.85) !important;
-                color: rgba(255,255,255,0.85) !important;
-                border: 1.5px solid rgba(255,255,255,0.15) !important;
-                font-size: 13px !important;
-                height: 46px !important;
-                border-radius: 12px !important;
-                letter-spacing: 0.5px !important;
-            }
-            .btn-pip > button:hover {
-                background: rgba(40,36,32,0.95) !important;
-                border-color: rgba(200,86,106,0.5) !important;
-                color: #fff !important;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-            st.markdown('<div class="btn-pip">', unsafe_allow_html=True)
-            if st.button("⊞  Retornar ao Lobby  (PiP continua ativo)", use_container_width=True):
-                # ✅ Mantém sessão ativa no banco — PiP aparece no lobby
+        # ── Botões: Voltar ao painel / Finalizar ──
+        col_back, col_fin2 = st.columns([1, 2])
+        with col_back:
+            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+            if st.button("⊞  Painel", use_container_width=True,
+                         help="Volta ao painel sem perder o cronômetro"):
+                # Mantém sessão ativa — aparece no painel de operações
                 st.session_state.rodando         = False
                 st.session_state.inicio          = None
                 st.session_state.acum            = 0
@@ -1415,11 +1701,9 @@ def tela_producao():
                 st.session_state.pedido_validado = False
                 st.session_state.operador        = None
                 st.session_state.etapa_escolhida = None
-                st.session_state.tela            = "home"
+                st.session_state.tela            = "operacoes"
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
-
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
         _, col_fin, _ = st.columns([0.5, 5, 0.5])
         with col_fin:
@@ -2256,13 +2540,215 @@ def tela_admin():
 
 
 # ─────────────────────────────────────
+#  TELA: OPERAÇÕES EM ANDAMENTO
+# ─────────────────────────────────────
+def fmt_elapsed(ini_ts):
+    s = max(int(time.time()) - int(ini_ts), 0)
+    h, r = divmod(s, 3600); m, s2 = divmod(r, 60)
+    return f"{h:02d}:{m:02d}:{s2:02d}", s
+
+def tela_operacoes():
+    render_logo()
+
+    sessoes = buscar_todas_sessoes_ativas()
+    n_total = len(sessoes)
+
+    ETAPA_COR  = ["#C8566A", "#3B7DD8", "#4A7C59"]
+    ETAPA_BG   = ["#FFF0F2", "#F0F5FF", "#F0F7F3"]
+    ETAPA_ICON = ["📦", "🗃️", "✅"]
+
+    # ── Header com contador + botões ─────────────────────────────────────────
+    col_h1, col_h2, col_h3 = st.columns([3, 1.2, 1.2])
+    with col_h1:
+        st.markdown(f"""
+        <div style="margin-bottom:4px;">
+          <div style="font-size:10px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;
+              color:#9C9490;margin-bottom:2px;">Painel de Operações</div>
+          <div style="font-size:22px;font-weight:900;color:#1A1714;letter-spacing:-0.3px;">
+            Em Andamento
+            <span style="font-size:14px;font-weight:700;color:#C8566A;margin-left:6px;">
+              {n_total} ativa{"s" if n_total != 1 else ""}
+            </span>
+          </div>
+        </div>""", unsafe_allow_html=True)
+    with col_h2:
+        st.markdown('<div class="btn-iniciar btn-sm">', unsafe_allow_html=True)
+        if st.button("＋ Nova Op.", use_container_width=True):
+            st.session_state.tela = "home"; st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+    with col_h3:
+        st.markdown('<div class="btn-voltar btn-sm">', unsafe_allow_html=True)
+        if st.button("← Lobby", use_container_width=True):
+            st.session_state.tela = "home"; st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+
+    # ── Campo de busca por número de pedido ──────────────────────────────────
+    st.markdown("""
+    <style>
+    div[data-testid="stTextInput"] label { display:none !important; }
+    div[data-testid="stTextInput"] input {
+        border: 2px solid #E0DBD4 !important;
+        border-radius: 12px !important;
+        background: #fff !important;
+        font-family: 'Nunito', sans-serif !important;
+        font-size: 16px !important;
+        font-weight: 700 !important;
+        padding: 14px 18px !important;
+        height: 52px !important;
+        transition: border-color .2s !important;
+    }
+    div[data-testid="stTextInput"] input:focus {
+        border-color: #C8566A !important;
+        box-shadow: 0 0 0 4px rgba(200,86,106,0.10) !important;
+    }
+    </style>""", unsafe_allow_html=True)
+
+    busca = st.text_input("_busca", placeholder="🔍  Buscar por número do pedido...",
+                          key="busca_pedido_painel")
+    busca = busca.strip()
+
+    # ── Sem sessões ──────────────────────────────────────────────────────────
+    if not sessoes:
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        components.html("""<!DOCTYPE html><html><body style="background:transparent;
+        font-family:sans-serif;padding:0;margin:0;">
+        <div style="background:#F0F7F3;border:1.5px solid #4A7C59;border-radius:16px;
+                    padding:48px 24px;text-align:center;">
+            <div style="font-size:40px;margin-bottom:12px;">✅</div>
+            <div style="font-size:16px;font-weight:800;color:#2d5a3d;margin-bottom:6px;">
+                Nenhuma operação em andamento</div>
+            <div style="font-size:12px;color:#4A7C59;font-weight:600;">
+                Use "＋ Nova Op." para iniciar um processo.</div>
+        </div></body></html>""", height=170, scrolling=False)
+        return
+
+    # ── Filtragem por busca ──────────────────────────────────────────────────
+    if busca:
+        sessoes_visiveis = [s for s in sessoes if busca in str(s.get("pedido",""))]
+    else:
+        sessoes_visiveis = sessoes
+
+    if busca and not sessoes_visiveis:
+        st.markdown(f"""
+        <div style="background:#FEF3C7;border:1.5px solid #F59E0B;border-radius:12px;
+                    padding:16px 20px;text-align:center;margin:8px 0;">
+          <div style="font-size:14px;font-weight:800;color:#92400E;">
+            Nenhuma operação com pedido <code>{busca}</code> em andamento.</div>
+        </div>""", unsafe_allow_html=True)
+        return
+
+    # ── Separador de resultados ──────────────────────────────────────────────
+    if busca:
+        st.markdown(f"""
+        <div style="font-size:11px;font-weight:800;color:#4A7C59;
+            letter-spacing:1.5px;text-transform:uppercase;margin:10px 0 6px;">
+            ✓ {len(sessoes_visiveis)} resultado(s) para "{busca}"
+        </div>""", unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
+        <div style="font-size:11px;font-weight:700;color:#9C9490;margin:10px 0 6px;">
+            Todos os pedidos — role para encontrar o seu
+        </div>""", unsafe_allow_html=True)
+
+    # ── Cards das sessões ────────────────────────────────────────────────────
+    for s in sessoes_visiveis:
+        ped     = s.get("pedido", "")
+        op      = s.get("operador", "")
+        eta_idx = int(s.get("etapa_idx", 0))
+        ini     = int(s.get("iniciado_em", 0))
+        cor     = ETAPA_COR[eta_idx]
+        bg      = ETAPA_BG[eta_idx]
+        icon    = ETAPA_ICON[eta_idx]
+        lbl     = ETAPAS_LBL[eta_idx]
+        elapsed_str, _ = fmt_elapsed(ini)
+        ini_op  = (op[0]+op[1]).upper() if len(op) >= 2 else op[0].upper()
+        uid     = f"{ped}_{eta_idx}"
+
+        # Card + timer ao vivo via JS dentro do iframe
+        components.html(f"""<!DOCTYPE html><html><head>
+        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+        <style>
+        *{{margin:0;padding:0;box-sizing:border-box;}}
+        body{{background:transparent;font-family:Nunito,sans-serif;}}
+        .card{{background:#fff;border:1.5px solid #EDE9E4;border-left:5px solid {cor};
+               border-radius:14px;padding:14px 16px;
+               box-shadow:0 2px 14px rgba(0,0,0,0.06);
+               display:flex;align-items:center;gap:14px;}}
+        .av{{width:44px;height:44px;border-radius:50%;flex-shrink:0;
+             background:linear-gradient(135deg,{cor},{cor}99);
+             display:flex;align-items:center;justify-content:center;
+             font-size:15px;font-weight:900;color:#fff;
+             box-shadow:0 3px 10px rgba(0,0,0,0.16);}}
+        .name{{font-size:14px;font-weight:900;color:#1A1714;margin-bottom:3px;}}
+        .badge{{display:inline-flex;align-items:center;gap:4px;background:{bg};color:{cor};
+                font-size:10px;font-weight:800;padding:2px 9px;border-radius:20px;margin-right:6px;}}
+        .ped{{font-family:monospace;font-size:13px;color:#5C5450;font-weight:700;}}
+        .timer-wrap{{text-align:right;flex-shrink:0;}}
+        .timer-lbl{{font-size:9px;font-weight:800;color:#9C9490;letter-spacing:1.5px;
+                    text-transform:uppercase;margin-bottom:2px;}}
+        .timer-val{{font-family:'DM Mono',monospace;font-size:24px;font-weight:500;
+                    color:{cor};letter-spacing:-1px;line-height:1;}}
+        </style></head>
+        <body>
+        <div class="card">
+          <div class="av">{ini_op}</div>
+          <div style="flex:1;min-width:0;">
+            <div class="name">{op}</div>
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
+              <span class="badge">{icon} {lbl}</span>
+              <span class="ped">#{ped}</span>
+            </div>
+          </div>
+          <div class="timer-wrap">
+            <div class="timer-lbl">em andamento</div>
+            <div class="timer-val" id="tv">{elapsed_str}</div>
+          </div>
+        </div>
+        <script>
+        (function(){{
+          var ini={ini}, el=document.getElementById('tv');
+          function u(){{
+            var e=Math.floor(Date.now()/1000)-ini;
+            var h=Math.floor(e/3600),m=Math.floor((e%3600)/60),s=e%60;
+            el.textContent=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+          }}
+          u(); setInterval(u,1000);
+        }})();
+        </script>
+        </body></html>""", height=80, scrolling=False)
+
+        # Botão FINALIZAR — ocupa 2/3 da largura, alinhado à direita
+        _, col_fin = st.columns([1, 2])
+        with col_fin:
+            st.markdown('<div class="btn-finalizar">', unsafe_allow_html=True)
+            if st.button(
+                f"■  Finalizar  ·  #{ped}  ·  {op}",
+                use_container_width=True,
+                key=f"fin_{uid}"
+            ):
+                tempo = max(int(time.time()) - ini, 1)
+                salvar(ped, op, ETAPAS[eta_idx], eta_idx, tempo)
+                remover_sessao_ativa(ped, eta_idx)
+                if eta_idx == 2:
+                    marcar_concluido(ped)
+                # Limpa busca e permanece no painel
+                st.session_state["busca_pedido_painel"] = ""
+                st.toast(f"✅  {op}  ·  Pedido #{ped}  finalizado em  {fmt(tempo)}!", icon="🎉")
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────
 #  ROUTER
 # ─────────────────────────────────────
-render_pip()
-
 {
     "home":        tela_home,
     "producao":    tela_producao,
+    "operacoes":   tela_operacoes,
     "admin_login": tela_admin_login,
     "admin":       tela_admin,
 }.get(st.session_state.tela, tela_home)()
