@@ -1,7 +1,7 @@
 import streamlit as st
 import time
 import base64
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import csv, io
 import streamlit.components.v1 as components
@@ -9,6 +9,12 @@ import pandas as pd
 import re
 import requests
 import json
+
+# Fuso horário de Brasília (UTC-3)
+_TZ_BR = timezone(timedelta(hours=-3))
+def now_br():
+    """Retorna datetime atual no fuso de Brasília."""
+    return datetime.now(_TZ_BR)
 
 st.set_page_config(
     page_title="Vi Lingerie - Producao",
@@ -89,7 +95,7 @@ def status_pedido(numero):
     return rows[0].get("status", "nao_encontrado")
 
 def cadastrar_pedido_avulso(numero):
-    now_str = datetime.now().strftime("%d/%m/%Y %H:%M")
+    now_str = now_br().strftime("%d/%m/%Y %H:%M")
     _upsert("pedidos_base",
             {"numero": numero, "cliente": "", "produto": "",
              "status": "aberto", "importado_em": now_str},
@@ -218,8 +224,8 @@ def finalizar_pip(pedido, etapa_idx, operador, iniciado_em):
         marcar_concluido(pedido)
 
 def salvar(pedido, operador, etapa, etapa_idx, tempo, qtd_pecas=None):
-    fim_dt   = datetime.now()
-    inicio_dt = fim_dt - __import__('datetime').timedelta(seconds=tempo)
+    fim_dt    = now_br()
+    inicio_dt = fim_dt - timedelta(seconds=tempo)
     _post("registros", {
         "pedido": pedido, "operador": operador, "etapa": etapa,
         "etapa_idx": etapa_idx, "tempo_segundos": tempo,
@@ -2086,7 +2092,7 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg):
     S_FOOTER  = sty("f",  fontName="Helvetica",      fontSize=8,  textColor=CINZA, alignment=TA_CENTER)
 
     story = []
-    now_str = datetime.now().strftime("%d/%m/%Y às %H:%M")
+    now_str = now_br().strftime("%d/%m/%Y às %H:%M")
 
     header_data = [[
         Paragraph("<b><font color='#C8566A' size='18'>Vi</font> LINGERIE</b>", styles["Normal"]),
@@ -2774,7 +2780,7 @@ def tela_admin():
         st.markdown('</div>', unsafe_allow_html=True)
 
     # ── Botão: Apagar tudo do dia de hoje ──────────────────────────────────
-    hoje_str = datetime.now().strftime("%d/%m/%Y")
+    hoje_str = now_br().strftime("%d/%m/%Y")
 
     def limpar_dia(data_str):
         rows = _get("registros", f"select=id&data=like.{data_str}%25")
@@ -2902,7 +2908,7 @@ def tela_admin():
         </style>
         """, unsafe_allow_html=True)
 
-        ts = datetime.now().strftime("%Y%m%d_%H%M")
+        ts = now_br().strftime("%Y%m%d_%H%M")
 
         buf_csv = io.StringIO()
         csv.writer(buf_csv).writerows(
