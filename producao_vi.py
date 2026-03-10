@@ -528,6 +528,16 @@ td {{ padding:11px 12px; border-bottom:1px solid #F2EEE9; color:#2C2826; font-we
 .tag-sep {{ background:#EBF0FB; color:#3B5EC6; }}
 .tag-conf {{ background:#FBF2E6; color:#C47B2A; }}
 .tag-emb  {{ background:#E8F2EC; color:#4A7C59; }}
+
+/* ── EXPANDER — força texto escuro independente do tema ── */
+[data-testid="stExpander"] details summary p {{
+    color: #1A1714 !important;
+    font-weight: 800 !important;
+    font-size: 13px !important;
+}}
+[data-testid="stExpander"] details summary svg {{
+    fill: #5C5450 !important;
+}}
 </style>
 """, unsafe_allow_html=True)
 
