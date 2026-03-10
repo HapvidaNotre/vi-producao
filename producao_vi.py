@@ -49,9 +49,35 @@ def _sb_headers():
         "Prefer": "return=representation",
     }
 
-def _get(table, params=""):
-    r = requests.get(f"{SB_URL}/rest/v1/{table}?{params}", headers=_sb_headers(), timeout=10)
-    return r.json() if r.ok else []
+def _get(table, params="", paginar=False):
+    """
+    Busca registros do Supabase.
+    paginar=True: faz múltiplas requisições para retornar TODOS os registros
+    (o Supabase limita 1000 por request por padrão).
+    """
+    headers = {**_sb_headers(), "Prefer": "count=none"}
+    if not paginar:
+        r = requests.get(f"{SB_URL}/rest/v1/{table}?{params}",
+                         headers=headers, timeout=10)
+        return r.json() if r.ok else []
+    # Paginação automática — retorna todos os registros sem corte
+    PAGE = 1000
+    todos = []
+    offset = 0
+    while True:
+        sep = "&" if params else ""
+        url = f"{SB_URL}/rest/v1/{table}?{params}{sep}limit={PAGE}&offset={offset}"
+        r = requests.get(url, headers=headers, timeout=15)
+        if not r.ok:
+            break
+        lote = r.json()
+        if not isinstance(lote, list):
+            break
+        todos.extend(lote)
+        if len(lote) < PAGE:
+            break   # última página
+        offset += PAGE
+    return todos
 
 def _post(table, data):
     r = requests.post(f"{SB_URL}/rest/v1/{table}", headers=_sb_headers(),
@@ -83,7 +109,7 @@ def init_db():
 
 # ─── Planilha / Pedidos base ───
 def buscar_pedidos_base():
-    rows = _get("pedidos_base", "select=numero,cliente,produto,status&order=numero.asc")
+    rows = _get("pedidos_base", "select=numero,cliente,produto,status&order=numero.asc", paginar=True)
     if isinstance(rows, list):
         return [(r["numero"], r.get("cliente",""), r.get("produto",""), r.get("status","aberto"))
                 for r in rows]
@@ -150,17 +176,35 @@ def buscar_tempo_pausado(pedido, etapa_idx):
     return 0
 
 def buscar_pedidos_por_etapa(etapa_idx):
-    pedidos_rows = _get("pedidos_base", "select=numero,cliente&status=eq.aberto&order=numero.asc")
+    # paginar=True garante que TODOS os pedidos sejam retornados,
+    # mesmo que a planilha tenha mais de 1.000 linhas.
+    pedidos_rows = _get("pedidos_base",
+        "select=numero,cliente&status=eq.aberto&order=numero.asc",
+        paginar=True)
     if not isinstance(pedidos_rows, list):
         return []
-    regs_rows = _get("registros", "select=pedido,etapa_idx")
+
+    # Busca apenas os registros relevantes para a etapa em questão,
+    # evitando trazer toda a tabela desnecessariamente.
+    if etapa_idx == 0:
+        # Etapa 0 (Separação): pedido não pode ter nenhum registro de etapa 0
+        regs_rows = _get("registros", "select=pedido&etapa_idx=eq.0", paginar=True)
+    elif etapa_idx == 1:
+        # Etapa 1 (Embalagem): deve ter etapa 0 feita e não ter etapa 1
+        regs_rows = _get("registros", "select=pedido,etapa_idx&etapa_idx=in.(0,1)", paginar=True)
+    else:
+        # Etapa 2 (Conferência): deve ter etapa 1 feita e não ter etapa 2
+        regs_rows = _get("registros", "select=pedido,etapa_idx&etapa_idx=in.(1,2)", paginar=True)
+
     if not isinstance(regs_rows, list):
         regs_rows = []
+
     etapas_feitas = {}
     for r in regs_rows:
         p = r.get("pedido"); e = r.get("etapa_idx")
         if p not in etapas_feitas: etapas_feitas[p] = set()
         if e is not None: etapas_feitas[p].add(int(e))
+
     resultado = []
     for p in pedidos_rows:
         num = p["numero"]; cli = p.get("cliente", "")
@@ -174,7 +218,7 @@ def buscar_pedidos_por_etapa(etapa_idx):
     return resultado
 
 def buscar_todas_sessoes_ativas():
-    rows = _get("sessoes_ativas", "select=*&order=iniciado_em.asc")
+    rows = _get("sessoes_ativas", "select=*&order=iniciado_em.asc", paginar=True)
     return rows if isinstance(rows, list) else []
 
 def buscar_status_completo_pedido(numero):
@@ -256,7 +300,7 @@ def salvar(pedido, operador, etapa, etapa_idx, tempo, qtd_pecas=None):
     })
 
 def buscar():
-    rows = _get("registros", "select=*&order=id.desc")
+    rows = _get("registros", "select=*&order=id.desc", paginar=True)
     if isinstance(rows, list):
         return [(r.get("id"), r.get("pedido"), r.get("operador"), r.get("etapa"),
                  r.get("etapa_idx"), r.get("tempo_segundos"), r.get("data"),
