@@ -128,6 +128,27 @@ def registrar_sessao_ativa(pedido, etapa_idx, operador):
 def remover_sessao_ativa(pedido, etapa_idx):
     _delete("sessoes_ativas", f"pedido=eq.{pedido}&etapa_idx=eq.{etapa_idx}")
 
+def pausar_para_amanha(pedido, etapa_idx, operador, tempo_acumulado):
+    """
+    Salva o tempo acumulado na sessão ativa (campo tempo_pausado).
+    O cronômetro fica 'congelado' — o operador retoma no dia seguinte.
+    """
+    _upsert("sessoes_ativas", {
+        "pedido":        pedido,
+        "etapa_idx":     etapa_idx,
+        "operador":      operador,
+        "iniciado_em":   int(time.time()),   # atualiza para manter sessão válida
+        "tempo_pausado": tempo_acumulado,    # segundos já trabalhados
+    }, "pedido,etapa_idx")
+
+def buscar_tempo_pausado(pedido, etapa_idx):
+    """Retorna os segundos pausados salvos na sessão ativa, ou 0."""
+    rows = _get("sessoes_ativas",
+        f"pedido=eq.{pedido}&etapa_idx=eq.{etapa_idx}&select=tempo_pausado")
+    if rows and isinstance(rows, list) and rows[0].get("tempo_pausado"):
+        return int(rows[0]["tempo_pausado"])
+    return 0
+
 def buscar_pedidos_por_etapa(etapa_idx):
     pedidos_rows = _get("pedidos_base", "select=numero,cliente&status=eq.aberto&order=numero.asc")
     if not isinstance(pedidos_rows, list):
@@ -1657,15 +1678,37 @@ def tela_producao():
 
         st.markdown("<br style='line-height:0.3'>", unsafe_allow_html=True)
 
+        # ── Aviso se há tempo pausado salvo ──────────────────────────
+        tempo_pausado_prev = buscar_tempo_pausado(pedido_val, etapa_idx)
+        if tempo_pausado_prev > 0:
+            h_pv, r_pv = divmod(tempo_pausado_prev, 3600); m_pv, s_pv = divmod(r_pv, 60)
+            components.html(f"""<!DOCTYPE html><html><head>
+            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+            </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
+            <div style="background:#FFF7ED;border:2px solid #E07B3A;border-radius:14px;
+                        padding:14px 18px;display:flex;align-items:center;gap:14px;">
+              <div style="font-size:26px;flex-shrink:0;">🌙</div>
+              <div>
+                <div style="font-size:13px;font-weight:800;color:#92400E;margin-bottom:2px;">
+                  Etapa pausada do dia anterior</div>
+                <div style="font-size:12px;font-weight:600;color:#B45309;">
+                  Tempo salvo: <strong style="font-family:monospace;">{h_pv:02d}:{m_pv:02d}:{s_pv:02d}</strong>
+                  — o cronômetro continuará de onde parou.
+                </div>
+              </div>
+            </div></body></html>""", height=78, scrolling=False)
+            st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+
         _, c1, _ = st.columns([0.3, 4, 0.3])
         with c1:
             st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
             if st.button("▶  INICIAR CRONÔMETRO", use_container_width=True):
                 # ✅ SESSÃO REGISTRADA AQUI — único momento correto.
-                # O PiP só aparece a partir deste ponto.
+                # Verifica se há tempo pausado do dia anterior
+                tempo_pausado = buscar_tempo_pausado(pedido_val, etapa_idx)
                 st.session_state.rodando = True
                 st.session_state.inicio  = time.time()
-                st.session_state.acum    = 0
+                st.session_state.acum    = tempo_pausado   # retoma do ponto pausado (0 se novo)
                 registrar_sessao_ativa(pedido_val, etapa_idx, op)
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
@@ -1800,9 +1843,170 @@ def tela_producao():
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
+        # ── Botão Pausar para Amanhã ──────────────────────────────────
+        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+        _, col_pausa, _ = st.columns([0.5, 5, 0.5])
+        with col_pausa:
+            if "pausa_modo" not in st.session_state:
+                st.session_state.pausa_modo  = False  # False = normal, True = pedindo senha
+            if "pausa_erro" not in st.session_state:
+                st.session_state.pausa_erro  = False
+
+            if not st.session_state.pausa_modo:
+                # Botão laranja "Pausar para amanhã"
+                st.markdown("""
+                <style>
+                .btn-pausar > button {
+                    background: linear-gradient(135deg,#E07B3A,#B85C20) !important;
+                    color: #fff !important; border: none !important;
+                    border-radius: 12px !important; height: 48px !important;
+                    font-size: 13px !important; font-weight: 800 !important;
+                    box-shadow: 0 4px 0 rgba(120,50,10,0.40) !important;
+                }
+                .btn-pausar > button:hover { transform:translateY(-1px) !important; }
+                </style>""", unsafe_allow_html=True)
+                st.markdown('<div class="btn-pausar">', unsafe_allow_html=True)
+                if st.button("🌙  Pausar para Amanhã", use_container_width=True, key="btn_pausar_amanha"):
+                    st.session_state.pausa_modo = True
+                    st.session_state.pausa_erro = False
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            else:
+                # Card de confirmação com senha admin
+                tempo_atual = get_elapsed()
+                h_p, r_p   = divmod(tempo_atual, 3600); m_p, s_p = divmod(r_p, 60)
+                tempo_str_p = f"{h_p:02d}:{m_p:02d}:{s_p:02d}"
+
+                components.html(f"""<!DOCTYPE html><html><head>
+                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+                </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
+                <div style="background:#fff;border:2px solid #E07B3A;border-radius:16px;
+                            padding:18px 20px;box-shadow:0 4px 20px rgba(224,123,58,0.18);">
+                  <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+                    <div style="width:40px;height:40px;border-radius:12px;
+                      background:linear-gradient(135deg,#E07B3A,#B85C20);
+                      display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🌙</div>
+                    <div>
+                      <div style="font-size:14px;font-weight:900;color:#1A1714;">Pausar para Amanhã</div>
+                      <div style="font-size:11px;font-weight:600;color:#9C9490;">
+                        Tempo atual: <span style="font-family:'DM Mono',monospace;color:#E07B3A;font-weight:700;">{tempo_str_p}</span>
+                        será salvo e retomado depois.
+                      </div>
+                    </div>
+                  </div>
+                  <div style="font-size:11px;font-weight:800;letter-spacing:1px;color:#9C9490;
+                    text-transform:uppercase;margin-bottom:6px;">Digite a senha do administrador:</div>
+                </div>
+                </body></html>""", height=130, scrolling=False)
+
+                st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+                if st.session_state.pausa_erro:
+                    st.markdown("""
+                    <div style="background:#FEF2F2;border:1.5px solid #FECACA;border-radius:10px;
+                                padding:8px 14px;font-size:12px;font-weight:800;color:#991B1B;
+                                text-align:center;margin-bottom:6px;">
+                        ❌ Senha incorreta. Tente novamente.
+                    </div>""", unsafe_allow_html=True)
+
+                senha_input = st.text_input("_senha_pausa", type="password",
+                                             placeholder="Senha admin...",
+                                             label_visibility="collapsed",
+                                             key="pausa_senha_input")
+
+                c_conf, c_canc = st.columns(2)
+                with c_conf:
+                    st.markdown("""
+                    <style>
+                    .btn-pausar-conf > button {
+                        background: linear-gradient(135deg,#E07B3A,#B85C20) !important;
+                        color:#fff !important; border:none !important;
+                        border-radius:10px !important; height:44px !important;
+                        font-size:13px !important; font-weight:800 !important;
+                    }
+                    </style>""", unsafe_allow_html=True)
+                    st.markdown('<div class="btn-pausar-conf">', unsafe_allow_html=True)
+                    if st.button("🌙 Confirmar Pausa", use_container_width=True, key="btn_pausa_confirmar"):
+                        if senha_input.strip() == ADMIN_SENHA:
+                            tempo_salvar = get_elapsed()
+                            pausar_para_amanha(
+                                st.session_state.pedido,
+                                etapa_idx,
+                                op,
+                                tempo_salvar
+                            )
+                            # Limpa o estado local sem remover a sessão do banco
+                            st.session_state.rodando         = False
+                            st.session_state.inicio          = None
+                            st.session_state.acum            = 0
+                            st.session_state.pausa_modo      = False
+                            st.session_state.pausa_erro      = False
+                            st.session_state.pedido          = None
+                            st.session_state.pedido_status   = None
+                            st.session_state.pedido_validado = False
+                            st.session_state.operador        = None
+                            st.session_state.etapa_escolhida = None
+                            st.session_state.modal           = "pausado"
+                            st.rerun()
+                        else:
+                            st.session_state.pausa_erro = True
+                            st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
+                with c_canc:
+                    st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+                    if st.button("✕ Cancelar", use_container_width=True, key="btn_pausa_cancelar"):
+                        st.session_state.pausa_modo = False
+                        st.session_state.pausa_erro = False
+                        st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
+
         time.sleep(1); st.rerun()
 
-    # ── Modal: próxima etapa ──
+    # ── Modal: pausado para amanhã ──
+    elif st.session_state.modal == "pausado":
+        pedido_val = st.session_state.pedido or ""
+        components.html(f"""<!DOCTYPE html><html><head>
+        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+        <style>*{{margin:0;padding:0;box-sizing:border-box;}}</style>
+        </head><body style="background:transparent;font-family:Nunito,sans-serif;">
+        <div style="background:#fff;border-radius:20px;overflow:hidden;
+                    box-shadow:0 4px 24px rgba(0,0,0,0.08);border:1.5px solid #EDE9E4;">
+          <div style="background:linear-gradient(135deg,#E07B3A,#B85C20);
+                      padding:28px;text-align:center;position:relative;overflow:hidden;">
+            <div style="position:absolute;right:-20px;top:-20px;width:100px;height:100px;
+                        border-radius:50%;background:rgba(255,255,255,0.07);"></div>
+            <div style="width:58px;height:58px;background:rgba(255,255,255,0.18);border-radius:50%;
+                        display:flex;align-items:center;justify-content:center;
+                        margin:0 auto 14px;border:2px solid rgba(255,255,255,0.35);position:relative;z-index:1;">
+              <span style="font-size:28px;">🌙</span>
+            </div>
+            <div style="font-size:20px;font-weight:900;color:#fff;margin-bottom:4px;position:relative;z-index:1;">
+              Etapa Pausada!</div>
+            <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.65);
+                        letter-spacing:1px;position:relative;z-index:1;">
+              O tempo foi salvo. Retome amanhã do ponto em que parou.</div>
+          </div>
+          <div style="padding:20px 24px;text-align:center;">
+            <div style="font-size:11px;font-weight:800;letter-spacing:2px;color:#9C9490;
+                        text-transform:uppercase;margin-bottom:8px;">Pedido {pedido_val}</div>
+            <div style="font-size:13px;font-weight:600;color:#5C5450;line-height:1.7;">
+              Para continuar, basta selecionar o mesmo pedido<br>
+              e o sistema retomará o cronômetro de onde parou.
+            </div>
+          </div>
+        </div>
+        </body></html>""", height=290, scrolling=False)
+        st.markdown("<br style='line-height:0.2'>", unsafe_allow_html=True)
+        st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
+        if st.button("▶  Ir ao Menu Principal", use_container_width=True, key="pausado_home"):
+            st.session_state.modal           = None
+            st.session_state.pedido          = None
+            st.session_state.pedido_validado = False
+            st.session_state.etapa_idx       = 0
+            st.session_state.acum            = 0
+            st.session_state.tela            = "home"
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
     elif st.session_state.modal == "proxima":
         next_lbl   = ETAPAS_LBL[etapa_idx + 1]
         tempo_fmt  = fmt(st.session_state.acum)
