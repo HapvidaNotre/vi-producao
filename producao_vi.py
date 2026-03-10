@@ -2498,6 +2498,89 @@ def tela_admin():
         if st.button("🗑 Limpar dados", use_container_width=True):
             limpar(); st.rerun()
 
+    # ── Botão: Apagar tudo do dia de hoje ──────────────────────────────────
+    hoje_str = datetime.now().strftime("%d/%m/%Y")
+
+    def limpar_dia(data_str):
+        rows = _get("registros", f"select=id&data=like.{data_str}%25")
+        if isinstance(rows, list):
+            for r in rows:
+                _delete("registros", f"id=eq.{r['id']}")
+        limpar_sessoes_ativas()
+        todos_regs = _get("registros", "select=pedido")
+        pedidos_com_reg = {r["pedido"] for r in todos_regs} if isinstance(todos_regs, list) else set()
+        pedidos_base_rows = _get("pedidos_base", "select=numero")
+        if isinstance(pedidos_base_rows, list):
+            for p in pedidos_base_rows:
+                if p["numero"] not in pedidos_com_reg:
+                    _patch("pedidos_base", f"numero=eq.{p['numero']}", {"status": "aberto"})
+
+    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+    if "confirm_limpar_dia" not in st.session_state:
+        st.session_state.confirm_limpar_dia = False
+
+    if not st.session_state.confirm_limpar_dia:
+        st.markdown("""
+        <style>
+        .btn-reset-dia > button {
+            background: linear-gradient(135deg,#7C3AED,#5B21B6) !important;
+            color: #fff !important; border: none !important;
+            border-radius: 12px !important; height: 52px !important;
+            font-size: 14px !important; font-weight: 800 !important;
+            box-shadow: 0 5px 0 rgba(60,10,120,0.40), 0 8px 20px rgba(124,58,237,0.28) !important;
+        }
+        .btn-reset-dia > button:hover { transform: translateY(-2px) !important; }
+        </style>""", unsafe_allow_html=True)
+        st.markdown('<div class="btn-reset-dia">', unsafe_allow_html=True)
+        if st.button(f"🧹  Apagar tudo de hoje  ({hoje_str})", use_container_width=True, key="btn_limpar_dia"):
+            st.session_state.confirm_limpar_dia = True
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+    else:
+        import streamlit.components.v1 as _cv1t
+        _cv1t.html(f"""<!DOCTYPE html><html><head>
+        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+        </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;padding:0;">
+        <div style="background:#FEF2F2;border:2px solid #FCA5A5;border-radius:14px;
+                    padding:16px 20px;text-align:center;">
+          <div style="font-size:22px;margin-bottom:6px;">⚠️</div>
+          <div style="font-size:14px;font-weight:800;color:#991B1B;margin-bottom:4px;">
+            Apagar todos os registros de {hoje_str}?</div>
+          <div style="font-size:12px;color:#B91C1C;font-weight:600;">
+            Esta ação remove todos os registros e sessões do dia de hoje.<br>
+            Ideal para reiniciar os testes. <strong>Não pode ser desfeita.</strong>
+          </div>
+        </div></body></html>""", height=130, scrolling=False)
+
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        ca, cb = st.columns(2)
+        with ca:
+            st.markdown("""
+            <style>
+            .btn-confirm-del > button {
+                background: linear-gradient(135deg,#DC2626,#991B1B) !important;
+                color:#fff !important; border:none !important;
+                border-radius:10px !important; height:48px !important;
+                font-size:13px !important; font-weight:800 !important;
+                box-shadow: 0 4px 0 rgba(100,10,10,0.40) !important;
+            }
+            .btn-confirm-del > button:hover { transform:translateY(-1px) !important; }
+            </style>""", unsafe_allow_html=True)
+            st.markdown('<div class="btn-confirm-del">', unsafe_allow_html=True)
+            if st.button("✓ Sim, apagar tudo de hoje", use_container_width=True, key="confirmar_del_dia"):
+                limpar_dia(hoje_str)
+                st.session_state.confirm_limpar_dia = False
+                st.toast(f"✅ Todos os registros de {hoje_str} foram apagados!", icon="🧹")
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        with cb:
+            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+            if st.button("✕ Cancelar", use_container_width=True, key="cancelar_del_dia"):
+                st.session_state.confirm_limpar_dia = False
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+
     tag_html = {
         0: '<span style="background:#EBF0FB;color:#3B5EC6;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;">Separação</span>',
         1: '<span style="background:#FBF2E6;color:#C47B2A;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;">Conferência</span>',
