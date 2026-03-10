@@ -2223,6 +2223,247 @@ def tela_admin():
         </div>
         """, unsafe_allow_html=True)
 
+    # ══════════════════════════════════════════════════════════════════
+    #  BLOCO 1 — PEDIDOS EM ANDAMENTO
+    # ══════════════════════════════════════════════════════════════════
+    sessoes_agora = buscar_todas_sessoes_ativas()
+    n_and = len(sessoes_agora)
+
+    with st.expander(
+        f"⏱️ Pedidos em Andamento — {n_and} ativo(s)" if n_and > 0
+        else "⏱️ Pedidos em Andamento — nenhum no momento",
+        expanded=n_and > 0
+    ):
+        if not sessoes_agora:
+            components.html("""
+            <!DOCTYPE html><html><body style="background:transparent;font-family:sans-serif;">
+            <div style="background:#F0F7F3;border:1.5px solid #4A7C59;border-radius:12px;
+                        padding:20px;text-align:center;">
+                <div style="font-size:26px;margin-bottom:6px;">✅</div>
+                <div style="font-size:13px;font-weight:700;color:#2d5a3d;">
+                    Nenhuma operação em andamento no momento.</div>
+            </div></body></html>""", height=96, scrolling=False)
+        else:
+            ETAPA_COR  = ["#C8566A",  "#3B7DD8",  "#4A7C59"]
+            ETAPA_BG   = ["#FFF0F2",  "#F0F5FF",  "#F0F7F3"]
+            ETAPA_ICON = ["📦",       "🗃️",        "✅"]
+
+            linhas_html = ""
+            for s in sessoes_agora:
+                ped      = str(s.get("pedido",""))
+                op       = str(s.get("operador",""))
+                eta_idx  = int(s.get("etapa_idx", 0))
+                ini_ts   = int(s.get("iniciado_em", 0))
+                elapsed  = max(int(time.time()) - ini_ts, 0)
+                hh, rem  = divmod(elapsed, 3600)
+                mm, ss   = divmod(rem, 60)
+                tempo_str = f"{hh:02d}:{mm:02d}:{ss:02d}"
+                cor  = ETAPA_COR[eta_idx]
+                bg   = ETAPA_BG[eta_idx]
+                icon = ETAPA_ICON[eta_idx]
+                lbl  = ETAPAS_LBL[eta_idx]
+                linhas_html += f"""<tr>
+                  <td class="td-ped">{ped}</td>
+                  <td class="td-op">{op}</td>
+                  <td class="td-c">
+                    <span style="background:{bg};color:{cor};font-size:10px;font-weight:800;
+                      padding:3px 11px;border-radius:20px;white-space:nowrap;">{icon} {lbl}</span>
+                  </td>
+                  <td class="td-c" style="font-family:monospace;color:{cor};font-size:13px;
+                    font-weight:700;">{tempo_str}</td>
+                </tr>"""
+
+            altura = 52 + n_and * 47
+            components.html(f"""<!DOCTYPE html><html><head>
+            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+            <style>
+            *{{margin:0;padding:0;box-sizing:border-box;}}
+            body{{background:transparent;font-family:Nunito,sans-serif;}}
+            .wrap{{background:#fff;border-radius:14px;border:1.5px solid #EDE9E4;
+                   overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
+            table{{width:100%;border-collapse:collapse;}}
+            thead tr{{background:#1A1714;}}
+            th{{padding:11px 14px;font-size:9px;font-weight:800;letter-spacing:1.8px;
+               text-transform:uppercase;color:rgba(255,255,255,0.40);white-space:nowrap;}}
+            th.td-c{{text-align:center;}}
+            .td-ped{{padding:12px 14px;font-family:monospace;font-size:13px;
+                    font-weight:800;color:#1A1714;white-space:nowrap;}}
+            .td-op{{padding:12px 10px;font-size:13px;font-weight:700;color:#1A1714;}}
+            .td-c{{padding:12px 10px;text-align:center;}}
+            tbody tr{{border-bottom:1px solid #F2EEE9;}}
+            tbody tr:last-child{{border-bottom:none;}}
+            tbody tr:hover td{{background:#FDFAF9;}}
+            </style></head><body>
+            <div class="wrap">
+              <table>
+                <thead><tr>
+                  <th>Pedido</th>
+                  <th>Operador</th>
+                  <th class="td-c">Etapa</th>
+                  <th class="td-c">Tempo decorrido</th>
+                </tr></thead>
+                <tbody>{linhas_html}</tbody>
+              </table>
+            </div>
+            </body></html>""", height=min(altura, 420), scrolling=altura > 420)
+
+    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+
+    # ══════════════════════════════════════════════════════════════════
+    #  BLOCO 2 — ALTERAR STATUS DE PEDIDO
+    # ══════════════════════════════════════════════════════════════════
+    with st.expander("🔧 Alterar Status de Pedido", expanded=False):
+
+        components.html("""<!DOCTYPE html><html><head>
+        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+        </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
+        <div style="background:#FFFBEB;border:1.5px solid #F59E0B;border-radius:10px;
+                    padding:11px 16px;font-size:12px;font-weight:700;color:#92400E;">
+            ⚠️ Use somente em caso de <strong>falha do sistema</strong>.
+            Alterações manuais podem afetar o fluxo de produção.
+        </div></body></html>""", height=56, scrolling=False)
+
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+        # Inicializar estados
+        for _k, _v in [
+            ("adm_busca_num",      ""),
+            ("adm_pedido_info",    None),
+            ("adm_confirm_alter",  False),
+        ]:
+            if _k not in st.session_state:
+                st.session_state[_k] = _v
+
+        col_inp, col_btn = st.columns([3, 1])
+        with col_inp:
+            num_busca = st.text_input(
+                "Número do pedido",
+                placeholder="Ex: 48944",
+                label_visibility="collapsed",
+                key="adm_input_num"
+            )
+        with col_btn:
+            st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+            if st.button("🔍  Buscar", use_container_width=True, key="adm_btn_buscar"):
+                num_limpo = num_busca.strip()
+                if num_limpo:
+                    st.session_state.adm_busca_num     = num_limpo
+                    st.session_state.adm_pedido_info   = buscar_status_completo_pedido(num_limpo)
+                    st.session_state.adm_confirm_alter = False
+                    st.rerun()
+
+        info = st.session_state.adm_pedido_info
+        num  = st.session_state.adm_busca_num
+
+        if info is not None:
+            base_st = info.get("base_status", "nao_encontrado")
+            cliente = info.get("cliente", "")
+
+            # ── Pedido não encontrado ─────────────────────────────────
+            if base_st == "nao_encontrado":
+                components.html(f"""<!DOCTYPE html><html><body style="background:transparent;font-family:sans-serif;">
+                <div style="background:#FFFBEB;border:2px solid #F59E0B;border-radius:12px;
+                            padding:14px 20px;text-align:center;margin-top:8px;">
+                  <div style="font-size:20px;margin-bottom:4px;">❓</div>
+                  <div style="font-size:13px;font-weight:800;color:#92400E;">
+                    Pedido <span style="font-family:monospace;">#{num}</span> não encontrado.</div>
+                </div></body></html>""", height=90, scrolling=False)
+
+            # ── Pedido encontrado ────────────────────────────────────
+            else:
+                eh_aberto  = base_st == "aberto"
+                cor_atual  = "#4A7C59" if eh_aberto else "#C8566A"
+                bg_atual   = "#F0F7F3" if eh_aberto else "#FFF0F2"
+                lbl_atual  = "Aberto"  if eh_aberto else "Concluído"
+                icon_atual = "🟢"      if eh_aberto else "🔴"
+                novo_st    = "concluido" if eh_aberto else "aberto"
+                lbl_novo   = "Concluído" if eh_aberto else "Aberto"
+                icon_novo  = "🔴"       if eh_aberto else "🟢"
+
+                # Etapas concluídas
+                etapas_badges = ""
+                for e in info.get("etapas", []):
+                    if e.get("feita"):
+                        etapas_badges += (
+                            f'<span style="background:#E8F2EC;color:#4A7C59;font-size:10px;'
+                            f'font-weight:800;padding:2px 10px;border-radius:20px;margin-right:4px;">'
+                            f'✓ {e["label"]}</span>'
+                        )
+                    elif e.get("em_andamento"):
+                        etapas_badges += (
+                            f'<span style="background:#FFF8E6;color:#B45309;font-size:10px;'
+                            f'font-weight:800;padding:2px 10px;border-radius:20px;margin-right:4px;">'
+                            f'⏱ {e["label"]}</span>'
+                        )
+                if not etapas_badges:
+                    etapas_badges = (
+                        '<span style="font-size:11px;color:#9C9490;font-weight:600;">'
+                        'Nenhuma etapa registrada</span>'
+                    )
+
+                components.html(f"""<!DOCTYPE html><html><head>
+                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+                </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
+                <div style="background:#fff;border:1.5px solid #EDE9E4;border-radius:14px;
+                            padding:14px 20px;box-shadow:0 2px 10px rgba(0,0,0,0.05);margin-top:8px;">
+                  <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
+                    <span style="font-family:monospace;font-size:18px;font-weight:800;color:#1A1714;">#{num}</span>
+                    <span style="flex:1;font-size:13px;font-weight:700;color:#5C5450;min-width:0;
+                      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{cliente}</span>
+                    <span style="background:{bg_atual};color:{cor_atual};font-size:11px;font-weight:800;
+                      padding:4px 14px;border-radius:20px;flex-shrink:0;">{icon_atual} {lbl_atual}</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                    <span style="font-size:9px;font-weight:800;letter-spacing:1.5px;
+                      text-transform:uppercase;color:#9C9490;margin-right:2px;">Etapas:</span>
+                    {etapas_badges}
+                  </div>
+                </div></body></html>""", height=108, scrolling=False)
+
+                st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+                # ── Sem confirmação: mostra botão de alterar ──────────
+                if not st.session_state.adm_confirm_alter:
+                    if st.button(
+                        f"{icon_novo}  Alterar para {lbl_novo}",
+                        use_container_width=True,
+                        key="adm_btn_alterar"
+                    ):
+                        st.session_state.adm_confirm_alter = True
+                        st.rerun()
+
+                # ── Com confirmação: mostra aviso + confirmar/cancelar ─
+                else:
+                    components.html(f"""<!DOCTYPE html><html><head>
+                    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+                    </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
+                    <div style="background:#FEF2F2;border:2px solid #FCA5A5;border-radius:12px;
+                                padding:13px 20px;text-align:center;">
+                      <div style="font-size:13px;font-weight:800;color:#991B1B;margin-bottom:3px;">
+                        Confirmar alteração?</div>
+                      <div style="font-size:12px;color:#B91C1C;font-weight:700;">
+                        #{num} &nbsp;·&nbsp;
+                        {icon_atual} {lbl_atual} &nbsp;→&nbsp; {icon_novo} {lbl_novo}
+                      </div>
+                    </div></body></html>""", height=78, scrolling=False)
+
+                    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+                    ca, cb = st.columns(2)
+                    with ca:
+                        if st.button("✓  Confirmar", use_container_width=True, key="adm_btn_confirmar"):
+                            _patch("pedidos_base", f"numero=eq.{num}", {"status": novo_st})
+                            st.session_state.adm_pedido_info   = None
+                            st.session_state.adm_confirm_alter = False
+                            st.session_state.adm_busca_num     = ""
+                            st.toast(f"✅ Pedido #{num} → {lbl_novo}", icon="🔧")
+                            st.rerun()
+                    with cb:
+                        if st.button("✕  Cancelar", use_container_width=True, key="adm_btn_cancelar"):
+                            st.session_state.adm_confirm_alter = False
+                            st.rerun()
+
+    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+
     avulsos = buscar_pedidos_avulsos()
 
     with st.expander(
