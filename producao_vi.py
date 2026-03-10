@@ -2479,24 +2479,48 @@ def tela_admin():
 
     st.markdown("<br style='line-height:0.4'>", unsafe_allow_html=True)
 
-    h1, h2, h3 = st.columns([2, 1.2, 1.2])
-    with h2:
-        st.markdown("""
-        <style>
-        .btn-warn > button {
-            background:#FEF3C7 !important; color:#92400E !important;
-            border:1.5px solid #F59E0B !important; border-radius:10px !important;
-            font-size:12px !important; font-weight:800 !important; height:40px !important;
-        }
-        .btn-warn > button:hover { background:#F59E0B !important; color:#fff !important; }
-        </style>""", unsafe_allow_html=True)
+    # ── Linha de botões de ação: 3 colunas iguais ─────────────────────────
+    st.markdown("""
+    <style>
+    .btn-warn > button {
+        background:#FEF3C7 !important; color:#92400E !important;
+        border:1.5px solid #F59E0B !important; border-radius:10px !important;
+        font-size:13px !important; font-weight:800 !important; height:48px !important;
+    }
+    .btn-warn > button:hover { background:#F59E0B !important; color:#fff !important; }
+    .btn-danger > button {
+        background:#FEF2F2 !important; color:#C8566A !important;
+        border:1.5px solid #FECACA !important; border-radius:10px !important;
+        font-size:13px !important; font-weight:800 !important; height:48px !important;
+    }
+    .btn-danger > button:hover { background:#C8566A !important; color:#fff !important; }
+    .btn-reset-dia > button {
+        background: linear-gradient(135deg,#7C3AED,#5B21B6) !important;
+        color: #fff !important; border: none !important;
+        border-radius: 10px !important; height: 48px !important;
+        font-size: 13px !important; font-weight: 800 !important;
+        box-shadow: 0 4px 0 rgba(60,10,120,0.35) !important;
+    }
+    .btn-reset-dia > button:hover { transform: translateY(-1px) !important; }
+    </style>""", unsafe_allow_html=True)
+
+    ba, bb, bc = st.columns(3)
+    with ba:
         st.markdown('<div class="btn-warn">', unsafe_allow_html=True)
-        if st.button("⊘  Limpar PIPs", use_container_width=True, help="Remove todos os PIPs/sessões ativas fantasmas"):
+        if st.button("⊘  Limpar PIPs", use_container_width=True, help="Remove sessões ativas fantasmas"):
             limpar_sessoes_ativas(); st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
-    with h3:
-        if st.button("🗑 Limpar dados", use_container_width=True):
+    with bb:
+        st.markdown('<div class="btn-danger">', unsafe_allow_html=True)
+        if st.button("🗑  Limpar dados", use_container_width=True):
             limpar(); st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+    with bc:
+        st.markdown('<div class="btn-reset-dia">', unsafe_allow_html=True)
+        if st.button("🧹  Apagar hoje", use_container_width=True, key="btn_limpar_dia_inline"):
+            st.session_state.confirm_limpar_dia = True
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # ── Botão: Apagar tudo do dia de hoje ──────────────────────────────────
     hoje_str = datetime.now().strftime("%d/%m/%Y")
@@ -2515,29 +2539,12 @@ def tela_admin():
                 if p["numero"] not in pedidos_com_reg:
                     _patch("pedidos_base", f"numero=eq.{p['numero']}", {"status": "aberto"})
 
-    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
     if "confirm_limpar_dia" not in st.session_state:
         st.session_state.confirm_limpar_dia = False
 
-    if not st.session_state.confirm_limpar_dia:
-        st.markdown("""
-        <style>
-        .btn-reset-dia > button {
-            background: linear-gradient(135deg,#7C3AED,#5B21B6) !important;
-            color: #fff !important; border: none !important;
-            border-radius: 12px !important; height: 52px !important;
-            font-size: 14px !important; font-weight: 800 !important;
-            box-shadow: 0 5px 0 rgba(60,10,120,0.40), 0 8px 20px rgba(124,58,237,0.28) !important;
-        }
-        .btn-reset-dia > button:hover { transform: translateY(-2px) !important; }
-        </style>""", unsafe_allow_html=True)
-        st.markdown('<div class="btn-reset-dia">', unsafe_allow_html=True)
-        if st.button(f"🧹  Apagar tudo de hoje  ({hoje_str})", use_container_width=True, key="btn_limpar_dia"):
-            st.session_state.confirm_limpar_dia = True
-            st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-    else:
+    if st.session_state.confirm_limpar_dia:
         import streamlit.components.v1 as _cv1t
         _cv1t.html(f"""<!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
