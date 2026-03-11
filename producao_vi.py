@@ -1682,6 +1682,23 @@ def tela_producao():
     etapa_idx = st.session_state.etapa_idx
     etapa_lbl = ETAPAS_LBL[etapa_idx]
 
+    # Busca Est. Alocado (qtd) e Vr. Alocado (valor) do pedido — etapa 0
+    if etapa_idx == 0:
+        _info_ped = _get("pedidos_base",
+            f"numero=eq.{st.session_state.pedido or ''}&select=est_alocado,vr_alocado")
+        _est_alocado_banco = None
+        _vr_alocado_banco  = None
+        if isinstance(_info_ped, list) and _info_ped:
+            _est_alocado_banco = _info_ped[0].get("est_alocado")
+            _vr_alocado_banco  = _info_ped[0].get("vr_alocado")
+        if "ped_qtd_confirmada" not in st.session_state:
+            st.session_state.ped_qtd_confirmada = None
+        if "ped_qtd_valor" not in st.session_state:
+            st.session_state.ped_qtd_valor = int(float(_est_alocado_banco)) if _est_alocado_banco else 0
+    else:
+        _est_alocado_banco = None
+        _vr_alocado_banco  = None
+
     st.markdown("<br style='line-height:0.5'>", unsafe_allow_html=True)
 
     # ── Card info + botão INICIAR CRONÔMETRO ──
@@ -1742,6 +1759,123 @@ def tela_producao():
               </div>
             </div></body></html>""", height=78, scrolling=False)
             st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+
+        # ── Confirmação de Est. Alocado + Vr. Alocado (etapa 0 — Separação) ──
+        if etapa_idx == 0:
+            ja_confirmou = st.session_state.ped_qtd_confirmada is not None
+
+            if not ja_confirmou:
+                # Formata valor para exibição
+                _vr_fmt = f"R$ {float(_vr_alocado_banco):,.2f}".replace(",","X").replace(".",",").replace("X",".") if _vr_alocado_banco else "—"
+                _qtd_exibir = st.session_state.ped_qtd_valor
+
+                components.html(f"""<!DOCTYPE html><html><head>
+                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+                </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
+                <div style="background:#fff;border:2px solid #3B7DD8;border-radius:16px;
+                            padding:16px 20px;box-shadow:0 4px 16px rgba(59,125,216,0.12);">
+                  <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+                    <div style="width:42px;height:42px;border-radius:12px;
+                      background:linear-gradient(135deg,#3B7DD8,#2563EB);
+                      display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">📦</div>
+                    <div>
+                      <div style="font-size:14px;font-weight:900;color:#1A1714;">Confirmar Dados do Pedido</div>
+                      <div style="font-size:11px;font-weight:600;color:#9C9490;">Verifique e corrija se necessário antes de iniciar.</div>
+                    </div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <div style="background:#F0F5FF;border-radius:10px;padding:12px 14px;">
+                      <div style="font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#3B7DD8;margin-bottom:4px;">Qtd. de Itens</div>
+                      <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:700;color:#1A1714;">{_qtd_exibir}</div>
+                      <div style="font-size:10px;color:#9C9490;margin-top:2px;">Est. Alocado</div>
+                    </div>
+                    <div style="background:#F0F7F3;border-radius:10px;padding:12px 14px;">
+                      <div style="font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#4A7C59;margin-bottom:4px;">Valor do Pedido</div>
+                      <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:#1A1714;">{_vr_fmt}</div>
+                      <div style="font-size:10px;color:#9C9490;margin-top:2px;">Vr. Alocado</div>
+                    </div>
+                  </div>
+                </div></body></html>""", height=168, scrolling=False)
+
+                st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+                st.markdown("""
+                <div style="font-size:10px;font-weight:800;letter-spacing:1.5px;color:#9C9490;
+                  text-transform:uppercase;text-align:center;margin-bottom:6px;">
+                  Corrigir quantidade se necessário:
+                </div>""", unsafe_allow_html=True)
+                st.markdown("""
+                <style>
+                div[data-testid="stNumberInput"] label { display:none !important; }
+                div[data-testid="stNumberInput"] input {
+                    border: 2px solid #3B7DD8 !important; border-radius: 12px !important;
+                    background: #fff !important; font-family: 'Nunito', sans-serif !important;
+                    font-size: 22px !important; font-weight: 800 !important;
+                    padding: 14px 18px !important; height: 58px !important;
+                    text-align: center !important; color: #1A1714 !important;
+                }
+                div[data-testid="stNumberInput"] input:focus {
+                    border-color: #2563EB !important;
+                    box-shadow: 0 0 0 4px rgba(59,125,216,0.12) !important;
+                }
+                </style>""", unsafe_allow_html=True)
+
+                _, c_num, _ = st.columns([0.3, 4, 0.3])
+                with c_num:
+                    qtd_input = st.number_input("_qtd_conf", min_value=0,
+                        value=st.session_state.ped_qtd_valor,
+                        step=1, key="ped_qtd_input",
+                        label_visibility="collapsed")
+                    st.session_state.ped_qtd_valor = int(qtd_input)
+
+                st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+                _, c_conf, _ = st.columns([0.3, 4, 0.3])
+                with c_conf:
+                    st.markdown("""
+                    <style>
+                    .btn-conf-qtd > button {
+                        background: linear-gradient(135deg,#3B7DD8,#2563EB) !important;
+                        color:#fff !important; border:none !important;
+                        border-radius:12px !important; height:52px !important;
+                        font-size:14px !important; font-weight:800 !important;
+                        box-shadow: 0 4px 0 rgba(30,60,140,0.40) !important;
+                    }
+                    .btn-conf-qtd > button:hover { transform:translateY(-1px) !important; }
+                    </style>""", unsafe_allow_html=True)
+                    st.markdown('<div class="btn-conf-qtd">', unsafe_allow_html=True)
+                    if st.button(f"✓  Confirmar {int(qtd_input)} itens",
+                                 use_container_width=True, key="btn_conf_qtd"):
+                        _patch("pedidos_base",
+                               f"numero=eq.{pedido_val}",
+                               {"est_alocado": int(qtd_input)})
+                        st.session_state.ped_qtd_confirmada = int(qtd_input)
+                        st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+                st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+                st.markdown("""
+                <div style="background:#FFF8E6;border:1.5px solid #F59E0B;border-radius:10px;
+                            padding:10px 16px;font-size:12px;font-weight:700;color:#92400E;
+                            text-align:center;">
+                    ⚠️ Confirme os dados do pedido para liberar o cronômetro.
+                </div>""", unsafe_allow_html=True)
+                st.stop()
+
+            else:
+                # Badge resumido após confirmação
+                _vr_fmt2 = f"R$ {float(_vr_alocado_banco):,.2f}".replace(",","X").replace(".",",").replace("X",".") if _vr_alocado_banco else "—"
+                components.html(f"""<!DOCTYPE html><html><head>
+                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+                </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
+                <div style="background:#EBF5FF;border:1.5px solid #3B7DD8;border-radius:10px;
+                            padding:10px 16px;display:flex;align-items:center;gap:12px;">
+                  <span style="font-size:18px;">✅</span>
+                  <div style="font-size:12px;font-weight:700;color:#1E40AF;flex:1;">
+                    <strong style="font-size:14px;">{st.session_state.ped_qtd_confirmada} itens</strong>
+                    <span style="color:#9C9490;margin:0 6px;">·</span>
+                    <span style="font-family:'DM Mono',monospace;">{_vr_fmt2}</span>
+                  </div>
+                </div></body></html>""", height=52, scrolling=False)
+                st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
         _, c1, _ = st.columns([0.3, 4, 0.3])
         with c1:
@@ -2570,6 +2704,169 @@ def tela_admin():
               </table>
             </div>
             </body></html>""", height=min(altura, 420), scrolling=altura > 420)
+
+    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+
+    # ══════════════════════════════════════════════════════════════════
+    #  BLOCO 1.5 — RASTREAR PEDIDO POR NÚMERO
+    # ══════════════════════════════════════════════════════════════════
+    with st.expander("🔍 Rastrear Pedido", expanded=False):
+
+        for _k, _v in [("rastr_num", ""), ("rastr_info", None)]:
+            if _k not in st.session_state: st.session_state[_k] = _v
+
+        col_ri, col_rb = st.columns([3, 1])
+        with col_ri:
+            rastr_input = st.text_input("_rastr_num",
+                placeholder="Digite o número do pedido...",
+                label_visibility="collapsed", key="rastr_input_num")
+        with col_rb:
+            st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+            if st.button("🔍  Buscar", use_container_width=True, key="rastr_btn_buscar"):
+                num_r = rastr_input.strip()
+                if num_r:
+                    st.session_state.rastr_num  = num_r
+                    st.session_state.rastr_info = buscar_status_completo_pedido(num_r)
+                    # Busca também est_alocado e vr_alocado para exibir no rastreio
+                    _rastr_ped = _get("pedidos_base",
+                        f"numero=eq.{num_r}&select=est_alocado,vr_alocado")
+                    if isinstance(_rastr_ped, list) and _rastr_ped:
+                        st.session_state.rastr_est  = _rastr_ped[0].get("est_alocado")
+                        st.session_state.rastr_vr   = _rastr_ped[0].get("vr_alocado")
+                    else:
+                        st.session_state.rastr_est  = None
+                        st.session_state.rastr_vr   = None
+                    st.rerun()
+
+        info_r = st.session_state.rastr_info
+        num_r  = st.session_state.rastr_num
+        if "rastr_est" not in st.session_state: st.session_state.rastr_est = None
+        if "rastr_vr"  not in st.session_state: st.session_state.rastr_vr  = None
+
+        if info_r is not None:
+            base_r = info_r.get("base_status", "nao_encontrado")
+            cli_r  = info_r.get("cliente", "")
+
+            if base_r == "nao_encontrado":
+                components.html(f"""<!DOCTYPE html><html><body style="background:transparent;font-family:sans-serif;">
+                <div style="background:#FFFBEB;border:2px solid #F59E0B;border-radius:12px;
+                            padding:14px 20px;text-align:center;margin-top:8px;">
+                  <div style="font-size:20px;margin-bottom:4px;">❓</div>
+                  <div style="font-size:13px;font-weight:800;color:#92400E;">
+                    Pedido <span style="font-family:monospace;">#{num_r}</span> não encontrado.</div>
+                </div></body></html>""", height=86, scrolling=False)
+            else:
+                # Monta linha do stepper para cada etapa
+                ETAPA_ICON  = ["📦", "🗃️", "✅"]
+                ETAPA_COR_R = ["#C8566A", "#3B7DD8", "#4A7C59"]
+
+                etapas_r    = info_r.get("etapas", [])
+                etapa_atual = None
+                for e in etapas_r:
+                    if e.get("em_andamento"):
+                        etapa_atual = e
+                        break
+
+                # Sessão ativa?
+                sess_r = _get("sessoes_ativas",
+                    f"pedido=eq.{num_r}&select=etapa_idx,operador,iniciado_em")
+                sess_ativa = sess_r[0] if isinstance(sess_r, list) and sess_r else None
+
+                # Monta HTML das etapas
+                etapas_html = ""
+                for e in etapas_r:
+                    idx_e   = e["idx"]
+                    lbl_e   = e["label"]
+                    feita   = e.get("feita", False)
+                    andando = e.get("em_andamento", False)
+                    op_e    = e.get("operador", "")
+                    data_e  = e.get("data", "")
+
+                    if feita:
+                        bg_e  = "#F0F7F3"; brd_e = "#4A7C59"; cor_e = "#2d5a3d"
+                        ic_e  = "✅"; st_e = "Concluída"
+                        det_e = f'<span style="color:#9C9490;font-size:10px;">{op_e} · {data_e}</span>' if op_e else ""
+                    elif andando:
+                        bg_e  = "#FFF7ED"; brd_e = "#E07B3A"; cor_e = "#92400E"
+                        ic_e  = "⏱️"; st_e = "Em andamento"
+                        det_e = f'<span style="color:#9C9490;font-size:10px;">{op_e}</span>' if op_e else ""
+                    else:
+                        bg_e  = "#F7F5F2"; brd_e = "#DDD8D2"; cor_e = "#9C9490"
+                        ic_e  = ETAPA_ICON[idx_e]; st_e = "Aguardando"
+                        det_e = ""
+
+                    etapas_html += f"""
+                    <div style="background:{bg_e};border:1.5px solid {brd_e};border-radius:12px;
+                                padding:11px 16px;margin-bottom:6px;
+                                display:flex;align-items:center;gap:12px;">
+                      <span style="font-size:20px;flex-shrink:0;">{ic_e}</span>
+                      <div style="flex:1;">
+                        <div style="font-size:12px;font-weight:800;color:{cor_e};">{lbl_e}</div>
+                        {det_e}
+                      </div>
+                      <span style="font-size:10px;font-weight:800;color:{cor_e};
+                        background:rgba(0,0,0,0.06);padding:2px 10px;border-radius:20px;">{st_e}</span>
+                    </div>"""
+
+                # Status geral do pedido
+                cor_ped  = "#4A7C59" if base_r == "aberto" else "#C8566A"
+                bg_ped   = "#F0F7F3" if base_r == "aberto" else "#FFF0F2"
+                lbl_ped  = "Aberto"  if base_r == "aberto" else "Concluído"
+                icon_ped = "🟢"      if base_r == "aberto" else "🔴"
+
+                # Formata est_alocado e vr_alocado para exibição
+                _est_r = st.session_state.rastr_est
+                _vr_r  = st.session_state.rastr_vr
+                _est_html = f'<strong style="font-family:monospace;">{int(float(_est_r))}</strong> itens' if _est_r is not None else "—"
+                _vr_html  = f'R$ {float(_vr_r):,.2f}'.replace(",","X").replace(".",",").replace("X",".") if _vr_r else "—"
+                dados_ped_html = f'''
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+                  <div style="background:#F0F5FF;border-radius:10px;padding:10px 14px;">
+                    <div style="font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#3B7DD8;margin-bottom:3px;">Qtd. Itens</div>
+                    <div style="font-size:15px;font-weight:800;color:#1A1714;">{_est_html}</div>
+                    <div style="font-size:9px;color:#9C9490;margin-top:1px;">Est. Alocado</div>
+                  </div>
+                  <div style="background:#F0F7F3;border-radius:10px;padding:10px 14px;">
+                    <div style="font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#4A7C59;margin-bottom:3px;">Valor</div>
+                    <div style="font-size:15px;font-weight:800;color:#1A1714;">{_vr_html}</div>
+                    <div style="font-size:9px;color:#9C9490;margin-top:1px;">Vr. Alocado</div>
+                  </div>
+                </div>'''
+
+                # Aviso se tem sessão ativa agora
+                andamento_html = ""
+                if sess_ativa:
+                    op_and = sess_ativa.get("operador","")
+                    eta_and = int(sess_ativa.get("etapa_idx",0))
+                    ini_and = int(sess_ativa.get("iniciado_em",0))
+                    el_and  = max(int(time.time()) - ini_and, 0)
+                    hh_a, rr_a = divmod(el_and, 3600); mm_a, ss_a = divmod(rr_a, 60)
+                    andamento_html = f"""
+                    <div style="background:#FFF7ED;border:1.5px solid #E07B3A;border-radius:10px;
+                                padding:10px 16px;margin-bottom:10px;font-size:12px;font-weight:700;color:#92400E;">
+                      ⏱️ <strong>{op_and}</strong> está trabalhando em
+                      <strong>{ETAPAS_LBL[eta_and]}</strong>
+                      há <strong style="font-family:monospace;">{hh_a:02d}:{mm_a:02d}:{ss_a:02d}</strong>
+                    </div>"""
+
+                h_card = 80 + 90 + len(etapas_r) * 62 + (40 if sess_ativa else 0)
+                components.html(f"""<!DOCTYPE html><html><head>
+                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+                </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
+                <div style="background:#fff;border:1.5px solid #EDE9E4;border-radius:16px;
+                            padding:16px 18px;box-shadow:0 2px 12px rgba(0,0,0,0.05);margin-top:8px;">
+                  <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+                    <span style="font-family:'DM Mono',monospace;font-size:18px;font-weight:800;
+                      color:#1A1714;">#{num_r}</span>
+                    <span style="flex:1;font-size:13px;font-weight:700;color:#5C5450;min-width:0;
+                      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{cli_r}</span>
+                    <span style="background:{bg_ped};color:{cor_ped};font-size:11px;font-weight:800;
+                      padding:4px 14px;border-radius:20px;flex-shrink:0;">{icon_ped} {lbl_ped}</span>
+                  </div>
+                  {dados_ped_html}
+                  {andamento_html}
+                  {etapas_html}
+                </div></body></html>""", height=h_card, scrolling=False)
 
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
