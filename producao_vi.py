@@ -128,6 +128,20 @@ def cadastrar_pedido_avulso(numero):
             "numero")
 
 def marcar_concluido(numero):
+    """
+    Marca o pedido como concluído no banco APENAS se ele era AF (percentual < 99.9).
+    Pedidos que já vinham com 100% na planilha permanecem intocados no Sistema A
+    (já estavam na aba Tratados). Só pedidos AF que passaram pelas 3 etapas
+    do Sistema B precisam ter o status atualizado.
+    """
+    try:
+        rows = _get("pedidos_base", f"numero=eq.{numero}&select=percentual")
+        if isinstance(rows, list) and rows:
+            pct = float(rows[0].get("percentual") or 0)
+            if pct >= 99.9:
+                return  # Já era 100% — permanece como está no Sistema A
+    except Exception:
+        pass
     _patch("pedidos_base", f"numero=eq.{numero}", {"status": "concluido"})
 
 def verificar_etapa_registro(pedido, etapa_idx):
@@ -242,6 +256,11 @@ def buscar_status_completo_pedido(numero):
             "data":         (reg or {}).get("data", ""),
             "iniciado_em":  (sess or {}).get("iniciado_em"),
         })
+
+    # Conclusão real = etapa 2 registrada pelos operadores.
+    # Ignora o status do banco (que pode ter vindo como "concluido" pela planilha 100%).
+    etapa2_feita = any(e["idx"] == 2 and e.get("feita") for e in etapas)
+    base_status  = "concluido" if etapa2_feita else "aberto"
 
     return {
         "base_status": base_status,
@@ -1118,15 +1137,15 @@ def _render_status_pedido(num, status, etapa_idx):
       {tl_html}
     </div>""", height=68, scrolling=False)
 
-    # ── CASO 2: Pedido totalmente concluído ──────────────────────────────
+    # ── CASO 2: Pedido concluído pelos operadores (3 etapas feitas) ─────
     if base_st == "concluido":
         _cv1.html("""
         <div style="background:#F0F7F3;border:2px solid #4A7C59;border-radius:14px;
                     padding:20px;text-align:center;font-family:sans-serif;">
           <div style="font-size:28px;margin-bottom:8px;">🎉</div>
-          <div style="font-size:14px;font-weight:800;color:#2d5a3d;">Pedido totalmente concluído!</div>
+          <div style="font-size:14px;font-weight:800;color:#2d5a3d;">Pedido concluído pela produção!</div>
           <div style="font-size:12px;color:#4A7C59;margin-top:4px;font-weight:600;">
-            Todas as 3 etapas foram finalizadas com sucesso.</div>
+            As 3 etapas do Sistema B foram finalizadas pelos operadores.</div>
         </div>""", height=110, scrolling=False)
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
         st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
@@ -1477,11 +1496,11 @@ def tela_home():
         if st.session_state.pedido_status == "concluido":
             import streamlit.components.v1 as _cv1
             _cv1.html(
-                '<div style="background:#FEF2F2;border:2px solid #FCA5A5;border-radius:14px;'
+                '<div style="background:#F0F7F3;border:2px solid #4A7C59;border-radius:14px;'
                 'padding:16px 20px;font-family:sans-serif;text-align:center;margin:8px 0;">'
-                '<div style="font-size:22px;margin-bottom:6px;">🔒</div>'
-                '<div style="font-size:14px;font-weight:800;color:#991B1B;margin-bottom:4px;">Pedido Já Concluído</div>'
-                '<div style="font-size:12px;color:#B91C1C;font-weight:600;">Este pedido já foi encerrado no sistema.</div>'
+                '<div style="font-size:22px;margin-bottom:6px;">🎉</div>'
+                '<div style="font-size:14px;font-weight:800;color:#2d5a3d;margin-bottom:4px;">Pedido Concluído pela Produção</div>'
+                '<div style="font-size:12px;color:#4A7C59;font-weight:600;">As 3 etapas foram finalizadas pelos operadores.</div>'
                 '</div>',
                 height=110, scrolling=False
             )
