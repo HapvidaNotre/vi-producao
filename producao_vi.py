@@ -656,20 +656,29 @@ body{{background:transparent;font-family:'Nunito',sans-serif;overflow:visible;}}
     div[data-testid="stSelectbox"] label { display:none !important; }
     div[data-testid="stSelectbox"] > div > div {
         border: 2px solid #E8E2DC !important;
-        border-top: none !important;
-        border-radius: 0 0 16px 16px !important;
+        border-radius: 16px !important;
         background: #fff !important;
-        padding: 4px 8px !important;
+        min-height: 56px !important;
+        padding: 0 16px !important;
         font-family: 'Nunito', sans-serif !important;
-        font-size: 15px !important;
+        font-size: 16px !important;
         font-weight: 800 !important;
         color: #1A1714 !important;
-        box-shadow: 0 8px 24px rgba(0,0,0,.08) !important;
-        margin-top: -2px !important;
+        box-shadow: 0 4px 16px rgba(0,0,0,.07) !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+    div[data-testid="stSelectbox"] > div > div > div {
+        white-space: nowrap !important;
+        overflow: visible !important;
+        text-overflow: unset !important;
+        padding: 0 !important;
+        min-height: unset !important;
+        line-height: 1.3 !important;
     }
     div[data-testid="stSelectbox"] > div > div:focus-within {
         border-color: #C8566A !important;
-        box-shadow: 0 8px 24px rgba(200,86,106,.12) !important;
+        box-shadow: 0 4px 16px rgba(200,86,106,.15) !important;
     }
     div[data-testid="stSelectbox"] ul {
         background: #fff !important;
@@ -682,8 +691,9 @@ body{{background:transparent;font-family:'Nunito',sans-serif;overflow:visible;}}
     div[data-testid="stSelectbox"] ul li {
         border-radius: 8px !important;
         font-weight: 800 !important;
-        font-size: 14px !important;
-        padding: 10px 14px !important;
+        font-size: 15px !important;
+        padding: 12px 16px !important;
+        white-space: nowrap !important;
     }
     div[data-testid="stSelectbox"] ul li:hover {
         background: #FFF0F2 !important;
