@@ -2628,9 +2628,14 @@ def tela_admin():
 
     pedidos_base_count = len(buscar_pedidos_base())
     if pedidos_base_count > 0:
-        pb = buscar_pedidos_base()
-        abertos_c = sum(1 for p in pb if p[3] == "aberto")
-        concl_c   = pedidos_base_count - abertos_c
+        # "Concluídos" = pedidos que os operadores finalizaram a etapa 2 (Conferência)
+        regs_concl = _get("registros", "select=pedido&etapa_idx=eq.2", paginar=True)
+        nums_concluidos_ops = set(
+            r.get("pedido") for r in regs_concl
+            if isinstance(regs_concl, list) and r.get("pedido")
+        ) if isinstance(regs_concl, list) else set()
+        concl_c  = len(nums_concluidos_ops)
+        abertos_c = pedidos_base_count - concl_c
         st.markdown(f"""
         <div style="display:flex;align-items:center;gap:14px;background:#F0F7F3;
                     border:1.5px solid #4A7C59;border-radius:12px;padding:14px 20px;margin-bottom:1rem;">
@@ -2639,8 +2644,8 @@ def tela_admin():
             <div style="font-size:13px;font-weight:700;color:#2d5a3d;">
                 Base sincronizada via <strong>Programa A</strong>:
                 <strong style="color:#1A1714;">{pedidos_base_count}</strong> pedidos
-                &nbsp;·&nbsp; <span style="color:#4A7C59;">{abertos_c} abertos</span>
-                &nbsp;·&nbsp; <span style="color:#C8566A;">{concl_c} concluídos</span>
+                &nbsp;·&nbsp; <span style="color:#4A7C59;">{abertos_c} em aberto</span>
+                &nbsp;·&nbsp; <span style="color:#C8566A;">{concl_c} concluídos pelos operadores</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
