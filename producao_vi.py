@@ -1296,6 +1296,7 @@ def _render_status_pedido(num, status, etapa_idx):
 
 
 def tela_home():
+    _auto_refresh_watcher()
     render_logo()
 
     if st.session_state.etapa_escolhida is None:
@@ -2272,6 +2273,47 @@ def tela_producao():
 # ─────────────────────────────────────
 #  TELA: ADMIN LOGIN
 # ─────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+#  AUTO-REFRESH — detecta novos pedidos no banco e força rerun a cada 30s
+#  Só ativo nas telas onde o operador escolhe pedido (home) e operações (gestor).
+# ─────────────────────────────────────────────────────────────────────────────
+def _hash_pedidos_base():
+    """Retorna uma string de fingerprint dos pedidos abertos atuais."""
+    try:
+        rows = _get("pedidos_base",
+                    "select=numero,status,importado_em&order=numero.asc",
+                    paginar=True)
+        if not isinstance(rows, list):
+            return ""
+        return "|".join(
+            f"{r.get('numero','')}/{r.get('status','')}/{r.get('importado_em','')}"
+            for r in rows
+        )
+    except Exception:
+        return ""
+
+@st.fragment(run_every=30)
+def _auto_refresh_watcher():
+    """
+    Fragment silencioso: re-executa a cada 30s.
+    Se detectar mudança nos pedidos_base, dispara st.rerun() na página inteira,
+    garantindo que o Sistema B reflita imediatamente qualquer upload do Sistema A.
+    """
+    current_hash = _hash_pedidos_base()
+    prev_hash    = st.session_state.get("_pedidos_hash", None)
+
+    if prev_hash is None:
+        # Primeira execução — apenas grava o hash inicial
+        st.session_state["_pedidos_hash"] = current_hash
+        return
+
+    if current_hash != prev_hash:
+        st.session_state["_pedidos_hash"] = current_hash
+        # Mostra toast rápido antes de atualizar
+        st.toast("📋 Planilha atualizada — carregando novos pedidos...", icon="🔄")
+        st.rerun()
+
+
 def tela_admin_login():
     render_logo()
 
@@ -2591,6 +2633,30 @@ def tela_admin():
         if st.button("← Sair", use_container_width=True):
             st.session_state.tela = "home"; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── Botão de sincronização manual ────────────────────────────────────────
+    col_sync1, col_sync2, col_sync3 = st.columns([1, 2, 1])
+    with col_sync2:
+        st.markdown("""
+        <style>
+        .btn-sync > button {
+            background: linear-gradient(135deg,#4A7C59,#2d5a3d) !important;
+            color: #fff !important; border: none !important;
+            border-radius: 12px !important; height: 44px !important;
+            font-size: 13px !important; font-weight: 800 !important;
+            box-shadow: 0 4px 0 rgba(20,60,30,0.35) !important;
+            letter-spacing: 0.5px !important;
+        }
+        .btn-sync > button:hover { filter: brightness(1.08) !important; }
+        </style>""", unsafe_allow_html=True)
+        st.markdown('<div class="btn-sync">', unsafe_allow_html=True)
+        if st.button("🔄  Sincronizar com Sistema A", use_container_width=True, key="adm_btn_sync"):
+            novo_hash = _hash_pedidos_base()
+            st.session_state["_pedidos_hash"] = novo_hash
+            st.toast("✅ Dados sincronizados com o Sistema A!", icon="🔄")
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
 
     pedidos_base_count = len(buscar_pedidos_base())
     if pedidos_base_count > 0:
@@ -3496,6 +3562,7 @@ def fmt_elapsed(ini_ts):
     return f"{h:02d}:{m:02d}:{s2:02d}", s
 
 def tela_operacoes():
+    _auto_refresh_watcher()
     render_logo()
 
     sessoes = buscar_todas_sessoes_ativas()
