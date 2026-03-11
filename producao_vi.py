@@ -176,46 +176,14 @@ def buscar_tempo_pausado(pedido, etapa_idx):
     return 0
 
 def buscar_pedidos_por_etapa(etapa_idx):
-    # paginar=True garante que TODOS os pedidos sejam retornados,
-    # mesmo que a planilha tenha mais de 1.000 linhas.
+    # Retorna TODOS os pedidos (abertos e concluídos) sem filtrar por etapa.
+    # O operador pode selecionar qualquer pedido independente do status ou progresso.
     pedidos_rows = _get("pedidos_base",
-        "select=numero,cliente&status=eq.aberto&order=numero.asc",
+        "select=numero,cliente&order=numero.asc",
         paginar=True)
     if not isinstance(pedidos_rows, list):
         return []
-
-    # Busca apenas os registros relevantes para a etapa em questão,
-    # evitando trazer toda a tabela desnecessariamente.
-    if etapa_idx == 0:
-        # Etapa 0 (Separação): pedido não pode ter nenhum registro de etapa 0
-        regs_rows = _get("registros", "select=pedido&etapa_idx=eq.0", paginar=True)
-    elif etapa_idx == 1:
-        # Etapa 1 (Embalagem): deve ter etapa 0 feita e não ter etapa 1
-        regs_rows = _get("registros", "select=pedido,etapa_idx&etapa_idx=in.(0,1)", paginar=True)
-    else:
-        # Etapa 2 (Conferência): deve ter etapa 1 feita e não ter etapa 2
-        regs_rows = _get("registros", "select=pedido,etapa_idx&etapa_idx=in.(1,2)", paginar=True)
-
-    if not isinstance(regs_rows, list):
-        regs_rows = []
-
-    etapas_feitas = {}
-    for r in regs_rows:
-        p = r.get("pedido"); e = r.get("etapa_idx")
-        if p not in etapas_feitas: etapas_feitas[p] = set()
-        if e is not None: etapas_feitas[p].add(int(e))
-
-    resultado = []
-    for p in pedidos_rows:
-        num = p["numero"]; cli = p.get("cliente", "")
-        feitas = etapas_feitas.get(num, set())
-        if etapa_idx == 0 and 0 not in feitas:
-            resultado.append((num, cli))
-        elif etapa_idx == 1 and 0 in feitas and 1 not in feitas:
-            resultado.append((num, cli))
-        elif etapa_idx == 2 and 1 in feitas and 2 not in feitas:
-            resultado.append((num, cli))
-    return resultado
+    return [(p["numero"], p.get("cliente", "")) for p in pedidos_rows]
 
 def buscar_todas_sessoes_ativas():
     rows = _get("sessoes_ativas", "select=*&order=iniciado_em.asc", paginar=True)
