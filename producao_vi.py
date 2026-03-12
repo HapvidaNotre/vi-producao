@@ -3858,6 +3858,10 @@ def tela_operacoes():
     _auto_refresh_watcher()
     render_logo()
 
+    # Garante que a chave existe antes de qualquer renderização condicional
+    if "busca_pedido_painel" not in st.session_state:
+        st.session_state["busca_pedido_painel"] = ""
+
     sessoes = buscar_todas_sessoes_ativas()
     n_total = len(sessoes)
 
