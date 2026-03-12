@@ -2184,17 +2184,18 @@ def tela_producao():
                                              label_visibility="collapsed",
                                              key="pausa_senha_input")
 
+                st.markdown("""
+                <style>
+                .btn-pausar-conf > button {
+                    background: linear-gradient(135deg,#E07B3A,#B85C20) !important;
+                    color:#fff !important; border:none !important;
+                    border-radius:10px !important; height:44px !important;
+                    font-size:13px !important; font-weight:800 !important;
+                }
+                .btn-voltar > button { height:44px !important; }
+                </style>""", unsafe_allow_html=True)
                 c_conf, c_canc = st.columns(2)
                 with c_conf:
-                    st.markdown("""
-                    <style>
-                    .btn-pausar-conf > button {
-                        background: linear-gradient(135deg,#E07B3A,#B85C20) !important;
-                        color:#fff !important; border:none !important;
-                        border-radius:10px !important; height:44px !important;
-                        font-size:13px !important; font-weight:800 !important;
-                    }
-                    </style>""", unsafe_allow_html=True)
                     st.markdown('<div class="btn-pausar-conf">', unsafe_allow_html=True)
                     if st.button("🌙 Confirmar Pausa", use_container_width=True, key="btn_pausa_confirmar"):
                         if senha_input.strip() == ADMIN_SENHA:
@@ -3193,18 +3194,19 @@ def tela_admin():
                         </div></body></html>""", height=78, scrolling=False)
 
                         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+                        st.markdown("""
+                        <style>
+                        .btn-vep-conf > button {
+                            background: linear-gradient(135deg,#DC2626,#991B1B) !important;
+                            color:#fff !important; border:none !important;
+                            border-radius:10px !important; height:46px !important;
+                            font-size:13px !important; font-weight:800 !important;
+                            box-shadow: 0 4px 0 rgba(100,10,10,0.35) !important;
+                        }
+                        .btn-voltar > button { height:46px !important; }
+                        </style>""", unsafe_allow_html=True)
                         cv1, cv2 = st.columns(2)
                         with cv1:
-                            st.markdown("""
-                            <style>
-                            .btn-vep-conf > button {
-                                background: linear-gradient(135deg,#DC2626,#991B1B) !important;
-                                color:#fff !important; border:none !important;
-                                border-radius:10px !important; height:46px !important;
-                                font-size:13px !important; font-weight:800 !important;
-                                box-shadow: 0 4px 0 rgba(100,10,10,0.35) !important;
-                            }
-                            </style>""", unsafe_allow_html=True)
                             st.markdown('<div class="btn-vep-conf">', unsafe_allow_html=True)
                             if st.button("✓  Sim, voltar etapa", use_container_width=True, key="vep_btn_confirmar"):
                                 # Apaga o último registro dessa etapa para esse pedido
@@ -3355,19 +3357,20 @@ def tela_admin():
                     </div></body></html>""", height=80, scrolling=False)
 
                     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+                    st.markdown("""
+                    <style>
+                    .btn-confirm-del > button {
+                        background: linear-gradient(135deg,#DC2626,#991B1B) !important;
+                        color:#fff !important; border:none !important;
+                        border-radius:10px !important; height:48px !important;
+                        font-size:13px !important; font-weight:800 !important;
+                        box-shadow: 0 4px 0 rgba(100,10,10,0.40) !important;
+                    }
+                    .btn-confirm-del > button:hover { transform:translateY(-1px) !important; }
+                    .btn-voltar > button { height:48px !important; }
+                    </style>""", unsafe_allow_html=True)
                     cz1, cz2 = st.columns(2)
                     with cz1:
-                        st.markdown("""
-                        <style>
-                        .btn-confirm-del > button {
-                            background: linear-gradient(135deg,#DC2626,#991B1B) !important;
-                            color:#fff !important; border:none !important;
-                            border-radius:10px !important; height:48px !important;
-                            font-size:13px !important; font-weight:800 !important;
-                            box-shadow: 0 4px 0 rgba(100,10,10,0.40) !important;
-                        }
-                        .btn-confirm-del > button:hover { transform:translateY(-1px) !important; }
-                        </style>""", unsafe_allow_html=True)
                         st.markdown('<div class="btn-confirm-del">', unsafe_allow_html=True)
                         if st.button("✓  Sim, zerar pedido", use_container_width=True, key="zer_btn_confirmar"):
                             # 1. Apaga todos os registros de etapas do pedido
@@ -3474,17 +3477,18 @@ def tela_admin():
                         <div style="font-size:10px;font-weight:800;color:#C8566A;
                                     text-align:center;margin-bottom:4px;">Confirmar?</div>
                         """, unsafe_allow_html=True)
+                        st.markdown("""
+                        <style>
+                        .btn-sim > button {
+                            background:#C8566A !important; color:#fff !important;
+                            border:none !important; border-radius:8px !important;
+                            font-size:11px !important; font-weight:800 !important;
+                            height:38px !important;
+                        }
+                        .btn-voltar > button { height:38px !important; }
+                        </style>""", unsafe_allow_html=True)
                         ca, cb = st.columns(2)
                         with ca:
-                            st.markdown("""
-                            <style>
-                            .btn-sim > button {
-                                background:#C8566A !important; color:#fff !important;
-                                border:none !important; border-radius:8px !important;
-                                font-size:11px !important; font-weight:800 !important;
-                                height:38px !important;
-                            }
-                            </style>""", unsafe_allow_html=True)
                             st.markdown('<div class="btn-sim">', unsafe_allow_html=True)
                             if st.button("✓ Sim", key=f"sim_{numero}", use_container_width=True):
                                 excluir_pedido_avulso(numero)
@@ -3728,19 +3732,20 @@ def tela_admin():
         </div></body></html>""", height=130, scrolling=False)
 
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        st.markdown("""
+        <style>
+        .btn-confirm-del > button {
+            background: linear-gradient(135deg,#DC2626,#991B1B) !important;
+            color:#fff !important; border:none !important;
+            border-radius:10px !important; height:48px !important;
+            font-size:13px !important; font-weight:800 !important;
+            box-shadow: 0 4px 0 rgba(100,10,10,0.40) !important;
+        }
+        .btn-confirm-del > button:hover { transform:translateY(-1px) !important; }
+        .btn-voltar > button { height:48px !important; }
+        </style>""", unsafe_allow_html=True)
         ca, cb = st.columns(2)
         with ca:
-            st.markdown("""
-            <style>
-            .btn-confirm-del > button {
-                background: linear-gradient(135deg,#DC2626,#991B1B) !important;
-                color:#fff !important; border:none !important;
-                border-radius:10px !important; height:48px !important;
-                font-size:13px !important; font-weight:800 !important;
-                box-shadow: 0 4px 0 rgba(100,10,10,0.40) !important;
-            }
-            .btn-confirm-del > button:hover { transform:translateY(-1px) !important; }
-            </style>""", unsafe_allow_html=True)
             st.markdown('<div class="btn-confirm-del">', unsafe_allow_html=True)
             if st.button("✓ Sim, apagar tudo de hoje", use_container_width=True, key="confirmar_del_dia"):
                 limpar_dia(hoje_str)
@@ -4056,6 +4061,14 @@ def tela_operacoes():
 
         if modo_pausa is None:
             # ── Linha de botões normal ──────────────────────────────────
+            st.markdown("""<style>
+            .btn-finalizar > button { height:46px !important; }
+            .btn-pausar > button {
+                background:#fff !important; color:#E07B3A !important;
+                border:2px solid #E07B3A !important; border-radius:10px !important;
+                height:46px !important; font-size:12px !important; font-weight:800 !important;
+            }
+            </style>""", unsafe_allow_html=True)
             col_f, col_p = st.columns([3, 2])
             with col_f:
                 st.markdown('<div class="btn-finalizar">', unsafe_allow_html=True)
@@ -4071,13 +4084,6 @@ def tela_operacoes():
                     st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
             with col_p:
-                st.markdown("""<style>
-                .btn-pausar > button {
-                    background:#fff !important; color:#E07B3A !important;
-                    border:2px solid #E07B3A !important; border-radius:10px !important;
-                    height:46px !important; font-size:12px !important; font-weight:800 !important;
-                }
-                </style>""", unsafe_allow_html=True)
                 st.markdown('<div class="btn-pausar">', unsafe_allow_html=True)
                 if st.button("⏸ Pausar", use_container_width=True, key=f"pausar_{uid}"):
                     st.session_state[_k_modo]  = "pausar"
@@ -4117,23 +4123,25 @@ def tela_operacoes():
                             unsafe_allow_html=True)
 
             st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+            st.markdown(f"""<style>
+            .btn-conf-pausa-{uid} > button {{
+                background: {cor_modo} !important; color:#fff !important;
+                border:none !important; border-radius:10px !important;
+                height:44px !important; font-size:13px !important; font-weight:800 !important;
+            }}
+            .btn-canc-pausa-{uid} > button {{
+                background: #fff !important; color:#5C5450 !important;
+                border:2px solid #DDD8D2 !important; border-radius:10px !important;
+                height:44px !important; font-size:13px !important; font-weight:800 !important;
+            }}
+            </style>""", unsafe_allow_html=True)
             cc1, cc2 = st.columns(2)
             with cc1:
-                st.markdown(f"""<style>
-                .btn-conf-pausa-{uid} > button {{
-                    background: {cor_modo} !important; color:#fff !important;
-                    border:none !important; border-radius:10px !important;
-                    height:44px !important; font-size:13px !important; font-weight:800 !important;
-                }}</style>""", unsafe_allow_html=True)
                 st.markdown(f'<div class="btn-conf-pausa-{uid}">', unsafe_allow_html=True)
                 if st.button("✓  Confirmar", use_container_width=True, key=f"conf_pausa_{uid}"):
                     if senha_input == ADMIN_SENHA:
-                        # Salva o tempo acumulado e marca a sessão como pausada
-                        # (iniciado_em=0 é a flag de pausa — sai do painel mas
-                        # o tempo_pausado fica guardado para quando o operador retomar).
                         tempo_atual = tp + max(int(time.time()) - ini, 0)
                         pausar_para_amanha(ped, eta_idx, op, tempo_atual)
-                        # Marca como pausada: zera iniciado_em para tirar do painel
                         _patch("sessoes_ativas",
                                f"pedido=eq.{ped}&etapa_idx=eq.{eta_idx}",
                                {"iniciado_em": 0})
@@ -4146,10 +4154,12 @@ def tela_operacoes():
                         st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
             with cc2:
+                st.markdown(f'<div class="btn-canc-pausa-{uid}">', unsafe_allow_html=True)
                 if st.button("✕  Cancelar", use_container_width=True, key=f"canc_pausa_{uid}"):
                     st.session_state[_k_modo] = None
                     st.session_state[_k_erro] = False
                     st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
