@@ -108,6 +108,7 @@ def init_db():
     pass  # Tables created via supabase_setup.sql
 
 # ─── Planilha / Pedidos base ───
+@st.cache_data(ttl=15, show_spinner=False)
 def buscar_pedidos_base():
     rows = _get("pedidos_base", "select=numero,cliente,produto,status&order=numero.asc", paginar=True)
     if isinstance(rows, list):
@@ -168,9 +169,11 @@ def registrar_sessao_ativa(pedido, etapa_idx, operador):
             {"pedido": pedido, "etapa_idx": etapa_idx,
              "operador": operador, "iniciado_em": int(time.time())},
             "pedido,etapa_idx")
+    buscar_todas_sessoes_ativas.clear()
 
 def remover_sessao_ativa(pedido, etapa_idx):
     _delete("sessoes_ativas", f"pedido=eq.{pedido}&etapa_idx=eq.{etapa_idx}")
+    buscar_todas_sessoes_ativas.clear()
 
 def pausar_para_amanha(pedido, etapa_idx, operador, tempo_acumulado):
     """
@@ -184,6 +187,7 @@ def pausar_para_amanha(pedido, etapa_idx, operador, tempo_acumulado):
         "iniciado_em":   int(time.time()),   # atualiza para manter sessão válida
         "tempo_pausado": tempo_acumulado,    # segundos já trabalhados
     }, "pedido,etapa_idx")
+    buscar_todas_sessoes_ativas.clear()
 
 def buscar_tempo_pausado(pedido, etapa_idx):
     """Retorna os segundos pausados salvos na sessão ativa, ou 0."""
@@ -193,6 +197,7 @@ def buscar_tempo_pausado(pedido, etapa_idx):
         return int(rows[0]["tempo_pausado"])
     return 0
 
+@st.cache_data(ttl=10, show_spinner=False)
 def buscar_pedidos_por_etapa(etapa_idx):
     # Retorna TODOS os pedidos (abertos e concluídos) sem filtrar por etapa.
     # O operador pode selecionar qualquer pedido independente do status ou progresso.
@@ -203,6 +208,7 @@ def buscar_pedidos_por_etapa(etapa_idx):
         return []
     return [(p["numero"], p.get("cliente", "")) for p in pedidos_rows]
 
+@st.cache_data(ttl=5, show_spinner=False)
 def buscar_todas_sessoes_ativas():
     rows = _get("sessoes_ativas", "select=*&order=iniciado_em.asc", paginar=True)
     return rows if isinstance(rows, list) else []
@@ -355,7 +361,11 @@ def _limpar_sessoes_expiradas():
             except Exception:
                 pass
 
-_limpar_sessoes_expiradas()
+# Roda limpeza de sessões expiradas no máximo a cada 30 min por sessão
+_agora = int(time.time())
+if _agora - st.session_state.get("_ultima_limpeza", 0) > 1800:
+    _limpar_sessoes_expiradas()
+    st.session_state["_ultima_limpeza"] = _agora
 
 # ─────────────────────────────────────
 #  QUERY PARAM — PiP FINALIZAR
@@ -398,6 +408,7 @@ def fmt(s):
     h, mi = divmod(m, 60)
     return f"{h}h {mi:02d}m"
 
+@st.cache_resource
 def logo_b64():
     p = Path(__file__).parent / "logo_vi.png"
     return base64.b64encode(p.read_bytes()).decode() if p.exists() else None
