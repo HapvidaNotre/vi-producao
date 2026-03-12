@@ -3022,43 +3022,43 @@ def tela_admin():
     # ══════════════════════════════════════════════════════════════════
     #  BLOCO 2 — ALTERAR STATUS DE PEDIDO
     # ══════════════════════════════════════════════════════════════════
-    with st.expander("🔧 Alterar Status de Pedido", expanded=False):
+    with st.expander("🔧 Lançar Etapa em Nome de Operador", expanded=False):
 
         components.html("""<!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
         </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
         <div style="background:#FFFBEB;border:1.5px solid #F59E0B;border-radius:10px;
                     padding:11px 16px;font-size:12px;font-weight:700;color:#92400E;">
-            ⚠️ Use somente em caso de <strong>falha do sistema</strong>.
-            Alterações manuais podem afetar o fluxo de produção.
-        </div></body></html>""", height=56, scrolling=False)
+            ⚠️ Use para corrigir etapas não registradas. O gestor escolhe o pedido,
+            a etapa e o operador — o sistema registra como concluída.
+        </div></body></html>""", height=58, scrolling=False)
 
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
-        # Inicializar estados
         for _k, _v in [
-            ("adm_busca_num",      ""),
-            ("adm_pedido_info",    None),
-            ("adm_confirm_alter",  False),
+            ("adm_busca_num",     ""),
+            ("adm_pedido_info",   None),
+            ("adm_confirm_alter", False),
+            ("adm_etapa_sel",     0),
+            ("adm_op_sel",        OPERADORES[0]),
         ]:
             if _k not in st.session_state:
                 st.session_state[_k] = _v
 
+        # ── Busca do pedido ───────────────────────────────────────────
         col_inp, col_btn = st.columns([3, 1])
         with col_inp:
             num_busca = st.text_input(
-                "Número do pedido",
-                placeholder="Ex: 48944",
-                label_visibility="collapsed",
-                key="adm_input_num"
+                "Número do pedido", placeholder="Ex: 48944",
+                label_visibility="collapsed", key="adm_input_num"
             )
         with col_btn:
             st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
             if st.button("🔍  Buscar", use_container_width=True, key="adm_btn_buscar"):
-                num_limpo = num_busca.strip()
-                if num_limpo:
-                    st.session_state.adm_busca_num     = num_limpo
-                    st.session_state.adm_pedido_info   = buscar_status_completo_pedido(num_limpo)
+                n = num_busca.strip()
+                if n:
+                    st.session_state.adm_busca_num     = n
+                    st.session_state.adm_pedido_info   = buscar_status_completo_pedido(n)
                     st.session_state.adm_confirm_alter = False
                     st.rerun()
 
@@ -3069,7 +3069,6 @@ def tela_admin():
             base_st = info.get("base_status", "nao_encontrado")
             cliente = info.get("cliente", "")
 
-            # ── Pedido não encontrado ─────────────────────────────────
             if base_st == "nao_encontrado":
                 components.html(f"""<!DOCTYPE html><html><body style="background:transparent;font-family:sans-serif;">
                 <div style="background:#FFFBEB;border:2px solid #F59E0B;border-radius:12px;
@@ -3078,19 +3077,8 @@ def tela_admin():
                   <div style="font-size:13px;font-weight:800;color:#92400E;">
                     Pedido <span style="font-family:monospace;">#{num}</span> não encontrado.</div>
                 </div></body></html>""", height=90, scrolling=False)
-
-            # ── Pedido encontrado ────────────────────────────────────
             else:
-                eh_aberto  = base_st == "aberto"
-                cor_atual  = "#4A7C59" if eh_aberto else "#C8566A"
-                bg_atual   = "#F0F7F3" if eh_aberto else "#FFF0F2"
-                lbl_atual  = "Aberto"  if eh_aberto else "Concluído"
-                icon_atual = "🟢"      if eh_aberto else "🔴"
-                novo_st    = "concluido" if eh_aberto else "aberto"
-                lbl_novo   = "Concluído" if eh_aberto else "Aberto"
-                icon_novo  = "🔴"       if eh_aberto else "🟢"
-
-                # Etapas concluídas
+                # ── Card situação atual do pedido ─────────────────────
                 etapas_badges = ""
                 for e in info.get("etapas", []):
                     if e.get("feita"):
@@ -3105,23 +3093,27 @@ def tela_admin():
                             f'font-weight:800;padding:2px 10px;border-radius:20px;margin-right:4px;">'
                             f'⏱ {e["label"]}</span>'
                         )
-                if not etapas_badges:
-                    etapas_badges = (
-                        '<span style="font-size:11px;color:#9C9490;font-weight:600;">'
-                        'Nenhuma etapa registrada</span>'
-                    )
+                    else:
+                        etapas_badges += (
+                            f'<span style="background:#F5F5F5;color:#9C9490;font-size:10px;'
+                            f'font-weight:800;padding:2px 10px;border-radius:20px;margin-right:4px;">'
+                            f'○ {e["label"]}</span>'
+                        )
+                cor_st = "#4A7C59" if base_st == "aberto" else "#C8566A"
+                bg_st  = "#F0F7F3" if base_st == "aberto" else "#FFF0F2"
+                lbl_st = "Aberto"  if base_st == "aberto" else "Concluído"
 
                 components.html(f"""<!DOCTYPE html><html><head>
                 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
                 </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
                 <div style="background:#fff;border:1.5px solid #EDE9E4;border-radius:14px;
-                            padding:14px 20px;box-shadow:0 2px 10px rgba(0,0,0,0.05);margin-top:8px;">
+                            padding:14px 20px;box-shadow:0 2px 10px rgba(0,0,0,0.05);margin-top:4px;">
                   <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
                     <span style="font-family:monospace;font-size:18px;font-weight:800;color:#1A1714;">#{num}</span>
                     <span style="flex:1;font-size:13px;font-weight:700;color:#5C5450;min-width:0;
                       overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{cliente}</span>
-                    <span style="background:{bg_atual};color:{cor_atual};font-size:11px;font-weight:800;
-                      padding:4px 14px;border-radius:20px;flex-shrink:0;">{icon_atual} {lbl_atual}</span>
+                    <span style="background:{bg_st};color:{cor_st};font-size:11px;font-weight:800;
+                      padding:4px 14px;border-radius:20px;flex-shrink:0;">{lbl_st}</span>
                   </div>
                   <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                     <span style="font-size:9px;font-weight:800;letter-spacing:1.5px;
@@ -3130,43 +3122,101 @@ def tela_admin():
                   </div>
                 </div></body></html>""", height=108, scrolling=False)
 
-                st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+                st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
-                # ── Sem confirmação: mostra botão de alterar ──────────
                 if not st.session_state.adm_confirm_alter:
-                    if st.button(
-                        f"{icon_novo}  Alterar para {lbl_novo}",
-                        use_container_width=True,
-                        key="adm_btn_alterar"
-                    ):
+                    # ── Seleção de etapa e operador ───────────────────
+                    c_eta, c_op = st.columns(2)
+                    with c_eta:
+                        st.markdown(
+                            '<div style="font-size:10px;font-weight:800;letter-spacing:1.5px;'                            'color:#9C9490;text-transform:uppercase;margin-bottom:4px;">Etapa</div>',
+                            unsafe_allow_html=True)
+                        etapa_sel_idx = st.selectbox(
+                            "_etapa_sel", options=list(range(len(ETAPAS_LBL))),
+                            format_func=lambda i: ETAPAS_LBL[i],
+                            key="adm_etapa_sel",
+                            label_visibility="collapsed"
+                        )
+                    with c_op:
+                        st.markdown(
+                            '<div style="font-size:10px;font-weight:800;letter-spacing:1.5px;'                            'color:#9C9490;text-transform:uppercase;margin-bottom:4px;">Operador</div>',
+                            unsafe_allow_html=True)
+                        op_sel = st.selectbox(
+                            "_op_sel", options=OPERADORES,
+                            key="adm_op_sel",
+                            label_visibility="collapsed"
+                        )
+
+                    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+                    # Aviso se etapa já foi registrada
+                    etapa_ja_feita = info["etapas"][etapa_sel_idx].get("feita", False)
+                    if etapa_ja_feita:
+                        op_prev = info["etapas"][etapa_sel_idx].get("operador", "")
+                        components.html(f"""<!DOCTYPE html><html><head>
+                        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+                        </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
+                        <div style="background:#FFFBEB;border:1.5px solid #F59E0B;border-radius:10px;
+                                    padding:10px 14px;font-size:12px;font-weight:700;color:#92400E;">
+                          ⚠️ Etapa <strong>{ETAPAS_LBL[etapa_sel_idx]}</strong> já foi registrada
+                          por <strong>{op_prev}</strong>. Lançar novamente criará um registro adicional.
+                        </div></body></html>""", height=56, scrolling=False)
+                        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+
+                    if st.button("✏️  Lançar etapa", use_container_width=True, key="adm_btn_alterar"):
                         st.session_state.adm_confirm_alter = True
                         st.rerun()
 
-                # ── Com confirmação: mostra aviso + confirmar/cancelar ─
                 else:
+                    # ── Confirmação ───────────────────────────────────
+                    etapa_sel_idx = st.session_state.adm_etapa_sel
+                    op_sel        = st.session_state.adm_op_sel
+                    etapa_lbl_sel = ETAPAS_LBL[etapa_sel_idx]
+
                     components.html(f"""<!DOCTYPE html><html><head>
                     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
                     </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
-                    <div style="background:#FEF2F2;border:2px solid #FCA5A5;border-radius:12px;
-                                padding:13px 20px;text-align:center;">
-                      <div style="font-size:13px;font-weight:800;color:#991B1B;margin-bottom:3px;">
-                        Confirmar alteração?</div>
-                      <div style="font-size:12px;color:#B91C1C;font-weight:700;">
-                        #{num} &nbsp;·&nbsp;
-                        {icon_atual} {lbl_atual} &nbsp;→&nbsp; {icon_novo} {lbl_novo}
+                    <div style="background:#F0F5FF;border:2px solid #3B7DD8;border-radius:12px;
+                                padding:14px 20px;text-align:center;">
+                      <div style="font-size:13px;font-weight:800;color:#1e3a6e;margin-bottom:6px;">
+                        Confirmar lançamento?</div>
+                      <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;">
+                        <span style="background:#EBF0FB;color:#3B5EC6;font-size:11px;font-weight:800;
+                          padding:4px 14px;border-radius:20px;">📦 Pedido #{num}</span>
+                        <span style="background:#E8F2EC;color:#4A7C59;font-size:11px;font-weight:800;
+                          padding:4px 14px;border-radius:20px;">✓ {etapa_lbl_sel}</span>
+                        <span style="background:#FFF0F2;color:#C8566A;font-size:11px;font-weight:800;
+                          padding:4px 14px;border-radius:20px;">👤 {op_sel}</span>
                       </div>
-                    </div></body></html>""", height=78, scrolling=False)
+                    </div></body></html>""", height=100, scrolling=False)
 
                     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
                     ca, cb = st.columns(2)
                     with ca:
-                        if st.button("✓  Confirmar", use_container_width=True, key="adm_btn_confirmar"):
-                            _patch("pedidos_base", f"numero=eq.{num}", {"status": novo_st})
-                            st.session_state.adm_pedido_info   = None
+                        st.markdown("""
+                        <style>
+                        .btn-adm-lancar > button {
+                            background: linear-gradient(135deg,#3B7DD8,#2563EB) !important;
+                            color:#fff !important; border:none !important;
+                            border-radius:10px !important; height:46px !important;
+                            font-size:13px !important; font-weight:800 !important;
+                            box-shadow: 0 4px 0 rgba(30,60,140,0.35) !important;
+                        }
+                        </style>""", unsafe_allow_html=True)
+                        st.markdown('<div class="btn-adm-lancar">', unsafe_allow_html=True)
+                        if st.button("✓  Confirmar lançamento", use_container_width=True, key="adm_btn_confirmar"):
+                            # Grava o registro como se o operador tivesse finalizado agora
+                            salvar(num, op_sel, ETAPAS[etapa_sel_idx], etapa_sel_idx, 0)
+                            # Remove sessão ativa dessa etapa se houver
+                            remover_sessao_ativa(num, etapa_sel_idx)
+                            # Se for a etapa 2 (última), marca concluído
+                            if etapa_sel_idx == 2:
+                                marcar_concluido(num)
+                            st.session_state.adm_pedido_info   = buscar_status_completo_pedido(num)
                             st.session_state.adm_confirm_alter = False
-                            st.session_state.adm_busca_num     = ""
-                            st.toast(f"✅ Pedido #{num} → {lbl_novo}", icon="🔧")
+                            st.toast(f"✅ Pedido #{num} · {etapa_lbl_sel} lançada em nome de {op_sel}", icon="✏️")
                             st.rerun()
+                        st.markdown('</div>', unsafe_allow_html=True)
                     with cb:
                         if st.button("✕  Cancelar", use_container_width=True, key="adm_btn_cancelar"):
                             st.session_state.adm_confirm_alter = False
