@@ -2663,22 +2663,25 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg):
         story.append(Paragraph("HISTÓRICO DE PEDIDOS", S_SECTION))
         ETAPA_NOMES = {"Separacao":"Separação","Conferencia":"Conferência","Embalagem":"Embalagem"}
         hist_header = [
-            Paragraph("<b>PEDIDO</b>",   ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO)),
-            Paragraph("<b>OPERADOR</b>", ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO)),
-            Paragraph("<b>ETAPA</b>",    ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
-            Paragraph("<b>TEMPO</b>",    ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
-            Paragraph("<b>DATA</b>",     ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>PEDIDO</b>",    ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO)),
+            Paragraph("<b>OPERADOR</b>",  ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO)),
+            Paragraph("<b>ETAPA</b>",     ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>TEMPO</b>",     ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>QTD PÇS</b>",   ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>DATA</b>",      ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
         ]
         hist_rows = [hist_header]
         for r in regs[:80]:
+            qtd_str = str(r[8]) if r[8] is not None else "—"
             hist_rows.append([
                 Paragraph(f"<font name='Courier-Bold' size='8'>{r[1]}</font>", styles["Normal"]),
                 Paragraph(f"<font size='8'>{r[2]}</font>", styles["Normal"]),
                 Paragraph(ETAPA_NOMES.get(r[3], r[3]), styles["Normal"]),
                 Paragraph(f"<font name='Courier' size='8'>{fmt(r[5])}</font>", ParagraphStyle("c", fontSize=8, alignment=TA_CENTER)),
+                Paragraph(f"<font name='Courier-Bold' size='8'>{qtd_str}</font>", ParagraphStyle("c", fontSize=8, alignment=TA_CENTER)),
                 Paragraph(f"<font size='7' color='#8C8480'>{r[6]}</font>", ParagraphStyle("c", fontSize=7, alignment=TA_CENTER)),
             ])
-        hist_tbl = Table(hist_rows, colWidths=["18%","22%","22%","16%","22%"])
+        hist_tbl = Table(hist_rows, colWidths=["16%","20%","20%","14%","12%","18%"])
         hist_tbl.setStyle(TableStyle([
             ("BACKGROUND",    (0,0), (-1,0), ESCURO),
             ("ROWBACKGROUNDS",(0,1), (-1,-1), [CLARO, BRANCO]),
