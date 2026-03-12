@@ -3022,206 +3022,196 @@ def tela_admin():
     # ══════════════════════════════════════════════════════════════════
     #  BLOCO 2 — ALTERAR STATUS DE PEDIDO
     # ══════════════════════════════════════════════════════════════════
-    with st.expander("🔧 Lançar Etapa em Nome de Operador", expanded=False):
+    with st.expander("↩️ Voltar Etapa do Pedido", expanded=False):
 
         components.html("""<!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
         </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
-        <div style="background:#FFFBEB;border:1.5px solid #F59E0B;border-radius:10px;
-                    padding:11px 16px;font-size:12px;font-weight:700;color:#92400E;">
-            ⚠️ Use para corrigir etapas não registradas. O gestor escolhe o pedido,
-            a etapa e o operador — o sistema registra como concluída.
-        </div></body></html>""", height=58, scrolling=False)
+        <div style="background:#F0F5FF;border:1.5px solid #3B7DD8;border-radius:10px;
+                    padding:11px 16px;font-size:12px;font-weight:700;color:#1e3a6e;">
+            ↩️ Apaga o registro da <strong>última etapa concluída</strong> do pedido,
+            voltando-o para a etapa anterior. O operador original é mantido.
+        </div></body></html>""", height=56, scrolling=False)
 
         st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
         for _k, _v in [
-            ("adm_busca_num",     ""),
-            ("adm_pedido_info",   None),
-            ("adm_confirm_alter", False),
-            ("adm_etapa_sel",     0),
-            ("adm_op_sel",        OPERADORES[0]),
+            ("vep_busca_num",  ""),
+            ("vep_info",       None),
+            ("vep_confirm",    False),
         ]:
             if _k not in st.session_state:
                 st.session_state[_k] = _v
 
-        # ── Busca do pedido ───────────────────────────────────────────
-        col_inp, col_btn = st.columns([3, 1])
-        with col_inp:
-            num_busca = st.text_input(
+        col_vi, col_vb = st.columns([3, 1])
+        with col_vi:
+            vep_input = st.text_input(
                 "Número do pedido", placeholder="Ex: 48944",
-                label_visibility="collapsed", key="adm_input_num"
+                label_visibility="collapsed", key="vep_input_num"
             )
-        with col_btn:
+        with col_vb:
             st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-            if st.button("🔍  Buscar", use_container_width=True, key="adm_btn_buscar"):
-                n = num_busca.strip()
+            if st.button("🔍  Buscar", use_container_width=True, key="vep_btn_buscar"):
+                n = vep_input.strip()
                 if n:
-                    st.session_state.adm_busca_num     = n
-                    st.session_state.adm_pedido_info   = buscar_status_completo_pedido(n)
-                    st.session_state.adm_confirm_alter = False
+                    st.session_state.vep_busca_num = n
+                    st.session_state.vep_info      = buscar_status_completo_pedido(n)
+                    st.session_state.vep_confirm   = False
                     st.rerun()
 
-        info = st.session_state.adm_pedido_info
-        num  = st.session_state.adm_busca_num
+        vep_info = st.session_state.vep_info
+        vep_num  = st.session_state.vep_busca_num
 
-        if info is not None:
-            base_st = info.get("base_status", "nao_encontrado")
-            cliente = info.get("cliente", "")
+        if vep_info is not None:
+            vep_base = vep_info.get("base_status", "nao_encontrado")
+            vep_cli  = vep_info.get("cliente", "")
+            vep_etps = vep_info.get("etapas", [])
 
-            if base_st == "nao_encontrado":
+            if vep_base == "nao_encontrado":
                 components.html(f"""<!DOCTYPE html><html><body style="background:transparent;font-family:sans-serif;">
                 <div style="background:#FFFBEB;border:2px solid #F59E0B;border-radius:12px;
                             padding:14px 20px;text-align:center;margin-top:8px;">
                   <div style="font-size:20px;margin-bottom:4px;">❓</div>
                   <div style="font-size:13px;font-weight:800;color:#92400E;">
-                    Pedido <span style="font-family:monospace;">#{num}</span> não encontrado.</div>
+                    Pedido <span style="font-family:monospace;">#{vep_num}</span> não encontrado.</div>
                 </div></body></html>""", height=90, scrolling=False)
             else:
-                # ── Card situação atual do pedido ─────────────────────
-                etapas_badges = ""
-                for e in info.get("etapas", []):
-                    if e.get("feita"):
-                        etapas_badges += (
-                            f'<span style="background:#E8F2EC;color:#4A7C59;font-size:10px;'
-                            f'font-weight:800;padding:2px 10px;border-radius:20px;margin-right:4px;">'
-                            f'✓ {e["label"]}</span>'
-                        )
-                    elif e.get("em_andamento"):
-                        etapas_badges += (
-                            f'<span style="background:#FFF8E6;color:#B45309;font-size:10px;'
-                            f'font-weight:800;padding:2px 10px;border-radius:20px;margin-right:4px;">'
-                            f'⏱ {e["label"]}</span>'
-                        )
-                    else:
-                        etapas_badges += (
-                            f'<span style="background:#F5F5F5;color:#9C9490;font-size:10px;'
-                            f'font-weight:800;padding:2px 10px;border-radius:20px;margin-right:4px;">'
-                            f'○ {e["label"]}</span>'
-                        )
-                cor_st = "#4A7C59" if base_st == "aberto" else "#C8566A"
-                bg_st  = "#F0F7F3" if base_st == "aberto" else "#FFF0F2"
-                lbl_st = "Aberto"  if base_st == "aberto" else "Concluído"
+                # Última etapa concluída
+                etps_feitas = [e for e in vep_etps if e.get("feita")]
 
-                components.html(f"""<!DOCTYPE html><html><head>
-                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
-                </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
-                <div style="background:#fff;border:1.5px solid #EDE9E4;border-radius:14px;
-                            padding:14px 20px;box-shadow:0 2px 10px rgba(0,0,0,0.05);margin-top:4px;">
-                  <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
-                    <span style="font-family:monospace;font-size:18px;font-weight:800;color:#1A1714;">#{num}</span>
-                    <span style="flex:1;font-size:13px;font-weight:700;color:#5C5450;min-width:0;
-                      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{cliente}</span>
-                    <span style="background:{bg_st};color:{cor_st};font-size:11px;font-weight:800;
-                      padding:4px 14px;border-radius:20px;flex-shrink:0;">{lbl_st}</span>
-                  </div>
-                  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                    <span style="font-size:9px;font-weight:800;letter-spacing:1.5px;
-                      text-transform:uppercase;color:#9C9490;margin-right:2px;">Etapas:</span>
-                    {etapas_badges}
-                  </div>
-                </div></body></html>""", height=108, scrolling=False)
-
-                st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-
-                if not st.session_state.adm_confirm_alter:
-                    # ── Seleção de etapa e operador ───────────────────
-                    c_eta, c_op = st.columns(2)
-                    with c_eta:
-                        st.markdown(
-                            '<div style="font-size:10px;font-weight:800;letter-spacing:1.5px;'                            'color:#9C9490;text-transform:uppercase;margin-bottom:4px;">Etapa</div>',
-                            unsafe_allow_html=True)
-                        etapa_sel_idx = st.selectbox(
-                            "_etapa_sel", options=list(range(len(ETAPAS_LBL))),
-                            format_func=lambda i: ETAPAS_LBL[i],
-                            key="adm_etapa_sel",
-                            label_visibility="collapsed"
-                        )
-                    with c_op:
-                        st.markdown(
-                            '<div style="font-size:10px;font-weight:800;letter-spacing:1.5px;'                            'color:#9C9490;text-transform:uppercase;margin-bottom:4px;">Operador</div>',
-                            unsafe_allow_html=True)
-                        op_sel = st.selectbox(
-                            "_op_sel", options=OPERADORES,
-                            key="adm_op_sel",
-                            label_visibility="collapsed"
-                        )
-
-                    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-
-                    # Aviso se etapa já foi registrada
-                    etapa_ja_feita = info["etapas"][etapa_sel_idx].get("feita", False)
-                    if etapa_ja_feita:
-                        op_prev = info["etapas"][etapa_sel_idx].get("operador", "")
-                        components.html(f"""<!DOCTYPE html><html><head>
-                        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
-                        </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
-                        <div style="background:#FFFBEB;border:1.5px solid #F59E0B;border-radius:10px;
-                                    padding:10px 14px;font-size:12px;font-weight:700;color:#92400E;">
-                          ⚠️ Etapa <strong>{ETAPAS_LBL[etapa_sel_idx]}</strong> já foi registrada
-                          por <strong>{op_prev}</strong>. Lançar novamente criará um registro adicional.
-                        </div></body></html>""", height=56, scrolling=False)
-                        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
-
-                    if st.button("✏️  Lançar etapa", use_container_width=True, key="adm_btn_alterar"):
-                        st.session_state.adm_confirm_alter = True
-                        st.rerun()
-
+                if not etps_feitas:
+                    components.html(f"""<!DOCTYPE html><html><head>
+                    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+                    </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
+                    <div style="background:#F5F5F5;border:1.5px solid #D1D5DB;border-radius:12px;
+                                padding:16px 20px;text-align:center;margin-top:8px;">
+                      <div style="font-size:20px;margin-bottom:4px;">○</div>
+                      <div style="font-size:13px;font-weight:800;color:#6B7280;">
+                        Pedido <span style="font-family:monospace;">#{vep_num}</span>
+                        não tem nenhuma etapa concluída para voltar.</div>
+                    </div></body></html>""", height=90, scrolling=False)
                 else:
-                    # ── Confirmação ───────────────────────────────────
-                    etapa_sel_idx = st.session_state.adm_etapa_sel
-                    op_sel        = st.session_state.adm_op_sel
-                    etapa_lbl_sel = ETAPAS_LBL[etapa_sel_idx]
+                    ultima = etps_feitas[-1]
+                    ult_idx = ultima["idx"]
+                    ult_lbl = ultima["label"]
+                    ult_op  = ultima.get("operador", "—")
+                    ult_dt  = ultima.get("data", "")
+
+                    # Monta visual das etapas com destaque na que será removida
+                    etapas_html = ""
+                    for e in vep_etps:
+                        if e["idx"] == ult_idx:
+                            etapas_html += (
+                                f'<div style="background:#FEF2F2;border:2px solid #FCA5A5;'
+                                f'border-radius:10px;padding:10px 14px;display:flex;'
+                                f'align-items:center;gap:10px;">'
+                                f'<div style="font-size:18px;">🗑️</div>'
+                                f'<div>'
+                                f'<div style="font-size:12px;font-weight:900;color:#991B1B;">{ult_lbl}</div>'
+                                f'<div style="font-size:11px;font-weight:600;color:#B91C1C;">'
+                                f'por {ult_op}'
+                                f'{" · " + ult_dt if ult_dt else ""}</div>'
+                                f'</div>'
+                                f'<div style="margin-left:auto;font-size:10px;font-weight:800;'
+                                f'color:#DC2626;background:#FEE2E2;padding:2px 10px;'
+                                f'border-radius:20px;">será removida</div>'
+                                f'</div>'
+                            )
+                        elif e.get("feita"):
+                            etapas_html += (
+                                f'<div style="background:#F0F7F3;border:1.5px solid #86EFAC;'
+                                f'border-radius:10px;padding:10px 14px;display:flex;'
+                                f'align-items:center;gap:10px;">'
+                                f'<div style="font-size:16px;">✅</div>'
+                                f'<div style="font-size:12px;font-weight:800;color:#4A7C59;">{e["label"]}</div>'
+                                f'<div style="margin-left:auto;font-size:10px;font-weight:700;color:#4A7C59;">'
+                                f'por {e.get("operador","—")}</div>'
+                                f'</div>'
+                            )
+                        else:
+                            etapas_html += (
+                                f'<div style="background:#F5F5F5;border:1.5px solid #E5E7EB;'
+                                f'border-radius:10px;padding:10px 14px;display:flex;'
+                                f'align-items:center;gap:10px;opacity:0.5;">'
+                                f'<div style="font-size:16px;">○</div>'
+                                f'<div style="font-size:12px;font-weight:800;color:#9C9490;">{e["label"]}</div>'
+                                f'</div>'
+                            )
 
                     components.html(f"""<!DOCTYPE html><html><head>
                     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
                     </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
-                    <div style="background:#F0F5FF;border:2px solid #3B7DD8;border-radius:12px;
-                                padding:14px 20px;text-align:center;">
-                      <div style="font-size:13px;font-weight:800;color:#1e3a6e;margin-bottom:6px;">
-                        Confirmar lançamento?</div>
-                      <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;">
-                        <span style="background:#EBF0FB;color:#3B5EC6;font-size:11px;font-weight:800;
-                          padding:4px 14px;border-radius:20px;">📦 Pedido #{num}</span>
-                        <span style="background:#E8F2EC;color:#4A7C59;font-size:11px;font-weight:800;
-                          padding:4px 14px;border-radius:20px;">✓ {etapa_lbl_sel}</span>
-                        <span style="background:#FFF0F2;color:#C8566A;font-size:11px;font-weight:800;
-                          padding:4px 14px;border-radius:20px;">👤 {op_sel}</span>
+                    <div style="background:#fff;border:1.5px solid #EDE9E4;border-radius:14px;
+                                padding:14px 18px;box-shadow:0 2px 10px rgba(0,0,0,0.05);margin-top:6px;">
+                      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                        <span style="font-family:monospace;font-size:17px;font-weight:900;color:#1A1714;">#{vep_num}</span>
+                        <span style="font-size:13px;font-weight:700;color:#5C5450;flex:1;
+                          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{vep_cli}</span>
                       </div>
-                    </div></body></html>""", height=100, scrolling=False)
+                      <div style="display:flex;flex-direction:column;gap:6px;">
+                        {etapas_html}
+                      </div>
+                    </div></body></html>""", height=80 + len(vep_etps) * 58, scrolling=False)
 
-                    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-                    ca, cb = st.columns(2)
-                    with ca:
-                        st.markdown("""
-                        <style>
-                        .btn-adm-lancar > button {
-                            background: linear-gradient(135deg,#3B7DD8,#2563EB) !important;
-                            color:#fff !important; border:none !important;
-                            border-radius:10px !important; height:46px !important;
-                            font-size:13px !important; font-weight:800 !important;
-                            box-shadow: 0 4px 0 rgba(30,60,140,0.35) !important;
-                        }
-                        </style>""", unsafe_allow_html=True)
-                        st.markdown('<div class="btn-adm-lancar">', unsafe_allow_html=True)
-                        if st.button("✓  Confirmar lançamento", use_container_width=True, key="adm_btn_confirmar"):
-                            # Grava o registro como se o operador tivesse finalizado agora
-                            salvar(num, op_sel, ETAPAS[etapa_sel_idx], etapa_sel_idx, 0)
-                            # Remove sessão ativa dessa etapa se houver
-                            remover_sessao_ativa(num, etapa_sel_idx)
-                            # Se for a etapa 2 (última), marca concluído
-                            if etapa_sel_idx == 2:
-                                marcar_concluido(num)
-                            st.session_state.adm_pedido_info   = buscar_status_completo_pedido(num)
-                            st.session_state.adm_confirm_alter = False
-                            st.toast(f"✅ Pedido #{num} · {etapa_lbl_sel} lançada em nome de {op_sel}", icon="✏️")
-                            st.rerun()
-                        st.markdown('</div>', unsafe_allow_html=True)
-                    with cb:
-                        if st.button("✕  Cancelar", use_container_width=True, key="adm_btn_cancelar"):
-                            st.session_state.adm_confirm_alter = False
-                            st.rerun()
+                    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
+                    if not st.session_state.vep_confirm:
+                        if st.button(
+                            f"↩️  Voltar etapa  —  remover {ult_lbl}",
+                            use_container_width=True, key="vep_btn_voltar"
+                        ):
+                            st.session_state.vep_confirm = True
+                            st.rerun()
+                    else:
+                        components.html(f"""<!DOCTYPE html><html><head>
+                        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+                        </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
+                        <div style="background:#FEF2F2;border:2px solid #F87171;border-radius:12px;
+                                    padding:12px 18px;text-align:center;">
+                          <div style="font-size:13px;font-weight:800;color:#991B1B;margin-bottom:4px;">
+                            Confirmar remoção da etapa?</div>
+                          <div style="font-size:12px;color:#B91C1C;font-weight:700;">
+                            <span style="font-family:monospace;">#{vep_num}</span>
+                            &nbsp;·&nbsp; {ult_lbl} &nbsp;·&nbsp; por {ult_op}
+                          </div>
+                        </div></body></html>""", height=78, scrolling=False)
+
+                        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+                        cv1, cv2 = st.columns(2)
+                        with cv1:
+                            st.markdown("""
+                            <style>
+                            .btn-vep-conf > button {
+                                background: linear-gradient(135deg,#DC2626,#991B1B) !important;
+                                color:#fff !important; border:none !important;
+                                border-radius:10px !important; height:46px !important;
+                                font-size:13px !important; font-weight:800 !important;
+                                box-shadow: 0 4px 0 rgba(100,10,10,0.35) !important;
+                            }
+                            </style>""", unsafe_allow_html=True)
+                            st.markdown('<div class="btn-vep-conf">', unsafe_allow_html=True)
+                            if st.button("✓  Sim, voltar etapa", use_container_width=True, key="vep_btn_confirmar"):
+                                # Apaga o último registro dessa etapa para esse pedido
+                                rows_del = _get("registros",
+                                    f"pedido=eq.{vep_num}&etapa_idx=eq.{ult_idx}&select=id&order=id.desc&limit=1")
+                                if isinstance(rows_del, list) and rows_del:
+                                    reg_id = rows_del[0].get("id")
+                                    if reg_id:
+                                        _delete("registros", f"id=eq.{reg_id}")
+                                # Se estava marcado como concluído, volta para aberto
+                                if vep_base == "concluido":
+                                    _patch("pedidos_base", f"numero=eq.{vep_num}", {"status": "aberto"})
+                                # Reseta estado
+                                st.session_state.vep_info    = None
+                                st.session_state.vep_confirm = False
+                                st.session_state.vep_busca_num = ""
+                                st.toast(f"↩️ Pedido #{vep_num} · etapa {ult_lbl} removida", icon="↩️")
+                                st.rerun()
+                            st.markdown('</div>', unsafe_allow_html=True)
+                        with cv2:
+                            if st.button("✕  Cancelar", use_container_width=True, key="vep_btn_cancelar"):
+                                st.session_state.vep_confirm = False
+                                st.rerun()
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
     # ── Expander: Zerar Pedido ───────────────────────────────────────────────
