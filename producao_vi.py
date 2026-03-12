@@ -2887,7 +2887,7 @@ def tela_admin():
     # ══════════════════════════════════════════════════════════════════
     #  BLOCO 1.5 — RASTREAR PEDIDO POR NÚMERO
     # ══════════════════════════════════════════════════════════════════
-    with st.expander("🔍 Rastrear Pedido", expanded=False):
+    with st.expander("🔍 Rastrear Pedido por Número", expanded=True):
 
         for _k, _v in [("rastr_num", ""), ("rastr_info", None)]:
             if _k not in st.session_state: st.session_state[_k] = _v
@@ -2949,7 +2949,7 @@ def tela_admin():
                     f"pedido=eq.{num_r}&select=etapa_idx,operador,iniciado_em")
                 sess_ativa = sess_r[0] if isinstance(sess_r, list) and sess_r else None
 
-                # Monta HTML das etapas
+                # Monta HTML das etapas — com operador, data e tempo gasto
                 etapas_html = ""
                 for e in etapas_r:
                     idx_e   = e["idx"]
@@ -2958,31 +2958,47 @@ def tela_admin():
                     andando = e.get("em_andamento", False)
                     op_e    = e.get("operador", "")
                     data_e  = e.get("data", "")
+                    tempo_e = e.get("tempo")  # segundos gastos (só existe se feita)
+
+                    # Formata tempo se disponível
+                    if tempo_e:
+                        _th, _tr = divmod(int(tempo_e), 3600); _tm, _ts = divmod(_tr, 60)
+                        tempo_fmt = f"{_th:02d}:{_tm:02d}:{_ts:02d}"
+                    else:
+                        tempo_fmt = None
 
                     if feita:
                         bg_e  = "#F0F7F3"; brd_e = "#4A7C59"; cor_e = "#2d5a3d"
                         ic_e  = "✅"; st_e = "Concluída"
-                        det_e = f'<span style="color:#9C9490;font-size:10px;">{op_e} · {data_e}</span>' if op_e else ""
+                        # Linha de detalhe: operador + data + tempo
+                        det_partes = []
+                        if op_e:    det_partes.append(f'<strong style="color:#2d5a3d">{op_e}</strong>')
+                        if data_e:  det_partes.append(data_e)
+                        if tempo_fmt: det_partes.append(f'⏱ {tempo_fmt}')
+                        det_e = f'<span style="color:#9C9490;font-size:10px;">{" · ".join(det_partes)}</span>' if det_partes else ""
                     elif andando:
                         bg_e  = "#FFF7ED"; brd_e = "#E07B3A"; cor_e = "#92400E"
                         ic_e  = "⏱️"; st_e = "Em andamento"
-                        det_e = f'<span style="color:#9C9490;font-size:10px;">{op_e}</span>' if op_e else ""
+                        det_e = f'<span style="color:#E07B3A;font-size:10px;font-weight:800;">👷 {op_e}</span>' if op_e else ""
                     else:
                         bg_e  = "#F7F5F2"; brd_e = "#DDD8D2"; cor_e = "#9C9490"
                         ic_e  = ETAPA_ICON[idx_e]; st_e = "Aguardando"
                         det_e = ""
 
+                    # Destaque visual para a etapa onde o pedido está parado
+                    borda_extra = "border-left:4px solid " + brd_e + ";" if (andando or (not feita and any(x.get("feita") for x in etapas_r[:idx_e]))) else ""
+
                     etapas_html += f"""
-                    <div style="background:{bg_e};border:1.5px solid {brd_e};border-radius:12px;
-                                padding:11px 16px;margin-bottom:6px;
+                    <div style="background:{bg_e};border:1.5px solid {brd_e};{borda_extra}border-radius:12px;
+                                padding:12px 16px;margin-bottom:6px;
                                 display:flex;align-items:center;gap:12px;">
                       <span style="font-size:20px;flex-shrink:0;">{ic_e}</span>
-                      <div style="flex:1;">
-                        <div style="font-size:12px;font-weight:800;color:{cor_e};">{lbl_e}</div>
+                      <div style="flex:1;min-width:0;">
+                        <div style="font-size:12px;font-weight:900;color:{cor_e};margin-bottom:2px;">{lbl_e}</div>
                         {det_e}
                       </div>
                       <span style="font-size:10px;font-weight:800;color:{cor_e};
-                        background:rgba(0,0,0,0.06);padding:2px 10px;border-radius:20px;">{st_e}</span>
+                        background:rgba(0,0,0,0.07);padding:3px 12px;border-radius:20px;white-space:nowrap;">{st_e}</span>
                     </div>"""
 
                 # Status geral do pedido
@@ -2990,6 +3006,36 @@ def tela_admin():
                 bg_ped   = "#F0F7F3" if base_r == "aberto" else "#FFF0F2"
                 lbl_ped  = "Aberto"  if base_r == "aberto" else "Concluído"
                 icon_ped = "🟢"      if base_r == "aberto" else "🔴"
+
+                # Monta frase resumo: "Parado em X etapa" ou "Todas as etapas concluídas"
+                etapas_feitas = [e for e in etapas_r if e.get("feita")]
+                etapas_pend   = [e for e in etapas_r if not e.get("feita") and not e.get("em_andamento")]
+                etapa_andando = next((e for e in etapas_r if e.get("em_andamento")), None)
+
+                if base_r == "concluido":
+                    resumo_html = '''<div style="background:#F0F7F3;border:1.5px solid #4A7C59;border-radius:10px;
+                        padding:10px 16px;margin-bottom:12px;font-size:12px;font-weight:800;color:#2d5a3d;text-align:center;">
+                        ✅ Todas as 3 etapas concluídas — pedido finalizado
+                    </div>'''
+                elif etapa_andando:
+                    op_and_res = etapa_andando.get("operador","")
+                    resumo_html = f'''<div style="background:#FFF7ED;border:1.5px solid #E07B3A;border-radius:10px;
+                        padding:10px 16px;margin-bottom:12px;font-size:12px;font-weight:800;color:#92400E;text-align:center;">
+                        ⏱️ Em andamento agora · <strong>{etapa_andando["label"]}</strong>
+                        {f" · 👷 {op_and_res}" if op_and_res else ""}
+                    </div>'''
+                elif etapas_feitas:
+                    prox = etapas_pend[0]["label"] if etapas_pend else "—"
+                    ult  = etapas_feitas[-1]
+                    resumo_html = f'''<div style="background:#F0F5FF;border:1.5px solid #3B7DD8;border-radius:10px;
+                        padding:10px 16px;margin-bottom:12px;font-size:12px;font-weight:800;color:#1e3a8a;text-align:center;">
+                        🔵 Parado após <strong>{ult["label"]}</strong> · próxima etapa: <strong>{prox}</strong>
+                    </div>'''
+                else:
+                    resumo_html = '''<div style="background:#F7F5F2;border:1.5px solid #DDD8D2;border-radius:10px;
+                        padding:10px 16px;margin-bottom:12px;font-size:12px;font-weight:800;color:#9C9490;text-align:center;">
+                        ⚪ Nenhuma etapa iniciada ainda
+                    </div>'''  
 
                 # Formata est_alocado e vr_alocado para exibição
                 _est_r = st.session_state.rastr_est
@@ -3040,10 +3086,11 @@ def tela_admin():
                     <span style="background:{bg_ped};color:{cor_ped};font-size:11px;font-weight:800;
                       padding:4px 14px;border-radius:20px;flex-shrink:0;">{icon_ped} {lbl_ped}</span>
                   </div>
+                  {resumo_html}
                   {dados_ped_html}
                   {andamento_html}
                   {etapas_html}
-                </div></body></html>""", height=h_card, scrolling=False)
+                </div></body></html>""", height=h_card + 52, scrolling=False)
 
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
