@@ -4028,24 +4028,128 @@ def tela_operacoes():
         </script>
         </body></html>""", height=80, scrolling=False)
 
-        # Botão FINALIZAR — usa o tempo total real (pausado + desde último início)
-        _, col_fin = st.columns([1, 2])
-        with col_fin:
-            st.markdown('<div class="btn-finalizar">', unsafe_allow_html=True)
-            if st.button(
-                f"■  Finalizar  ·  #{ped}  ·  {op}",
-                use_container_width=True,
-                key=f"fin_{uid}"
-            ):
-                tempo = max(tp + (int(time.time()) - ini), 1)
-                salvar(ped, op, ETAPAS[eta_idx], eta_idx, tempo)
-                remover_sessao_ativa(ped, eta_idx)
-                if eta_idx == 2:
-                    marcar_concluido(ped)
-                st.session_state["busca_pedido_painel"] = ""
-                st.toast(f"✅  {op}  ·  Pedido #{ped}  finalizado em  {fmt(tempo)}!", icon="🎉")
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+        # ── Botões de ação: Finalizar | Pausar | Pausar p/ amanhã ──────────
+        # Estados de pausa por card (uid)
+        _k_modo   = f"painel_pausa_modo_{uid}"    # None | "pausar" | "amanha"
+        _k_senha  = f"painel_pausa_senha_{uid}"
+        _k_erro   = f"painel_pausa_erro_{uid}"
+        for _k, _v in [(_k_modo, None), (_k_senha, ""), (_k_erro, False)]:
+            if _k not in st.session_state:
+                st.session_state[_k] = _v
+
+        modo_pausa = st.session_state[_k_modo]
+
+        if modo_pausa is None:
+            # ── Linha de botões normal ──────────────────────────────────
+            col_f, col_p, col_a = st.columns([3, 2, 2])
+            with col_f:
+                st.markdown('<div class="btn-finalizar">', unsafe_allow_html=True)
+                if st.button(f"■ Finalizar · #{ped} · {op}",
+                             use_container_width=True, key=f"fin_{uid}"):
+                    tempo = max(tp + (int(time.time()) - ini), 1)
+                    salvar(ped, op, ETAPAS[eta_idx], eta_idx, tempo)
+                    remover_sessao_ativa(ped, eta_idx)
+                    if eta_idx == 2:
+                        marcar_concluido(ped)
+                    st.session_state["busca_pedido_painel"] = ""
+                    st.toast(f"✅ {op} · Pedido #{ped} finalizado em {fmt(tempo)}!", icon="🎉")
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            with col_p:
+                st.markdown("""<style>
+                .btn-pausar > button {
+                    background:#fff !important; color:#E07B3A !important;
+                    border:2px solid #E07B3A !important; border-radius:10px !important;
+                    height:46px !important; font-size:12px !important; font-weight:800 !important;
+                }
+                </style>""", unsafe_allow_html=True)
+                st.markdown('<div class="btn-pausar">', unsafe_allow_html=True)
+                if st.button("⏸ Pausar", use_container_width=True, key=f"pausar_{uid}"):
+                    st.session_state[_k_modo]  = "pausar"
+                    st.session_state[_k_senha] = ""
+                    st.session_state[_k_erro]  = False
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            with col_a:
+                st.markdown("""<style>
+                .btn-amanha > button {
+                    background:#fff !important; color:#7C3AED !important;
+                    border:2px solid #7C3AED !important; border-radius:10px !important;
+                    height:46px !important; font-size:12px !important; font-weight:800 !important;
+                }
+                </style>""", unsafe_allow_html=True)
+                st.markdown('<div class="btn-amanha">', unsafe_allow_html=True)
+                if st.button("🌙 P/ amanhã", use_container_width=True, key=f"amanha_{uid}"):
+                    st.session_state[_k_modo]  = "amanha"
+                    st.session_state[_k_senha] = ""
+                    st.session_state[_k_erro]  = False
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+
+        else:
+            # ── Bloco de confirmação de pausa com senha ─────────────────
+            lbl_modo = "⏸ Pausar atividade" if modo_pausa == "pausar" else "🌙 Pausar para amanhã"
+            desc_modo = (
+                "O tempo ficará pausado. O operador retoma quando voltar."
+                if modo_pausa == "pausar" else
+                "O pedido será pausado até amanhã. O tempo retoma de onde parou."
+            )
+            cor_modo  = "#E07B3A" if modo_pausa == "pausar" else "#7C3AED"
+            bg_modo   = "#FFF8F0" if modo_pausa == "pausar" else "#F5F3FF"
+
+            components.html(f"""<!DOCTYPE html><html><head>
+            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+            </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
+            <div style="background:{bg_modo};border:2px solid {cor_modo};border-radius:12px;padding:12px 16px;">
+              <div style="font-size:13px;font-weight:900;color:{cor_modo};margin-bottom:4px;">{lbl_modo}</div>
+              <div style="font-size:11px;font-weight:700;color:#5C5450;">{desc_modo}</div>
+              <div style="font-size:11px;font-weight:700;color:#9C9490;margin-top:6px;">
+                Pedido <span style="font-family:monospace;font-weight:900;">#{ped}</span>
+                &nbsp;·&nbsp; {op} &nbsp;·&nbsp; Tempo: {fmt(tp + max(int(time.time()) - ini, 0))}
+              </div>
+            </div></body></html>""", height=96, scrolling=False)
+
+            st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+
+            # Campo de senha
+            senha_input = st.text_input(
+                "_senha_pausa", placeholder="🔑 Senha do gestor...",
+                type="password", label_visibility="collapsed",
+                key=f"senha_input_{uid}"
+            )
+            if st.session_state[_k_erro]:
+                st.markdown('<div style="color:#DC2626;font-size:11px;font-weight:700;'
+                            'text-align:center;margin-top:2px;">❌ Senha incorreta</div>',
+                            unsafe_allow_html=True)
+
+            st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+            cc1, cc2 = st.columns(2)
+            with cc1:
+                st.markdown(f"""<style>
+                .btn-conf-pausa-{uid} > button {{
+                    background: {cor_modo} !important; color:#fff !important;
+                    border:none !important; border-radius:10px !important;
+                    height:44px !important; font-size:13px !important; font-weight:800 !important;
+                }}</style>""", unsafe_allow_html=True)
+                st.markdown(f'<div class="btn-conf-pausa-{uid}">', unsafe_allow_html=True)
+                if st.button("✓  Confirmar", use_container_width=True, key=f"conf_pausa_{uid}"):
+                    if senha_input == ADMIN_SENHA:
+                        tempo_atual = tp + max(int(time.time()) - ini, 0)
+                        pausar_para_amanha(ped, eta_idx, op, tempo_atual)
+                        st.session_state[_k_modo]  = None
+                        st.session_state[_k_erro]  = False
+                        tipo_txt = "pausado" if modo_pausa == "pausar" else "pausado para amanhã"
+                        st.toast(f"⏸ Pedido #{ped} · {op} · {tipo_txt}!", icon="⏸")
+                        st.rerun()
+                    else:
+                        st.session_state[_k_erro] = True
+                        st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            with cc2:
+                if st.button("✕  Cancelar", use_container_width=True, key=f"canc_pausa_{uid}"):
+                    st.session_state[_k_modo] = None
+                    st.session_state[_k_erro] = False
+                    st.rerun()
 
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
