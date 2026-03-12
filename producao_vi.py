@@ -155,7 +155,11 @@ def pedido_em_andamento(pedido, etapa_idx):
         f"pedido=eq.{pedido}&etapa_idx=eq.{etapa_idx}&select=operador,iniciado_em")
     if rows:
         r = rows[0]
-        if int(time.time()) - int(r.get("iniciado_em", 0)) < 14400:
+        ini_ts = int(r.get("iniciado_em", 0))
+        # iniciado_em == 0 significa pausado — não conta como em andamento
+        if ini_ts == 0:
+            return False, None
+        if int(time.time()) - ini_ts < 14400:
             return True, r.get("operador")
     return False, None
 
@@ -1208,6 +1212,10 @@ def _render_status_pedido(num, status, etapa_idx):
                 st.session_state.rodando         = True
                 st.session_state.inicio          = time.time()
                 st.session_state.acum            = tp   # retoma do tempo pausado
+                # Reativa a sessão no banco (atualiza iniciado_em para sair do estado pausado)
+                _patch("sessoes_ativas",
+                       f"pedido=eq.{num}&etapa_idx=eq.{eta_idx}",
+                       {"iniciado_em": int(time.time())})
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
         with cb:
@@ -1941,12 +1949,17 @@ def tela_producao():
             st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
             if st.button("▶  INICIAR CRONÔMETRO", use_container_width=True):
                 # ✅ SESSÃO REGISTRADA AQUI — único momento correto.
-                # Verifica se há tempo pausado do dia anterior
+                # Verifica se há tempo pausado salvo (pedido retomado após pausa)
                 tempo_pausado = buscar_tempo_pausado(pedido_val, etapa_idx)
                 st.session_state.rodando = True
                 st.session_state.inicio  = time.time()
                 st.session_state.acum    = tempo_pausado   # retoma do ponto pausado (0 se novo)
-                registrar_sessao_ativa(pedido_val, etapa_idx, op)
+                # Upsert com tempo_pausado preservado para manter acumulado correto
+                _upsert("sessoes_ativas",
+                        {"pedido": pedido_val, "etapa_idx": etapa_idx,
+                         "operador": op, "iniciado_em": int(time.time()),
+                         "tempo_pausado": tempo_pausado},
+                        "pedido,etapa_idx")
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
@@ -3855,7 +3868,9 @@ def tela_operacoes():
     if "busca_pedido_painel" not in st.session_state:
         st.session_state["busca_pedido_painel"] = ""
 
-    sessoes = buscar_todas_sessoes_ativas()
+    sessoes_raw = buscar_todas_sessoes_ativas()
+    # Filtra sessoes pausadas (iniciado_em == 0) — nao aparecem no painel
+    sessoes = [s for s in sessoes_raw if int(s.get("iniciado_em", 1)) != 0]
     n_total = len(sessoes)
 
     ETAPA_COR  = ["#C8566A", "#3B7DD8", "#4A7C59"]
@@ -4041,7 +4056,7 @@ def tela_operacoes():
 
         if modo_pausa is None:
             # ── Linha de botões normal ──────────────────────────────────
-            col_f, col_p, col_a = st.columns([3, 2, 2])
+            col_f, col_p = st.columns([3, 2])
             with col_f:
                 st.markdown('<div class="btn-finalizar">', unsafe_allow_html=True)
                 if st.button(f"■ Finalizar · #{ped} · {op}",
@@ -4070,39 +4085,18 @@ def tela_operacoes():
                     st.session_state[_k_erro]  = False
                     st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
-            with col_a:
-                st.markdown("""<style>
-                .btn-amanha > button {
-                    background:#fff !important; color:#7C3AED !important;
-                    border:2px solid #7C3AED !important; border-radius:10px !important;
-                    height:46px !important; font-size:12px !important; font-weight:800 !important;
-                }
-                </style>""", unsafe_allow_html=True)
-                st.markdown('<div class="btn-amanha">', unsafe_allow_html=True)
-                if st.button("🌙 P/ amanhã", use_container_width=True, key=f"amanha_{uid}"):
-                    st.session_state[_k_modo]  = "amanha"
-                    st.session_state[_k_senha] = ""
-                    st.session_state[_k_erro]  = False
-                    st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
 
         else:
             # ── Bloco de confirmação de pausa com senha ─────────────────
-            lbl_modo = "⏸ Pausar atividade" if modo_pausa == "pausar" else "🌙 Pausar para amanhã"
-            desc_modo = (
-                "O tempo ficará pausado. O operador retoma quando voltar."
-                if modo_pausa == "pausar" else
-                "O pedido será pausado até amanhã. O tempo retoma de onde parou."
-            )
-            cor_modo  = "#E07B3A" if modo_pausa == "pausar" else "#7C3AED"
-            bg_modo   = "#FFF8F0" if modo_pausa == "pausar" else "#F5F3FF"
+            cor_modo = "#E07B3A"
+            bg_modo  = "#FFF8F0"
 
             components.html(f"""<!DOCTYPE html><html><head>
             <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
             </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
             <div style="background:{bg_modo};border:2px solid {cor_modo};border-radius:12px;padding:12px 16px;">
-              <div style="font-size:13px;font-weight:900;color:{cor_modo};margin-bottom:4px;">{lbl_modo}</div>
-              <div style="font-size:11px;font-weight:700;color:#5C5450;">{desc_modo}</div>
+              <div style="font-size:13px;font-weight:900;color:{cor_modo};margin-bottom:4px;">⏸ Pausar atividade</div>
+              <div style="font-size:11px;font-weight:700;color:#5C5450;">O tempo ficará salvo. O operador retoma quando voltar.</div>
               <div style="font-size:11px;font-weight:700;color:#9C9490;margin-top:6px;">
                 Pedido <span style="font-family:monospace;font-weight:900;">#{ped}</span>
                 &nbsp;·&nbsp; {op} &nbsp;·&nbsp; Tempo: {fmt(tp + max(int(time.time()) - ini, 0))}
@@ -4134,12 +4128,18 @@ def tela_operacoes():
                 st.markdown(f'<div class="btn-conf-pausa-{uid}">', unsafe_allow_html=True)
                 if st.button("✓  Confirmar", use_container_width=True, key=f"conf_pausa_{uid}"):
                     if senha_input == ADMIN_SENHA:
+                        # Salva o tempo acumulado e marca a sessão como pausada
+                        # (iniciado_em=0 é a flag de pausa — sai do painel mas
+                        # o tempo_pausado fica guardado para quando o operador retomar).
                         tempo_atual = tp + max(int(time.time()) - ini, 0)
                         pausar_para_amanha(ped, eta_idx, op, tempo_atual)
+                        # Marca como pausada: zera iniciado_em para tirar do painel
+                        _patch("sessoes_ativas",
+                               f"pedido=eq.{ped}&etapa_idx=eq.{eta_idx}",
+                               {"iniciado_em": 0})
                         st.session_state[_k_modo]  = None
                         st.session_state[_k_erro]  = False
-                        tipo_txt = "pausado" if modo_pausa == "pausar" else "pausado para amanhã"
-                        st.toast(f"⏸ Pedido #{ped} · {op} · {tipo_txt}!", icon="⏸")
+                        st.toast(f"⏸ Pedido #{ped} · {op} · pausado! Tempo salvo: {fmt(tempo_atual)}", icon="⏸")
                         st.rerun()
                     else:
                         st.session_state[_k_erro] = True
