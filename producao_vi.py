@@ -3174,6 +3174,166 @@ def tela_admin():
 
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
+    # ── Expander: Zerar Pedido ───────────────────────────────────────────────
+    with st.expander("🔄 Zerar Pedido (Voltar à Estaca Zero)", expanded=False):
+
+        components.html("""<!DOCTYPE html><html><head>
+        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+        </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
+        <div style="background:#FEF2F2;border:1.5px solid #FCA5A5;border-radius:10px;
+                    padding:11px 16px;font-size:12px;font-weight:700;color:#991B1B;">
+            ⚠️ Esta ação <strong>apaga todos os registros e sessões</strong> do pedido no Sistema B.
+            O pedido voltará ao estado inicial — como se nunca tivesse sido trabalhado.
+        </div></body></html>""", height=58, scrolling=False)
+
+        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+        for _k, _v in [
+            ("zer_num",     ""),
+            ("zer_info",    None),
+            ("zer_confirm", False),
+        ]:
+            if _k not in st.session_state:
+                st.session_state[_k] = _v
+
+        col_zi, col_zb = st.columns([3, 1])
+        with col_zi:
+            zer_input = st.text_input(
+                "Número do pedido",
+                placeholder="Ex: 48944",
+                label_visibility="collapsed",
+                key="zer_input_num"
+            )
+        with col_zb:
+            st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+            if st.button("🔍  Buscar", use_container_width=True, key="zer_btn_buscar"):
+                n = zer_input.strip()
+                if n:
+                    _info = buscar_status_completo_pedido(n)
+                    st.session_state.zer_num     = n
+                    st.session_state.zer_info    = _info
+                    st.session_state.zer_confirm = False
+                    st.rerun()
+
+        zer_info = st.session_state.zer_info
+        zer_num  = st.session_state.zer_num
+
+        if zer_info is not None:
+            zer_base = zer_info.get("base_status", "nao_encontrado")
+            zer_cli  = zer_info.get("cliente", "")
+            zer_etps = zer_info.get("etapas", [])
+
+            if zer_base == "nao_encontrado":
+                components.html(f"""<!DOCTYPE html><html><body style="background:transparent;font-family:sans-serif;">
+                <div style="background:#FFFBEB;border:2px solid #F59E0B;border-radius:12px;
+                            padding:14px 20px;text-align:center;margin-top:8px;">
+                  <div style="font-size:20px;margin-bottom:4px;">❓</div>
+                  <div style="font-size:13px;font-weight:800;color:#92400E;">
+                    Pedido <span style="font-family:monospace;">#{zer_num}</span> não encontrado.</div>
+                </div></body></html>""", height=90, scrolling=False)
+            else:
+                # Conta etapas feitas
+                etps_feitas  = [e for e in zer_etps if e.get("feita")]
+                etps_and     = [e for e in zer_etps if e.get("em_andamento")]
+                n_feitas     = len(etps_feitas)
+                n_and        = len(etps_and)
+
+                etapas_html = ""
+                for e in zer_etps:
+                    if e.get("feita"):
+                        etapas_html += f'<span style="background:#E8F2EC;color:#4A7C59;font-size:10px;font-weight:800;padding:2px 10px;border-radius:20px;margin-right:4px;">✓ {e["label"]}</span>'
+                    elif e.get("em_andamento"):
+                        etapas_html += f'<span style="background:#FFF8E6;color:#B45309;font-size:10px;font-weight:800;padding:2px 10px;border-radius:20px;margin-right:4px;">⏱ {e["label"]}</span>'
+                    else:
+                        etapas_html += f'<span style="background:#F5F5F5;color:#9C9490;font-size:10px;font-weight:800;padding:2px 10px;border-radius:20px;margin-right:4px;">○ {e["label"]}</span>'
+                if not etapas_html:
+                    etapas_html = '<span style="font-size:11px;color:#9C9490;font-weight:600;">Nenhuma etapa registrada</span>'
+
+                cor_st = "#4A7C59" if zer_base == "aberto" else "#C8566A"
+                bg_st  = "#F0F7F3" if zer_base == "aberto" else "#FFF0F2"
+                lbl_st = "Aberto"  if zer_base == "aberto" else "Concluído"
+
+                components.html(f"""<!DOCTYPE html><html><head>
+                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+                </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
+                <div style="background:#fff;border:1.5px solid #EDE9E4;border-radius:14px;
+                            padding:14px 20px;box-shadow:0 2px 10px rgba(0,0,0,0.05);margin-top:8px;">
+                  <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
+                    <span style="font-family:monospace;font-size:18px;font-weight:800;color:#1A1714;">#{zer_num}</span>
+                    <span style="flex:1;font-size:13px;font-weight:700;color:#5C5450;min-width:0;
+                      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{zer_cli}</span>
+                    <span style="background:{bg_st};color:{cor_st};font-size:11px;font-weight:800;
+                      padding:4px 14px;border-radius:20px;flex-shrink:0;">{lbl_st}</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+                    <span style="font-size:9px;font-weight:800;letter-spacing:1.5px;
+                      text-transform:uppercase;color:#9C9490;margin-right:2px;">Etapas:</span>
+                    {etapas_html}
+                  </div>
+                  <div style="background:#FEF2F2;border-radius:8px;padding:8px 12px;font-size:11px;
+                              font-weight:700;color:#991B1B;text-align:center;">
+                    Serão apagados: <strong>{n_feitas} registro(s)</strong> de etapas
+                    {"e <strong>" + str(n_and) + " sessão(ões) ativa(s)</strong>" if n_and else ""}.
+                    Status voltará para <strong>Aberto</strong>.
+                  </div>
+                </div></body></html>""", height=148, scrolling=False)
+
+                st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+                if not st.session_state.zer_confirm:
+                    if st.button("🔄  Zerar este pedido", use_container_width=True, key="zer_btn_zerar"):
+                        st.session_state.zer_confirm = True
+                        st.rerun()
+                else:
+                    components.html(f"""<!DOCTYPE html><html><head>
+                    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+                    </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
+                    <div style="background:#FEF2F2;border:2px solid #F87171;border-radius:12px;
+                                padding:13px 20px;text-align:center;">
+                      <div style="font-size:13px;font-weight:800;color:#991B1B;margin-bottom:3px;">
+                        Tem certeza? Esta ação não pode ser desfeita.</div>
+                      <div style="font-size:12px;color:#B91C1C;font-weight:700;">
+                        Todos os registros do pedido <span style="font-family:monospace;">#{zer_num}</span>
+                        serão apagados do Sistema B.
+                      </div>
+                    </div></body></html>""", height=80, scrolling=False)
+
+                    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+                    cz1, cz2 = st.columns(2)
+                    with cz1:
+                        st.markdown("""
+                        <style>
+                        .btn-confirm-del > button {
+                            background: linear-gradient(135deg,#DC2626,#991B1B) !important;
+                            color:#fff !important; border:none !important;
+                            border-radius:10px !important; height:48px !important;
+                            font-size:13px !important; font-weight:800 !important;
+                            box-shadow: 0 4px 0 rgba(100,10,10,0.40) !important;
+                        }
+                        .btn-confirm-del > button:hover { transform:translateY(-1px) !important; }
+                        </style>""", unsafe_allow_html=True)
+                        st.markdown('<div class="btn-confirm-del">', unsafe_allow_html=True)
+                        if st.button("✓  Sim, zerar pedido", use_container_width=True, key="zer_btn_confirmar"):
+                            # 1. Apaga todos os registros de etapas do pedido
+                            _delete("registros", f"pedido=eq.{zer_num}")
+                            # 2. Remove qualquer sessão ativa
+                            _delete("sessoes_ativas", f"pedido=eq.{zer_num}")
+                            # 3. Volta o status para aberto no pedidos_base
+                            _patch("pedidos_base", f"numero=eq.{zer_num}", {"status": "aberto"})
+                            # Reset de estado
+                            st.session_state.zer_info    = None
+                            st.session_state.zer_confirm = False
+                            st.session_state.zer_num     = ""
+                            st.toast(f"✅ Pedido #{zer_num} zerado com sucesso!", icon="🔄")
+                            st.rerun()
+                        st.markdown('</div>', unsafe_allow_html=True)
+                    with cz2:
+                        if st.button("✕  Cancelar", use_container_width=True, key="zer_btn_cancelar"):
+                            st.session_state.zer_confirm = False
+                            st.rerun()
+
+    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+
     avulsos = buscar_pedidos_avulsos()
 
     with st.expander(
