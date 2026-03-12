@@ -1438,9 +1438,22 @@ def tela_home():
         st.markdown("<br>", unsafe_allow_html=True)
 
         # ── Botão de Operações em Andamento ──────────────────────────────────
+        # Conta sessões ativas (em andamento) e pausadas separadamente
         sessoes_ativas_agora = buscar_todas_sessoes_ativas()
-        n_sess = len(sessoes_ativas_agora)
-        if n_sess > 0:
+        n_ativas  = len([s for s in sessoes_ativas_agora if int(s.get("iniciado_em", 0)) > 0])
+        n_pausadas = len([s for s in sessoes_ativas_agora if int(s.get("iniciado_em", 0)) == 0])
+        n_total = n_ativas + n_pausadas
+        # Só exibe o botão se houver alguma sessão (ativa ou pausada)
+        if n_total > 0:
+            if n_pausadas > 0 and n_ativas == 0:
+                badge_txt = f"{n_pausadas} pausado{'s' if n_pausadas > 1 else ''}"
+                badge_cor = "#7C3AED"
+            elif n_pausadas > 0:
+                badge_txt = f"{n_ativas} em andamento · {n_pausadas} pausado{'s' if n_pausadas > 1 else ''}"
+                badge_cor = "#C8566A"
+            else:
+                badge_txt = f"{n_ativas} em andamento"
+                badge_cor = "#C8566A"
             st.markdown(f"""
             <style>
             .btn-andamento > button {{
@@ -1458,10 +1471,10 @@ def tela_home():
             </style>
             <div style="position:relative;margin-bottom:8px;">
               <div style="position:absolute;top:-10px;right:12px;z-index:10;
-                background:#C8566A;color:#fff;font-size:11px;font-weight:900;
+                background:{badge_cor};color:#fff;font-size:11px;font-weight:900;
                 padding:3px 10px;border-radius:20px;border:2px solid #F7F5F2;
                 letter-spacing:.5px;">
-                {n_sess} em andamento
+                {badge_txt}
               </div>
             </div>""", unsafe_allow_html=True)
             st.markdown('<div class="btn-andamento">', unsafe_allow_html=True)
