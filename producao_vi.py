@@ -1731,22 +1731,29 @@ def tela_producao():
     etapa_lbl = ETAPAS_LBL[etapa_idx]
 
     # Busca Est. Alocado (qtd) e Vr. Alocado (valor) do pedido — etapa 0
+    _est_alocado_banco = None
+    _vr_alocado_banco  = None
     if etapa_idx == 0:
         _info_ped = _get("pedidos_base",
             f"numero=eq.{st.session_state.pedido or ''}&select=est_alocado,vr_alocado")
-        _est_alocado_banco = None
-        _vr_alocado_banco  = None
         if isinstance(_info_ped, list) and _info_ped:
             _est_alocado_banco = _info_ped[0].get("est_alocado")
             _vr_alocado_banco  = _info_ped[0].get("vr_alocado")
-        if "ped_qtd_confirmada" not in st.session_state:
+
+        _qtd_banco = int(float(_est_alocado_banco)) if _est_alocado_banco else 0
+
+        # Inicializa rastreando o pedido atual — reseta ao trocar de pedido
+        _ped_key = f"ped_qtd_pedido_ref"
+        if st.session_state.get(_ped_key) != st.session_state.pedido:
+            # Novo pedido — reinicia confirmação e preenche com valor do banco
+            st.session_state[_ped_key]          = st.session_state.pedido
             st.session_state.ped_qtd_confirmada = None
-        st.session_state.qtd_pecas_prefill  = None  # limpa prefill ao trocar pedido
-        if "ped_qtd_valor" not in st.session_state:
-            st.session_state.ped_qtd_valor = int(float(_est_alocado_banco)) if _est_alocado_banco else 0
-    else:
-        _est_alocado_banco = None
-        _vr_alocado_banco  = None
+            st.session_state.ped_qtd_valor      = _qtd_banco
+            st.session_state.qtd_pecas_prefill  = None
+
+        # Garante que ped_qtd_valor nunca fique zerado se o banco tiver valor
+        if not st.session_state.get("ped_qtd_valor") and _qtd_banco:
+            st.session_state.ped_qtd_valor = _qtd_banco
 
     st.markdown("<br style='line-height:0.5'>", unsafe_allow_html=True)
 
@@ -1874,6 +1881,7 @@ def tela_producao():
                         value=st.session_state.ped_qtd_valor,
                         step=1, key="ped_qtd_input",
                         label_visibility="collapsed")
+                    # Salva no session_state a cada interação
                     st.session_state.ped_qtd_valor = int(qtd_input)
 
                 st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
@@ -1891,12 +1899,14 @@ def tela_producao():
                     .btn-conf-qtd > button:hover { transform:translateY(-1px) !important; }
                     </style>""", unsafe_allow_html=True)
                     st.markdown('<div class="btn-conf-qtd">', unsafe_allow_html=True)
-                    if st.button(f"✓  Confirmar {int(qtd_input)} itens",
+                    # Label fixo — evita recriação do botão pelo Streamlit a cada digitação
+                    if st.button("✓  Confirmar quantidade",
                                  use_container_width=True, key="btn_conf_qtd"):
+                        qtd_confirmada = st.session_state.ped_qtd_valor
                         _patch("pedidos_base",
                                f"numero=eq.{pedido_val}",
-                               {"est_alocado": int(qtd_input)})
-                        st.session_state.ped_qtd_confirmada = int(qtd_input)
+                               {"est_alocado": qtd_confirmada})
+                        st.session_state.ped_qtd_confirmada = qtd_confirmada
                         st.rerun()
                     st.markdown('</div>', unsafe_allow_html=True)
 
