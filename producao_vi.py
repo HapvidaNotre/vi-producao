@@ -278,13 +278,18 @@ def finalizar_pip(pedido, etapa_idx, operador, iniciado_em):
 def salvar(pedido, operador, etapa, etapa_idx, tempo, qtd_pecas=None):
     fim_dt    = now_br()
     inicio_dt = fim_dt - timedelta(seconds=tempo)
-    _post("registros", {
+    payload = {
         "pedido": pedido, "operador": operador, "etapa": etapa,
         "etapa_idx": etapa_idx, "tempo_segundos": tempo,
         "data":    fim_dt.strftime("%d/%m/%Y %H:%M"),
         "inicio":  inicio_dt.strftime("%d/%m/%Y %H:%M"),
         "qtd_pecas": qtd_pecas if qtd_pecas else None,
-    })
+    }
+    ok = _post("registros", payload)
+    if not ok:
+        # Tenta uma segunda vez após 1s para cobrir falhas transitórias de rede
+        import time as _t; _t.sleep(1)
+        _post("registros", payload)
 
 def buscar():
     rows = _get("registros", "select=*&order=id.desc", paginar=True)
@@ -1154,11 +1159,23 @@ def _render_status_pedido(num, status, etapa_idx):
         st.markdown('</div>', unsafe_allow_html=True)
         return
 
-    # ── CASO 3: Esta etapa está EM ANDAMENTO agora ───────────────────────
+    # ── CASO 3: Esta etapa está EM ANDAMENTO / pausada ─────────────────
     if etapa_info["em_andamento"]:
-        op_and     = etapa_info["operador"]
-        ini_ts     = etapa_info["iniciado_em"]
-        elapsed, _ = fmt_elapsed(ini_ts) if ini_ts else ("--:--:--", 0)
+        op_and      = etapa_info["operador"]
+        ini_ts      = etapa_info["iniciado_em"]
+        # Soma tempo_pausado (caso operador tenha saído e voltado)
+        tp          = buscar_tempo_pausado(num, etapa_idx)
+        desde_ini   = max(int(time.time()) - int(ini_ts), 0) if ini_ts else 0
+        total_s     = tp + desde_ini
+        h_t, r_t    = divmod(total_s, 3600); m_t, s_t = divmod(r_t, 60)
+        elapsed_str = f"{h_t:02d}:{m_t:02d}:{s_t:02d}"
+        retomando   = tp > 0   # veio de uma pausa anterior
+        aviso_retomada = (
+            f'<div style="font-size:11px;color:#B45309;font-weight:600;'
+            f'background:rgba(245,158,11,0.1);border-radius:6px;padding:6px;'
+            f'text-align:center;margin-top:8px;">'
+            f'⏸ Tempo anterior salvo: {fmt(tp)} — continuando de onde parou.</div>'
+        ) if retomando else ""
         _cv1.html(f"""
         <style>*{{margin:0;padding:0;box-sizing:border-box;}}
         body{{font-family:'Nunito',sans-serif;background:transparent;}}</style>
@@ -1166,23 +1183,38 @@ def _render_status_pedido(num, status, etapa_idx):
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
             <div style="font-size:24px;">⏱</div>
             <div>
-              <div style="font-size:14px;font-weight:900;color:#9A3412;">Em andamento agora</div>
+              <div style="font-size:14px;font-weight:900;color:#9A3412;">Em andamento</div>
               <div style="font-size:12px;color:#C2410C;font-weight:600;">
                 Etapa: <strong>{etapa_lbl}</strong> &nbsp;·&nbsp; Operador: <strong>{op_and}</strong></div>
             </div>
             <div style="margin-left:auto;font-family:monospace;font-size:26px;
-                 font-weight:500;color:#E07B3A;">{elapsed}</div>
+                 font-weight:500;color:#E07B3A;">{elapsed_str}</div>
           </div>
+          {aviso_retomada}
           <div style="font-size:13px;color:#7C2D12;font-weight:700;text-align:center;
-               background:rgba(224,123,58,0.08);border-radius:8px;padding:8px;">
-            Deseja finalizar o temporizador deste pedido?
+               background:rgba(224,123,58,0.08);border-radius:8px;padding:8px;margin-top:8px;">
+            Deseja retomar o cronômetro ou finalizar este pedido?
           </div>
-        </div>""", height=130, scrolling=False)
-        ca, cb = st.columns(2)
+        </div>""", height=150 if retomando else 130, scrolling=False)
+        ca, cb, cc = st.columns(3)
         with ca:
+            st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
+            if st.button("▶ Retomar", use_container_width=True, key="caso3_retomar"):
+                # Restaura o estado local com o tempo acumulado
+                st.session_state.pedido          = num
+                st.session_state.operador        = op_and
+                st.session_state.pedido_validado = True
+                st.session_state.pedido_status   = None
+                st.session_state.rodando         = True
+                st.session_state.inicio          = time.time()
+                st.session_state.acum            = tp   # retoma do tempo pausado
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        with cb:
             st.markdown('<div class="btn-finalizar">', unsafe_allow_html=True)
-            if st.button("■  Sim, Finalizar", use_container_width=True):
-                tempo = max(int(time.time()) - int(ini_ts), 1)
+            if st.button("■ Finalizar", use_container_width=True, key="caso3_finalizar"):
+                # Usa o tempo total (pausado + desde último início)
+                tempo = max(total_s, 1)
                 salvar(num, op_and, ETAPAS[etapa_idx], etapa_idx, tempo)
                 remover_sessao_ativa(num, etapa_idx)
                 if etapa_idx == 2:
@@ -1191,9 +1223,9 @@ def _render_status_pedido(num, status, etapa_idx):
                 st.session_state.pedido_status = None
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
-        with cb:
+        with cc:
             st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
-            if st.button("✕ Não", use_container_width=True):
+            if st.button("✕ Cancelar", use_container_width=True, key="caso3_cancelar"):
                 st.session_state.pedido_status = None; st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
         return
@@ -1246,22 +1278,40 @@ def _render_status_pedido(num, status, etapa_idx):
             st.markdown('</div>', unsafe_allow_html=True)
         return
 
-    # ── CASO 5: Etapa anterior não concluída ─────────────────────────────
+    # ── CASO 5: Etapa anterior sem registro — avisa mas permite continuar ──
     if etapa_idx > 0 and not etapas[etapa_idx - 1]["feita"] and not etapas[etapa_idx - 1]["em_andamento"]:
         et_ant = ETAPAS_LBL[etapa_idx - 1]
         _cv1.html(f"""
-        <div style="background:#FEF2F2;border:2px solid #FCA5A5;border-radius:14px;
-                    padding:20px;text-align:center;font-family:sans-serif;">
-          <div style="font-size:28px;margin-bottom:8px;">🔒</div>
-          <div style="font-size:14px;font-weight:800;color:#991B1B;">Etapa bloqueada</div>
-          <div style="font-size:12px;color:#B91C1C;margin-top:4px;font-weight:600;">
-            A etapa anterior (<strong>{et_ant}</strong>) ainda não foi concluída.</div>
-        </div>""", height=110, scrolling=False)
+        <div style="background:#FFFBEB;border:2px solid #F59E0B;border-radius:14px;
+                    padding:18px 20px;font-family:sans-serif;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+            <div style="font-size:24px;flex-shrink:0;">⚠️</div>
+            <div>
+              <div style="font-size:13px;font-weight:800;color:#92400E;">Etapa anterior sem registro</div>
+              <div style="font-size:11px;color:#B45309;font-weight:600;margin-top:2px;">
+                <strong>{et_ant}</strong> não consta como finalizada no sistema.</div>
+            </div>
+          </div>
+          <div style="font-size:11px;color:#92400E;font-weight:600;
+            background:rgba(245,158,11,0.1);border-radius:8px;padding:8px;text-align:center;">
+            Se a etapa já foi realizada fisicamente, você pode continuar mesmo assim.
+          </div>
+        </div>""", height=138, scrolling=False)
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-        st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
-        if st.button("← Voltar", use_container_width=True):
-            st.session_state.pedido_status = None; st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+        ca5, cb5 = st.columns(2)
+        with ca5:
+            st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
+            if st.button("▶  Continuar mesmo assim", use_container_width=True, key="caso5_continuar"):
+                st.session_state.pedido          = num
+                st.session_state.pedido_status   = None
+                st.session_state.pedido_validado = True
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        with cb5:
+            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+            if st.button("← Voltar", use_container_width=True, key="caso5_voltar"):
+                st.session_state.pedido_status = None; st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
         return
 
     # ── CASO 6: Pronto para iniciar ──────────────────────────────────────
@@ -2024,8 +2074,10 @@ def tela_producao():
         with col_menu:
             st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
             if st.button("← Voltar ao Menu", use_container_width=True, key="voltar_menu_rodando"):
-                # Remove sessão ativa e volta ao menu principal
-                remover_sessao_ativa(st.session_state.pedido, etapa_idx)
+                # Sessão ativa permanece intacta no Supabase — cronômetro continua
+                # contando pelo iniciado_em. O operador finaliza pelo painel
+                # "Ver Operações em Andamento" quando quiser.
+                # NÃO chama remover_sessao_ativa nem pausar_para_amanha.
                 st.session_state.rodando         = False
                 st.session_state.inicio          = None
                 st.session_state.acum            = 0
@@ -3479,8 +3531,8 @@ def tela_admin():
 
     tag_html = {
         0: '<span style="background:#EBF0FB;color:#3B5EC6;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;">Separação</span>',
-        1: '<span style="background:#FBF2E6;color:#C47B2A;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;">Conferência</span>',
-        2: '<span style="background:#E8F2EC;color:#4A7C59;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;">Embalagem</span>',
+        1: '<span style="background:#E8F2EC;color:#4A7C59;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;">Embalagem</span>',
+        2: '<span style="background:#FBF2E6;color:#C47B2A;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;">Conferência</span>',
     }
 
     if regs_para_tabela:
@@ -3690,19 +3742,23 @@ def tela_operacoes():
 
     # ── Cards das sessões ────────────────────────────────────────────────────
     for s in sessoes_visiveis:
-        ped     = s.get("pedido", "")
-        op      = s.get("operador", "")
-        eta_idx = int(s.get("etapa_idx", 0))
-        ini     = int(s.get("iniciado_em", 0))
-        cor     = ETAPA_COR[eta_idx]
-        bg      = ETAPA_BG[eta_idx]
-        icon    = ETAPA_ICON[eta_idx]
-        lbl     = ETAPAS_LBL[eta_idx]
-        elapsed_str, _ = fmt_elapsed(ini)
-        ini_op  = (op[0]+op[1]).upper() if len(op) >= 2 else op[0].upper()
-        uid     = f"{ped}_{eta_idx}"
+        ped      = s.get("pedido", "")
+        op       = s.get("operador", "")
+        eta_idx  = int(s.get("etapa_idx", 0))
+        ini      = int(s.get("iniciado_em", 0))
+        tp       = int(s.get("tempo_pausado") or 0)   # segundos já trabalhados antes
+        cor      = ETAPA_COR[eta_idx]
+        bg       = ETAPA_BG[eta_idx]
+        icon     = ETAPA_ICON[eta_idx]
+        lbl      = ETAPAS_LBL[eta_idx]
+        # Tempo total = pausado anteriormente + tempo desde o último início
+        total_s  = tp + max(int(time.time()) - ini, 0)
+        h_t, r_t = divmod(total_s, 3600); m_t, s_t = divmod(r_t, 60)
+        elapsed_str = f"{h_t:02d}:{m_t:02d}:{s_t:02d}"
+        ini_op   = (op[0]+op[1]).upper() if len(op) >= 2 else op[0].upper()
+        uid      = f"{ped}_{eta_idx}"
 
-        # Card + timer ao vivo via JS dentro do iframe
+        # Card + timer ao vivo via JS — soma tempo_pausado ao elapsed do JS
         components.html(f"""<!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
         <style>
@@ -3739,14 +3795,14 @@ def tela_operacoes():
           </div>
           <div class="timer-wrap">
             <div class="timer-lbl">em andamento</div>
-            <div class="timer-val" id="tv">{elapsed_str}</div>
+            <div class="timer-val" id="tv_{uid}">{elapsed_str}</div>
           </div>
         </div>
         <script>
         (function(){{
-          var ini={ini}, el=document.getElementById('tv');
+          var ini={ini}, paused={tp}, el=document.getElementById('tv_{uid}');
           function u(){{
-            var e=Math.floor(Date.now()/1000)-ini;
+            var e=paused+Math.floor(Date.now()/1000)-ini;
             var h=Math.floor(e/3600),m=Math.floor((e%3600)/60),s=e%60;
             el.textContent=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
           }}
@@ -3755,7 +3811,7 @@ def tela_operacoes():
         </script>
         </body></html>""", height=80, scrolling=False)
 
-        # Botão FINALIZAR — ocupa 2/3 da largura, alinhado à direita
+        # Botão FINALIZAR — usa o tempo total real (pausado + desde último início)
         _, col_fin = st.columns([1, 2])
         with col_fin:
             st.markdown('<div class="btn-finalizar">', unsafe_allow_html=True)
@@ -3764,12 +3820,11 @@ def tela_operacoes():
                 use_container_width=True,
                 key=f"fin_{uid}"
             ):
-                tempo = max(int(time.time()) - ini, 1)
+                tempo = max(tp + (int(time.time()) - ini), 1)
                 salvar(ped, op, ETAPAS[eta_idx], eta_idx, tempo)
                 remover_sessao_ativa(ped, eta_idx)
                 if eta_idx == 2:
                     marcar_concluido(ped)
-                # Limpa busca e permanece no painel
                 st.session_state["busca_pedido_painel"] = ""
                 st.toast(f"✅  {op}  ·  Pedido #{ped}  finalizado em  {fmt(tempo)}!", icon="🎉")
                 st.rerun()
