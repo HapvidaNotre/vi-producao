@@ -1691,6 +1691,7 @@ def tela_producao():
             _vr_alocado_banco  = _info_ped[0].get("vr_alocado")
         if "ped_qtd_confirmada" not in st.session_state:
             st.session_state.ped_qtd_confirmada = None
+        st.session_state.qtd_pecas_prefill  = None  # limpa prefill ao trocar pedido
         if "ped_qtd_valor" not in st.session_state:
             st.session_state.ped_qtd_valor = int(float(_est_alocado_banco)) if _est_alocado_banco else 0
     else:
@@ -1979,7 +1980,24 @@ def tela_producao():
                 'text-transform:uppercase;margin-bottom:6px;text-align:center;">Qtd de Peças</div>',
                 unsafe_allow_html=True
             )
-            qtd_pecas_val = st.number_input("_qtd_pecas", min_value=0, value=0,
+            # Pré-preencher com quantidade confirmada no início (etapa 0)
+            # ou buscar do banco para as demais etapas
+            _qtd_default = 0
+            if etapa_idx == 0:
+                _qtd_default = st.session_state.get("ped_qtd_confirmada") or                                st.session_state.get("ped_qtd_valor") or 0
+            else:
+                if "qtd_pecas_prefill" not in st.session_state:
+                    _rows_est = _get("pedidos_base",
+                        f"numero=eq.{st.session_state.pedido}&select=est_alocado")
+                    if isinstance(_rows_est, list) and _rows_est:
+                        _v = _rows_est[0].get("est_alocado")
+                        st.session_state.qtd_pecas_prefill = int(float(_v)) if _v else 0
+                    else:
+                        st.session_state.qtd_pecas_prefill = 0
+                _qtd_default = st.session_state.qtd_pecas_prefill
+
+            qtd_pecas_val = st.number_input("_qtd_pecas", min_value=0,
+                                             value=int(_qtd_default),
                                              step=1, key="qtd_pecas_input",
                                              label_visibility="collapsed")
             st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
@@ -1989,7 +2007,8 @@ def tela_producao():
                 st.session_state.acum    = tempo
                 st.session_state.rodando = False
                 st.session_state.inicio  = None
-                qtd = int(qtd_pecas_val) if qtd_pecas_val and qtd_pecas_val > 0 else None
+                # Usa o valor do input (já pré-preenchido); se zero, usa o default
+                qtd = int(qtd_pecas_val) if qtd_pecas_val and int(qtd_pecas_val) > 0 else (int(_qtd_default) if _qtd_default else None)
                 salvar(st.session_state.pedido, op, ETAPAS[etapa_idx], etapa_idx, tempo, qtd)
                 remover_sessao_ativa(st.session_state.pedido, etapa_idx)
                 if etapa_idx == 2:
