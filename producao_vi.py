@@ -284,7 +284,15 @@ def buscar_status_completo_pedido(numero):
 
 def finalizar_pip(pedido, etapa_idx, operador, iniciado_em):
     tempo = max(int(time.time()) - int(iniciado_em), 1)
-    salvar(pedido, operador, ETAPAS[etapa_idx], etapa_idx, tempo)
+    # Busca qtd de peças do pedido para registrar no histórico
+    _qtd_pip = None
+    try:
+        _r = _get("pedidos_base", f"numero=eq.{pedido}&select=est_alocado")
+        if isinstance(_r, list) and _r and _r[0].get("est_alocado"):
+            _qtd_pip = int(float(_r[0]["est_alocado"]))
+    except Exception:
+        pass
+    salvar(pedido, operador, ETAPAS[etapa_idx], etapa_idx, tempo, _qtd_pip)
     remover_sessao_ativa(pedido, etapa_idx)
     if etapa_idx == 2:
         marcar_concluido(pedido)
@@ -4386,7 +4394,7 @@ def tela_operacoes():
                     st.markdown('<div class="btn-finalizar">', unsafe_allow_html=True)
                     if st.button(f"■ Finalizar{qtd_str_card}",
                                  use_container_width=True, key=f"fin_{uid}"):
-                        salvar(ped, op, ETAPAS[eta_idx], eta_idx, max(tp, 1))
+                        salvar(ped, op, ETAPAS[eta_idx], eta_idx, max(tp, 1), qtd_pecas_card)
                         remover_sessao_ativa(ped, eta_idx)
                         if eta_idx == 2:
                             marcar_concluido(ped)
@@ -4410,7 +4418,7 @@ def tela_operacoes():
                     if st.button(f"■ Finalizar · #{ped}{qtd_str_card} · {op}",
                                  use_container_width=True, key=f"fin_{uid}"):
                         tempo = max(tp + (int(time.time()) - ini), 1)
-                        salvar(ped, op, ETAPAS[eta_idx], eta_idx, tempo)
+                        salvar(ped, op, ETAPAS[eta_idx], eta_idx, tempo, qtd_pecas_card)
                         remover_sessao_ativa(ped, eta_idx)
                         if eta_idx == 2:
                             marcar_concluido(ped)
