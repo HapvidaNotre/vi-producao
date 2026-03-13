@@ -620,6 +620,61 @@ td {{ padding:11px 12px; border-bottom:1px solid #F2EEE9; color:#2C2826; font-we
 """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────
+#  BOTÃO DE RECUPERAÇÃO DE ERRO
+#  Aparece fixo no canto sempre que o Streamlit exibe tela de erro.
+#  Monitora via JS a presença do bloco de erro e revela o botão.
+# ─────────────────────────────────────
+st.markdown("""
+<style>
+#vi-recovery-btn {
+    display: none;
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 99999;
+    background: linear-gradient(135deg, #C8566A, #a03050);
+    color: #fff;
+    font-family: 'Nunito', sans-serif;
+    font-size: 15px;
+    font-weight: 900;
+    padding: 14px 32px;
+    border-radius: 50px;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 6px 24px rgba(200,86,106,0.45);
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+#vi-recovery-btn:hover {
+    filter: brightness(1.1);
+    transform: translateX(-50%) translateY(-2px);
+}
+</style>
+<button id="vi-recovery-btn" onclick="window.location.href=window.location.pathname">
+  ↩ Voltar ao Lobby
+</button>
+<script>
+(function() {
+    function checkError() {
+        // Streamlit exibe erro em [data-testid="stException"] ou div com class que contém "stException"
+        var errEl = document.querySelector('[data-testid="stException"]') ||
+                    document.querySelector('.stException') ||
+                    document.querySelector('[class*="exception"]') ||
+                    document.querySelector('[class*="Exception"]');
+        var btn = document.getElementById('vi-recovery-btn');
+        if (btn) {
+            btn.style.display = errEl ? 'block' : 'none';
+        }
+    }
+    // Verifica imediatamente e a cada 800ms
+    checkError();
+    setInterval(checkError, 800);
+})();
+</script>
+""", unsafe_allow_html=True)
+
+# ─────────────────────────────────────
 #  RENDER HELPERS
 # ─────────────────────────────────────
 def render_logo():
