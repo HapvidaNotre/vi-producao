@@ -3632,15 +3632,24 @@ def tela_admin():
                         ws = wb.active
                         headers = [str(c.value).strip() if c.value else "" for c in next(ws.iter_rows(min_row=1, max_row=1))]
 
-                        # Mapeamento de colunas pelo cabeçalho
+                        # Mapeamento de colunas pelo cabeçalho (match exato preferido)
                         def _col(names):
+                            # Tenta match exato primeiro
+                            for n in names:
+                                for i, h in enumerate(headers):
+                                    if h.strip().lower() == n.lower(): return i
+                            # Fallback: contém
                             for n in names:
                                 for i, h in enumerate(headers):
                                     if n.lower() in h.lower(): return i
                             return None
 
                         idx_num  = _col(["Pedido"])
-                        idx_cli  = _col(["Cliente"])
+                        # Cliente: pega a primeira coluna cujo valor seja string com nome (não data, não int)
+                        idx_cli  = None
+                        for _i, _h in enumerate(headers):
+                            if _h.strip().lower() == "cliente":
+                                idx_cli = _i; break
                         idx_est  = _col(["Est. Alocado"])
                         idx_vr   = _col(["Vr. Alocado"])
                         idx_obs  = _col(["Observação","Observacao"])
@@ -3651,12 +3660,19 @@ def tela_admin():
                             num = row[idx_num] if idx_num is not None else None
                             if not num: continue
                             num = str(int(num)) if isinstance(num, float) else str(num).strip()
-                            # Extrai só o nome do cliente (remove código "32273 - ")
-                            cli_raw = str(row[idx_cli]) if idx_cli is not None and row[idx_cli] else ""
-                            # Pega a última ocorrência do padrão "CODIGO - NOME"
+                            # Extrai nome do cliente — percorre as colunas "Cliente" até achar uma string
                             import re
-                            cli_match = re.findall(r'\d+ - (.+)', cli_raw)
-                            cli = cli_match[-1].strip() if cli_match else cli_raw.strip()
+                            cli = ""
+                            for _ci in range(len(headers)):
+                                if headers[_ci].strip().lower() == "cliente" and row[_ci]:
+                                    _raw = str(row[_ci]).strip()
+                                    # Ignora colunas que são só números ou datas
+                                    if re.match(r'^\d+$', _raw): continue
+                                    if "datetime" in _raw or re.match(r'\d{4}-\d{2}', _raw): continue
+                                    # Remove prefixo "CODIGO - "
+                                    _match = re.findall(r'\d+ - (.+)', _raw)
+                                    cli = _match[-1].strip() if _match else _raw
+                                    if cli: break
                             est  = row[idx_est]  if idx_est  is not None else None
                             vr   = row[idx_vr]   if idx_vr   is not None else None
                             obs  = str(row[idx_obs]).strip()  if idx_obs  is not None and row[idx_obs] and str(row[idx_obs]) != "None" else ""
