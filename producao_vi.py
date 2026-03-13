@@ -4062,6 +4062,19 @@ def tela_operacoes():
             Todos os pedidos — role para encontrar o seu
         </div>""", unsafe_allow_html=True)
 
+    # ── Pré-carrega qtd de peças de todos os pedidos visíveis de uma vez ────
+    _pedidos_ids = list({s.get("pedido","") for s in sessoes_visiveis if s.get("pedido")})
+    _qtd_map = {}
+    if _pedidos_ids:
+        _ids_filter = ",".join(str(p) for p in _pedidos_ids)
+        _rows_est = _get("pedidos_base",
+            f"select=numero,est_alocado&numero=in.({_ids_filter})")
+        if isinstance(_rows_est, list):
+            for _r in _rows_est:
+                _n = str(_r.get("numero",""))
+                _v = _r.get("est_alocado")
+                _qtd_map[_n] = int(float(_v)) if _v else None
+
     # ── Cards das sessões ────────────────────────────────────────────────────
     for s in sessoes_visiveis:
         ped      = s.get("pedido", "")
@@ -4079,6 +4092,8 @@ def tela_operacoes():
         elapsed_str = f"{h_t:02d}:{m_t:02d}:{s_t:02d}"
         ini_op   = (op[0]+op[1]).upper() if len(op) >= 2 else op[0].upper()
         uid      = f"{ped}_{eta_idx}"
+        qtd_pecas_card = _qtd_map.get(str(ped))
+        qtd_str_card   = f" · {qtd_pecas_card} pçs" if qtd_pecas_card else ""
 
         # Card + timer ao vivo via JS — soma tempo_pausado ao elapsed do JS
         components.html(f"""<!DOCTYPE html><html><head>
@@ -4113,6 +4128,7 @@ def tela_operacoes():
             <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
               <span class="badge">{icon} {lbl}</span>
               <span class="ped">#{ped}</span>
+              {(f'<span style="font-size:10px;font-weight:800;color:#9C9490;margin-left:4px;">{qtd_pecas_card} pçs</span>') if qtd_pecas_card else ""}
             </div>
           </div>
           <div class="timer-wrap">
@@ -4157,7 +4173,7 @@ def tela_operacoes():
             col_f, col_p = st.columns([3, 2])
             with col_f:
                 st.markdown('<div class="btn-finalizar">', unsafe_allow_html=True)
-                if st.button(f"■ Finalizar · #{ped} · {op}",
+                if st.button(f"■ Finalizar · #{ped}{qtd_str_card} · {op}",
                              use_container_width=True, key=f"fin_{uid}"):
                     tempo = max(tp + (int(time.time()) - ini), 1)
                     salvar(ped, op, ETAPAS[eta_idx], eta_idx, tempo)
