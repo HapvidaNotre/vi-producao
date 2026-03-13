@@ -135,7 +135,6 @@ def status_pedido(numero):
 
 def cadastrar_pedido_avulso(numero, cliente="", produto="", est_alocado=None, vr_alocado=None):
     now_str = now_br().strftime("%d/%m/%Y %H:%M")
-    # Garante que numero é inteiro (coluna int4 no Supabase)
     try:
         numero_int = int(str(numero).strip())
     except (ValueError, TypeError):
@@ -144,9 +143,11 @@ def cadastrar_pedido_avulso(numero, cliente="", produto="", est_alocado=None, vr
     payload = {"numero": numero_int, "cliente": cliente, "produto": produto,
                "status": "aberto", "importado_em": now_str}
     if est_alocado is not None:
-        payload["est_alocado"] = int(est_alocado)
+        try: payload["est_alocado"] = int(est_alocado)
+        except: pass
     if vr_alocado is not None:
-        payload["vr_alocado"] = round(float(vr_alocado), 2)
+        try: payload["vr_alocado"] = round(float(vr_alocado), 2)
+        except: pass
     ok = _upsert("pedidos_base", payload, "numero")
     buscar_pedidos_base.clear()
     buscar_pedidos_por_etapa.clear()
@@ -3693,24 +3694,34 @@ def tela_admin():
                         idx_obs  = _col(["Observação","Observacao"])
                         idx_prod = _col(["Perfil","Produto"])
 
+                        import re as _re
+                        def _limpar_nome_cliente(raw):
+                            """Remove prefixo numérico tipo '32273 - ' e retorna só o nome."""
+                            if not raw: return ""
+                            s = str(raw).strip()
+                            # Ignora só números ou datas
+                            if _re.match(r"^\d+$", s): return ""
+                            if "datetime" in s or _re.match(r"\d{4}-\d{2}", s): return ""
+                            # Remove qualquer prefixo "NUMERO - " ou "NUMERO  -  " (espaços variados)
+                            s = _re.sub(r"^\d+\s*-\s*", "", s).strip()
+                            # Se ficou vazio ou ainda é número puro, descarta
+                            if not s or _re.match(r"^\d+$", s): return ""
+                            return s
+
                         pedidos_xlsx = []
                         for row in ws.iter_rows(min_row=2, values_only=True):
                             num = row[idx_num] if idx_num is not None else None
                             if not num: continue
-                            num = str(int(num)) if isinstance(num, float) else str(num).strip()
-                            # Extrai nome do cliente — percorre as colunas "Cliente" até achar uma string
-                            import re
+                            num = str(int(num)) if isinstance(num, (int, float)) else str(num).strip()
+                            # Extrai nome do cliente: percorre TODAS as colunas "Cliente"
+                            # e usa a primeira que retornar nome válido após limpeza
                             cli = ""
                             for _ci in range(len(headers)):
                                 if headers[_ci].strip().lower() == "cliente" and row[_ci]:
-                                    _raw = str(row[_ci]).strip()
-                                    # Ignora colunas que são só números ou datas
-                                    if re.match(r'^\d+$', _raw): continue
-                                    if "datetime" in _raw or re.match(r'\d{4}-\d{2}', _raw): continue
-                                    # Remove prefixo "CODIGO - "
-                                    _match = re.findall(r'\d+ - (.+)', _raw)
-                                    cli = _match[-1].strip() if _match else _raw
-                                    if cli: break
+                                    _nome = _limpar_nome_cliente(row[_ci])
+                                    if _nome:
+                                        cli = _nome
+                                        break
                             est  = row[idx_est]  if idx_est  is not None else None
                             vr   = row[idx_vr]   if idx_vr   is not None else None
                             obs  = str(row[idx_obs]).strip()  if idx_obs  is not None and row[idx_obs] and str(row[idx_obs]) != "None" else ""
@@ -3779,13 +3790,7 @@ def tela_admin():
                         st.session_state.novo_ped_xlsx_preview = None
                         msgs = []
                         if _erros:  msgs.append("⚠️ Já existiam: " + ", ".join(_erros))
-                        if _falhas:
-                            # Pega detalhe do erro do banco se disponível
-                            _db_err = st.session_state.get("_ultimo_erro_supabase", {})
-                            _db_detail = ""
-                            if _db_err:
-                                _db_detail = f" (Banco: HTTP {_db_err.get('status','')} — {str(_db_err.get('detail',''))[:120]})"
-                            msgs.append("❌ Falha ao salvar: " + ", ".join(_falhas) + _db_detail)
+                        if _falhas: msgs.append("❌ Erro ao salvar: " + ", ".join(_falhas) + " — verifique a conexão com o banco.")
                         st.session_state.novo_ped_erro = "\n".join(msgs) if msgs else ""
                         if _ok > 0:
                             st.session_state.novo_ped_ok = True
