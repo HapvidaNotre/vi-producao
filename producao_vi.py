@@ -1141,6 +1141,13 @@ def _render_status_pedido(num, status, etapa_idx):
         st.session_state.pedido_validado  = False
         st.session_state.pedido_status    = None
         st.warning("⚠️ Pedido não encontrado ou dados desatualizados. Tente buscar novamente.")
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+        if st.button("← Voltar ao Lobby", use_container_width=True, key="_recovery_voltar"):
+            st.session_state.tela          = "home"
+            st.session_state.etapa_escolhida = None
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
         st.stop()
     etapa_info = etapas[etapa_idx]  # dados da etapa que foi selecionada
 
