@@ -1078,6 +1078,15 @@ def _render_status_pedido(num, status, etapa_idx):
     cliente   = status.get("cliente", "")
     etapas    = status["etapas"]
     etapa_lbl = ETAPAS_LBL[etapa_idx]
+    # Guarda defensiva: etapa_idx pode vir corrompido do session_state (ex: troca de planilha)
+    if not etapas or etapa_idx < 0 or etapa_idx >= len(etapas):
+        st.session_state["_status_cache"] = None
+        st.session_state.etapa_idx        = 0
+        st.session_state.pedido           = None
+        st.session_state.pedido_validado  = False
+        st.session_state.pedido_status    = None
+        st.warning("⚠️ Pedido não encontrado ou dados desatualizados. Tente buscar novamente.")
+        st.stop()
     etapa_info = etapas[etapa_idx]  # dados da etapa que foi selecionada
 
     COR = ["#C8566A", "#3B7DD8", "#4A7C59"]
@@ -1492,6 +1501,11 @@ def tela_home():
         return
 
     etapa_idx = st.session_state.etapa_escolhida
+    # Valida etapa_idx — pode vir corrompido se o session_state ficou de uma sessão anterior
+    if etapa_idx is None or not isinstance(etapa_idx, int) or etapa_idx < 0 or etapa_idx >= len(ETAPAS_LBL):
+        st.session_state.etapa_escolhida = None
+        st.rerun()
+        return
     etapa_lbl = ETAPAS_LBL[etapa_idx]
 
     # ── PASSO 2: Digitar Pedido + BUSCAR ─────────────────────────────────────
