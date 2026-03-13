@@ -2523,34 +2523,15 @@ def _auto_refresh_watcher():
 
 def tela_admin_login():
     erro = st.session_state.erro_senha
-    erro_js = "true" if erro else "false"
 
-    # Captura ação via query param injetado pelo componente HTML
-    qp = st.query_params
-    _acao  = qp.get("adm_acao", "")
-    _senha = qp.get("adm_senha", "")
-
-    if _acao == "voltar":
-        st.query_params.clear()
-        st.session_state.erro_senha = False
-        st.session_state.tela = "home"
-        st.rerun()
-    elif _acao == "acessar":
-        st.query_params.clear()
-        if _senha == ADMIN_SENHA:
-            st.session_state.erro_senha = False
-            st.session_state.tela = "admin"
-        else:
-            st.session_state.erro_senha = True
-        st.rerun()
-
+    # ── Card visual (sem elementos interativos) ─────────────────────────────
     components.html(f"""<!DOCTYPE html><html><head>
     <meta charset="UTF-8">
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Nunito:wght@700;800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
     <style>
       *,*::before,*::after{{margin:0;padding:0;box-sizing:border-box;}}
       html,body{{height:100%;background:transparent;font-family:'Nunito',sans-serif;}}
-      .wrap{{min-height:600px;display:flex;align-items:center;justify-content:center;padding:8px;}}
+      .wrap{{min-height:320px;display:flex;align-items:center;justify-content:center;padding:8px;}}
       .card{{
         width:100%;max-width:420px;
         background:linear-gradient(160deg,#1a1210 0%,#241816 40%,#1a1210 100%);
@@ -2568,7 +2549,7 @@ def tela_admin_login():
       .orb-1{{width:280px;height:280px;background:#8B2035;opacity:.18;top:-100px;right:-80px;animation:drift 8s ease-in-out infinite;}}
       .orb-2{{width:200px;height:200px;background:#C8566A;opacity:.10;bottom:-60px;left:-60px;animation:drift 10s ease-in-out infinite reverse;}}
       @keyframes drift{{0%,100%{{transform:translate(0,0);}}50%{{transform:translate(12px,-12px);}}}}
-      .inner{{position:relative;z-index:1;padding:36px 32px 32px;}}
+      .inner{{position:relative;z-index:1;padding:36px 32px 28px;}}
       .logomark{{
         width:68px;height:68px;border-radius:20px;margin:0 auto 24px;
         background:linear-gradient(145deg,#2a1518,#1a0d0f);
@@ -2583,51 +2564,9 @@ def tela_admin_login():
       }}
       .eyebrow{{font-size:9px;font-weight:800;letter-spacing:4px;text-transform:uppercase;color:rgba(200,86,106,0.7);text-align:center;margin-bottom:7px;}}
       .title{{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:700;color:#fff;text-align:center;letter-spacing:-0.5px;line-height:1;margin-bottom:5px;}}
-      .subtitle{{font-size:11px;color:rgba(255,255,255,0.3);text-align:center;font-weight:700;letter-spacing:1px;margin-bottom:24px;}}
-      .sep{{height:1px;background:linear-gradient(90deg,transparent,rgba(200,86,106,0.3),transparent);margin-bottom:24px;}}
-      .input-label{{font-size:9px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.25);margin-bottom:8px;}}
-      .input-wrap{{
-        background:rgba(255,255,255,0.04);border:1.5px solid rgba(255,255,255,0.10);
-        border-radius:14px;padding:13px 16px;display:flex;align-items:center;gap:10px;
-        transition:border-color .2s,box-shadow .2s;cursor:text;margin-bottom:8px;
-      }}
-      .input-wrap.error{{border-color:rgba(200,86,106,0.6)!important;box-shadow:0 0 0 4px rgba(200,86,106,0.10);}}
-      .input-wrap:focus-within{{border-color:rgba(200,86,106,0.5);box-shadow:0 0 0 4px rgba(200,86,106,0.08);}}
-      .lock-icon{{opacity:.35;flex-shrink:0;}}
-      .dots{{flex:1;font-family:'DM Mono',monospace;font-size:18px;letter-spacing:6px;color:rgba(255,255,255,0.8);display:none;}}
-      .ph{{flex:1;font-size:12px;color:rgba(255,255,255,0.2);font-weight:700;letter-spacing:2px;}}
-      .err-msg{{
-        display:none;align-items:center;gap:8px;
-        background:rgba(200,86,106,0.12);border:1px solid rgba(200,86,106,0.3);
-        border-radius:10px;padding:7px 12px;margin-bottom:14px;
-        font-size:11px;font-weight:800;color:rgba(200,86,106,0.9);
-      }}
-      .err-msg.show{{display:flex;}}
-
-      /* Botões dentro do card */
-      .btn-row{{display:flex;gap:10px;margin-top:20px;}}
-      .btn{{
-        flex:1;border:none;border-radius:14px;padding:14px 10px;
-        font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;
-        cursor:pointer;transition:transform .15s,filter .15s;letter-spacing:.3px;
-        display:flex;align-items:center;justify-content:center;gap:7px;
-      }}
-      .btn:active{{transform:translateY(2px)!important;}}
-      .btn-back{{
-        background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.45);
-        border:1.5px solid rgba(255,255,255,0.10);flex:0 0 auto;width:100px;
-      }}
-      .btn-back:hover{{background:rgba(255,255,255,0.10);color:rgba(255,255,255,0.7);transform:translateY(-1px);}}
-      .btn-enter{{
-        background:linear-gradient(135deg,#C8566A 0%,#8B2035 100%);
-        color:#fff;
-        box-shadow:0 4px 0 rgba(80,10,20,0.6),0 8px 24px rgba(200,86,106,0.3);
-        border-top:1px solid rgba(255,255,255,0.15);
-      }}
-      .btn-enter:hover{{filter:brightness(1.1);transform:translateY(-2px);}}
-
-      /* Status */
-      .status{{display:flex;align-items:center;justify-content:center;gap:18px;margin-top:18px;}}
+      .subtitle{{font-size:11px;color:rgba(255,255,255,0.3);text-align:center;font-weight:700;letter-spacing:1px;margin-bottom:20px;}}
+      .sep{{height:1px;background:linear-gradient(90deg,transparent,rgba(200,86,106,0.3),transparent);margin-bottom:20px;}}
+      .status{{display:flex;align-items:center;justify-content:center;gap:18px;margin-top:6px;}}
       .dot{{width:6px;height:6px;border-radius:50%;}}
       .dot-on{{background:#4ade80;box-shadow:0 0 8px #4ade80;animation:blink 2s infinite;}}
       .dot-off{{background:#C8566A;animation:blink 2s 1s infinite;}}
@@ -2639,45 +2578,16 @@ def tela_admin_login():
       <div class="accent-bar"></div>
       <div class="orb orb-1"></div><div class="orb orb-2"></div>
       <div class="inner">
-
         <div class="logomark">
           <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#C8566A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="11" width="18" height="11" rx="3"/>
             <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
           </svg>
         </div>
-
         <div class="eyebrow">Acesso Restrito</div>
         <div class="title">Painel Admin</div>
         <div class="subtitle">Vi Lingerie · Sistema de Produção</div>
         <div class="sep"></div>
-
-        <div class="input-label">Senha de acesso</div>
-        <div class="input-wrap" id="iw" onclick="document.getElementById('pw').focus()">
-          <span class="lock-icon">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          </span>
-          <span class="ph" id="ph">········</span>
-          <span class="dots" id="dts"></span>
-        </div>
-
-        <div class="err-msg {'show' if erro else ''}" id="errmsg">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          Senha incorreta. Tente novamente.
-        </div>
-
-        <!-- Botões dentro do card -->
-        <div class="btn-row">
-          <button class="btn btn-back" id="btnVoltar" onclick="goBack()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-            Voltar
-          </button>
-          <button class="btn btn-enter" id="btnAcessar" onclick="doLogin()">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            Acessar Painel
-          </button>
-        </div>
-
         <div class="status">
           <div style="display:flex;align-items:center;gap:6px;">
             <div class="dot dot-on"></div><span class="status-lbl">Sistema Online</span>
@@ -2688,43 +2598,98 @@ def tela_admin_login():
         </div>
       </div>
     </div></div>
+    </body></html>""", height=340, scrolling=False)
 
-    <input id="pw" type="password"
-      style="position:fixed;opacity:0;width:1px;height:1px;top:0;left:0;pointer-events:none;"
-      oninput="sync()" onkeydown="if(event.key==='Enter')doLogin()">
+    # ── Estilo para os widgets nativos do Streamlit ─────────────────────────
+    st.markdown("""
+    <style>
+    /* Input de senha */
+    div[data-testid="stTextInput"] input {
+        background: rgba(255,255,255,0.04) !important;
+        border: 1.5px solid rgba(255,255,255,0.15) !important;
+        border-radius: 14px !important;
+        color: #fff !important;
+        font-size: 15px !important;
+        padding: 12px 16px !important;
+        letter-spacing: 4px !important;
+    }
+    div[data-testid="stTextInput"] input:focus {
+        border-color: rgba(200,86,106,0.6) !important;
+        box-shadow: 0 0 0 4px rgba(200,86,106,0.10) !important;
+    }
+    div[data-testid="stTextInput"] label { display: none !important; }
 
-    <script>
-    var isErr = {erro_js};
-    if(isErr) document.getElementById('iw').classList.add('error');
+    /* Botão Voltar */
+    div[data-testid="stHorizontalBlock"] div[data-testid="column"]:first-child button {
+        background: rgba(255,255,255,0.06) !important;
+        color: rgba(255,255,255,0.55) !important;
+        border: 1.5px solid rgba(255,255,255,0.12) !important;
+        border-radius: 14px !important;
+        height: 50px !important;
+        font-size: 13px !important;
+        font-weight: 800 !important;
+    }
+    div[data-testid="stHorizontalBlock"] div[data-testid="column"]:first-child button:hover {
+        background: rgba(255,255,255,0.12) !important;
+        color: #fff !important;
+    }
 
-    function sync(){{
-      var v = document.getElementById('pw').value;
-      var ph = document.getElementById('ph');
-      var dts = document.getElementById('dts');
-      if(v.length > 0){{ ph.style.display='none'; dts.style.display='block'; dts.textContent='●'.repeat(v.length); }}
-      else {{ ph.style.display='block'; dts.style.display='none'; }}
-      if(isErr){{
-        document.getElementById('iw').classList.remove('error');
-        document.getElementById('errmsg').classList.remove('show');
-        isErr = false;
-      }}
-    }}
+    /* Botão Acessar Painel */
+    div[data-testid="stHorizontalBlock"] div[data-testid="column"]:last-child button {
+        background: linear-gradient(135deg,#C8566A 0%,#8B2035 100%) !important;
+        color: #fff !important;
+        border: none !important;
+        border-radius: 14px !important;
+        height: 50px !important;
+        font-size: 13px !important;
+        font-weight: 800 !important;
+        box-shadow: 0 4px 0 rgba(80,10,20,0.5), 0 8px 24px rgba(200,86,106,0.25) !important;
+    }
+    div[data-testid="stHorizontalBlock"] div[data-testid="column"]:last-child button:hover {
+        filter: brightness(1.1) !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-    function doLogin(){{
-      var v = document.getElementById('pw').value;
-      // Navega via top.location para passar params ao Streamlit
-      var url = window.top.location.href.split('?')[0];
-      window.top.location.href = url + '?adm_acao=acessar&adm_senha=' + encodeURIComponent(v);
-    }}
+    # ── Label e input de senha ──────────────────────────────────────────────
+    st.markdown(
+        "<div style='font-size:9px;font-weight:800;letter-spacing:3px;text-transform:uppercase;"
+        "color:rgba(255,255,255,0.3);margin-bottom:4px;'>🔒 &nbsp;SENHA DE ACESSO</div>",
+        unsafe_allow_html=True
+    )
+    senha_input = st.text_input(
+        "_senha_admin", placeholder="········",
+        type="password", label_visibility="collapsed",
+        key="admin_login_senha"
+    )
 
-    function goBack(){{
-      var url = window.top.location.href.split('?')[0];
-      window.top.location.href = url + '?adm_acao=voltar';
-    }}
+    # ── Mensagem de erro ────────────────────────────────────────────────────
+    if erro:
+        st.markdown(
+            "<div style='background:rgba(200,86,106,0.12);border:1px solid rgba(200,86,106,0.35);"
+            "border-radius:10px;padding:8px 14px;font-size:11px;font-weight:800;"
+            "color:rgba(200,86,106,0.95);margin-bottom:4px;'>"
+            "❌ &nbsp;Senha incorreta. Tente novamente.</div>",
+            unsafe_allow_html=True
+        )
 
-    setTimeout(function(){{ document.getElementById('pw').focus(); }}, 300);
-    </script>
-    </body></html>""", height=580, scrolling=False)
+    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+
+    # ── Botões nativos Streamlit ────────────────────────────────────────────
+    col_v, col_a = st.columns([1, 2])
+    with col_v:
+        if st.button("‹ Voltar", use_container_width=True, key="adm_login_voltar"):
+            st.session_state.erro_senha = False
+            st.session_state.tela = "home"
+            st.rerun()
+    with col_a:
+        if st.button("🔒 Acessar Painel", use_container_width=True, key="adm_login_acessar"):
+            if senha_input == ADMIN_SENHA:
+                st.session_state.erro_senha = False
+                st.session_state.tela = "admin"
+            else:
+                st.session_state.erro_senha = True
+            st.rerun()
 
 
 # ─────────────────────────────────────
