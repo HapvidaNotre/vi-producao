@@ -3556,116 +3556,230 @@ def tela_admin():
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════
-    #  BLOCO — ADICIONAR PEDIDO MANUAL
+    #  BLOCO — ADICIONAR PEDIDO MANUAL / VIA XLSX
     # ══════════════════════════════════════════════════════════════════
-    with st.expander("➕ Adicionar Pedido Manual", expanded=False):
+    with st.expander("➕ Adicionar Pedido", expanded=False):
 
-        # Inicializa session_state do formulário
+        # Inicializa session_state
         for _k, _v in [
-            ("novo_ped_num",      ""),
-            ("novo_ped_cli",      ""),
-            ("novo_ped_prod",     ""),
-            ("novo_ped_qtd",      0),
-            ("novo_ped_vr",       0.0),
-            ("novo_ped_ok",       False),
-            ("novo_ped_erro",     ""),
+            ("novo_ped_num",""), ("novo_ped_cli",""), ("novo_ped_prod",""),
+            ("novo_ped_qtd",0),  ("novo_ped_vr",0.0), ("novo_ped_obs",""),
+            ("novo_ped_ok",False), ("novo_ped_erro",""),
+            ("novo_ped_xlsx_preview", None),  # lista de dicts lidos do xlsx
         ]:
-            if _k not in st.session_state:
-                st.session_state[_k] = _v
+            if _k not in st.session_state: st.session_state[_k] = _v
 
+        # ── CSS botões ────────────────────────────────────────────────
+        st.markdown("""<style>
+        .btn-novo-ped > button {
+            background: linear-gradient(135deg,#3B7DD8,#1e3a8a) !important;
+            color:#fff !important; border:none !important;
+            border-radius:12px !important; height:48px !important;
+            font-size:14px !important; font-weight:900 !important;
+            box-shadow: 0 4px 0 rgba(20,40,100,0.35) !important;
+        }
+        .btn-novo-ped > button:hover { filter:brightness(1.08) !important; }
+        </style>""", unsafe_allow_html=True)
+
+        # ── Sucesso após cadastro ─────────────────────────────────────
         if st.session_state.novo_ped_ok:
-            st.success("✅ Pedido adicionado com sucesso! O operador já pode trabalhar com ele.")
-            st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
-            if st.button("➕ Adicionar outro pedido", use_container_width=True, key="novo_ped_reset"):
-                st.session_state.novo_ped_ok  = False
-                st.session_state.novo_ped_num = ""
-                st.session_state.novo_ped_cli = ""
-                st.session_state.novo_ped_prod = ""
+            st.success("✅ Pedido(s) adicionado(s) com sucesso! Os operadores já têm acesso.")
+            st.markdown('<div class="btn-novo-ped">', unsafe_allow_html=True)
+            if st.button("➕ Adicionar mais pedidos", use_container_width=True, key="novo_ped_reset"):
+                for _k in ["novo_ped_num","novo_ped_cli","novo_ped_prod","novo_ped_obs",
+                           "novo_ped_ok","novo_ped_erro","novo_ped_xlsx_preview"]:
+                    st.session_state[_k] = "" if isinstance(st.session_state[_k], str) else (
+                        False if isinstance(st.session_state[_k], bool) else None)
                 st.session_state.novo_ped_qtd = 0
                 st.session_state.novo_ped_vr  = 0.0
-                st.session_state.novo_ped_erro = ""
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
+
         else:
-            st.markdown("""
-            <div style="background:#F0F5FF;border:1.5px solid #3B7DD8;border-radius:12px;
-                        padding:12px 16px;margin-bottom:14px;font-size:12px;font-weight:700;color:#1e3a8a;">
-              ℹ️ Use este formulário para adicionar pedidos que <strong>não constam na planilha</strong>
-              do Sistema A. O pedido ficará disponível imediatamente para os operadores.
-            </div>""", unsafe_allow_html=True)
+            # ── ABAS: XLSX | Manual ───────────────────────────────────
+            aba_xlsx, aba_manual = st.tabs(["📂 Importar XLSX", "✏️ Cadastro Manual"])
 
-            # ── Linha 1: Número (obrigatório) + Cliente ───────────────────────
-            c1, c2 = st.columns([1, 2])
-            with c1:
-                st.markdown('<div style="font-size:11px;font-weight:800;color:#5C5450;margin-bottom:4px;letter-spacing:.5px;">Nº DO PEDIDO *</div>', unsafe_allow_html=True)
-                novo_num = st.text_input("_np_num", placeholder="Ex: 50999",
-                    label_visibility="collapsed", key="novo_ped_num_input")
-            with c2:
-                st.markdown('<div style="font-size:11px;font-weight:800;color:#5C5450;margin-bottom:4px;letter-spacing:.5px;">CLIENTE</div>', unsafe_allow_html=True)
-                novo_cli = st.text_input("_np_cli", placeholder="Nome do cliente",
-                    label_visibility="collapsed", key="novo_ped_cli_input")
+            # ════════════════════════════════════════════════
+            #  ABA 1 — IMPORTAR XLSX
+            # ════════════════════════════════════════════════
+            with aba_xlsx:
+                st.markdown("""
+                <div style="background:#F0F5FF;border:1.5px solid #3B7DD8;border-radius:10px;
+                            padding:10px 14px;margin-bottom:12px;font-size:12px;font-weight:700;color:#1e3a8a;">
+                  📂 Exporte o pedido do sistema interno como <strong>XLSX</strong> e faça upload aqui.
+                  O sistema extrai as informações automaticamente e descarta o arquivo.
+                </div>""", unsafe_allow_html=True)
 
-            # ── Linha 2: Produto ──────────────────────────────────────────────
-            st.markdown('<div style="font-size:11px;font-weight:800;color:#5C5450;margin-bottom:4px;letter-spacing:.5px;margin-top:8px;">PRODUTO / DESCRIÇÃO</div>', unsafe_allow_html=True)
-            novo_prod = st.text_input("_np_prod", placeholder="Ex: Conjunto Renda Preta P/M/G",
-                label_visibility="collapsed", key="novo_ped_prod_input")
+                xlsx_file = st.file_uploader("Upload XLSX", type=["xlsx"],
+                    label_visibility="collapsed", key="novo_ped_xlsx_upload")
 
-            # ── Linha 3: Qtd de Peças + Valor ────────────────────────────────
-            c3, c4 = st.columns(2)
-            with c3:
-                st.markdown('<div style="font-size:11px;font-weight:800;color:#5C5450;margin-bottom:4px;letter-spacing:.5px;margin-top:8px;">QTD DE PEÇAS</div>', unsafe_allow_html=True)
-                novo_qtd = st.number_input("_np_qtd", min_value=0, value=0, step=1,
-                    label_visibility="collapsed", key="novo_ped_qtd_input")
-            with c4:
-                st.markdown('<div style="font-size:11px;font-weight:800;color:#5C5450;margin-bottom:4px;letter-spacing:.5px;margin-top:8px;">VALOR (R$)</div>', unsafe_allow_html=True)
-                novo_vr = st.number_input("_np_vr", min_value=0.0, value=0.0, step=0.01,
-                    format="%.2f", label_visibility="collapsed", key="novo_ped_vr_input")
+                if xlsx_file is not None:
+                    try:
+                        import openpyxl, io
+                        wb = openpyxl.load_workbook(io.BytesIO(xlsx_file.read()))
+                        ws = wb.active
+                        headers = [str(c.value).strip() if c.value else "" for c in next(ws.iter_rows(min_row=1, max_row=1))]
 
-            # ── Erro ─────────────────────────────────────────────────────────
-            if st.session_state.novo_ped_erro:
-                st.error(st.session_state.novo_ped_erro)
+                        # Mapeamento de colunas pelo cabeçalho
+                        def _col(names):
+                            for n in names:
+                                for i, h in enumerate(headers):
+                                    if n.lower() in h.lower(): return i
+                            return None
 
-            # ── Botão salvar ──────────────────────────────────────────────────
-            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-            st.markdown("""<style>
-            .btn-novo-ped > button {
-                background: linear-gradient(135deg,#3B7DD8,#1e3a8a) !important;
-                color:#fff !important; border:none !important;
-                border-radius:12px !important; height:48px !important;
-                font-size:14px !important; font-weight:900 !important;
-                box-shadow: 0 4px 0 rgba(20,40,100,0.35) !important;
-            }
-            .btn-novo-ped > button:hover { filter:brightness(1.08) !important; }
-            </style>""", unsafe_allow_html=True)
-            st.markdown('<div class="btn-novo-ped">', unsafe_allow_html=True)
-            if st.button("💾  Salvar Pedido", use_container_width=True, key="novo_ped_salvar"):
-                _num = novo_num.strip()
-                if not _num:
-                    st.session_state.novo_ped_erro = "❌ O número do pedido é obrigatório."
-                    st.rerun()
-                elif not _num.isdigit():
-                    st.session_state.novo_ped_erro = "❌ O número do pedido deve conter apenas dígitos."
-                    st.rerun()
-                else:
-                    # Verifica se já existe
-                    _existe = _get("pedidos_base", f"numero=eq.{_num}&select=numero")
-                    if isinstance(_existe, list) and _existe:
-                        st.session_state.novo_ped_erro = f"❌ Pedido #{_num} já existe na base."
-                        st.rerun()
-                    else:
-                        cadastrar_pedido_avulso(
-                            numero      = _num,
-                            cliente     = novo_cli.strip(),
-                            produto     = novo_prod.strip(),
-                            est_alocado = int(novo_qtd) if novo_qtd > 0 else None,
-                            vr_alocado  = float(novo_vr) if novo_vr > 0 else None,
-                        )
-                        st.session_state.novo_ped_ok   = True
-                        st.session_state.novo_ped_erro = ""
+                        idx_num  = _col(["Pedido"])
+                        idx_cli  = _col(["Cliente"])
+                        idx_est  = _col(["Est. Alocado"])
+                        idx_vr   = _col(["Vr. Alocado"])
+                        idx_obs  = _col(["Observação","Observacao"])
+                        idx_prod = _col(["Perfil","Produto"])
+
+                        pedidos_xlsx = []
+                        for row in ws.iter_rows(min_row=2, values_only=True):
+                            num = row[idx_num] if idx_num is not None else None
+                            if not num: continue
+                            num = str(int(num)) if isinstance(num, float) else str(num).strip()
+                            # Extrai só o nome do cliente (remove código "32273 - ")
+                            cli_raw = str(row[idx_cli]) if idx_cli is not None and row[idx_cli] else ""
+                            # Pega a última ocorrência do padrão "CODIGO - NOME"
+                            import re
+                            cli_match = re.findall(r'\d+ - (.+)', cli_raw)
+                            cli = cli_match[-1].strip() if cli_match else cli_raw.strip()
+                            est  = row[idx_est]  if idx_est  is not None else None
+                            vr   = row[idx_vr]   if idx_vr   is not None else None
+                            obs  = str(row[idx_obs]).strip()  if idx_obs  is not None and row[idx_obs] and str(row[idx_obs]) != "None" else ""
+                            prod = str(row[idx_prod]).strip() if idx_prod is not None and row[idx_prod] and str(row[idx_prod]) != "None" else ""
+                            try: est = int(float(est)) if est else None
+                            except: est = None
+                            try: vr = round(float(vr), 2) if vr else None
+                            except: vr = None
+                            pedidos_xlsx.append({"num": num, "cli": cli, "prod": prod,
+                                                 "est": est, "vr": vr, "obs": obs})
+
+                        if not pedidos_xlsx:
+                            st.error("❌ Nenhum pedido encontrado no arquivo.")
+                        else:
+                            st.session_state.novo_ped_xlsx_preview = pedidos_xlsx
+                    except Exception as _xe:
+                        st.error(f"❌ Erro ao ler arquivo: {_xe}")
+
+                # Preview dos pedidos lidos
+                preview = st.session_state.novo_ped_xlsx_preview
+                if preview:
+                    st.markdown(f"""
+                    <div style="font-size:11px;font-weight:800;color:#4A7C59;letter-spacing:1px;
+                                text-transform:uppercase;margin:10px 0 6px;">
+                      ✓ {len(preview)} pedido(s) lido(s) — confirme antes de importar
+                    </div>""", unsafe_allow_html=True)
+
+                    for _p in preview:
+                        _vr_fmt = f"R$ {_p['vr']:,.2f}".replace(",","X").replace(".",",").replace("X",".") if _p["vr"] else "—"
+                        st.markdown(f"""
+                        <div style="background:#F7F5F2;border:1.5px solid #DDD8D2;border-radius:10px;
+                                    padding:10px 14px;margin-bottom:6px;font-size:12px;">
+                          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                            <span style="font-family:monospace;font-size:14px;font-weight:900;color:#1A1714;">#{_p['num']}</span>
+                            <span style="font-weight:700;color:#5C5450;flex:1;">{_p['cli'] or '—'}</span>
+                            <span style="background:#F0F5FF;color:#3B7DD8;font-size:10px;font-weight:800;
+                                  padding:2px 10px;border-radius:20px;">{_p['est'] or '—'} pçs</span>
+                            <span style="background:#F0F7F3;color:#4A7C59;font-size:10px;font-weight:800;
+                                  padding:2px 10px;border-radius:20px;">{_vr_fmt}</span>
+                          </div>
+                          {f'<div style="font-size:10px;color:#9C9490;margin-top:4px;">📝 {_p["obs"]}</div>' if _p["obs"] else ""}
+                          {f'<div style="font-size:10px;color:#9C9490;margin-top:2px;">🏷 {_p["prod"]}</div>' if _p["prod"] else ""}
+                        </div>""", unsafe_allow_html=True)
+
+                    if st.session_state.novo_ped_erro:
+                        st.error(st.session_state.novo_ped_erro)
+
+                    st.markdown('<div class="btn-novo-ped">', unsafe_allow_html=True)
+                    if st.button("💾  Importar Pedido(s)", use_container_width=True, key="novo_ped_xlsx_salvar"):
+                        _erros = []; _ok = 0
+                        for _p in preview:
+                            _existe = _get("pedidos_base", f"numero=eq.{_p['num']}&select=numero")
+                            if isinstance(_existe, list) and _existe:
+                                _erros.append(f"#{_p['num']} já existe — ignorado")
+                                continue
+                            cadastrar_pedido_avulso(
+                                numero=_p["num"], cliente=_p["cli"],
+                                produto=_p["prod"], est_alocado=_p["est"], vr_alocado=_p["vr"]
+                            )
+                            _ok += 1
                         buscar_pedidos_base.clear()
                         buscar_pedidos_por_etapa.clear()
+                        st.session_state.novo_ped_xlsx_preview = None
+                        if _erros:
+                            st.session_state.novo_ped_erro = "⚠️ " + " · ".join(_erros)
+                        if _ok > 0:
+                            st.session_state.novo_ped_ok = True
                         st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+            # ════════════════════════════════════════════════
+            #  ABA 2 — CADASTRO MANUAL
+            # ════════════════════════════════════════════════
+            with aba_manual:
+                st.markdown("""
+                <div style="background:#F0F5FF;border:1.5px solid #3B7DD8;border-radius:10px;
+                            padding:10px 14px;margin-bottom:12px;font-size:12px;font-weight:700;color:#1e3a8a;">
+                  ✏️ Preencha manualmente os dados do pedido.
+                </div>""", unsafe_allow_html=True)
+
+                c1, c2 = st.columns([1, 2])
+                with c1:
+                    st.markdown('<div style="font-size:11px;font-weight:800;color:#5C5450;margin-bottom:4px;letter-spacing:.5px;">Nº DO PEDIDO *</div>', unsafe_allow_html=True)
+                    novo_num = st.text_input("_np_num", placeholder="Ex: 50999",
+                        label_visibility="collapsed", key="novo_ped_num_input")
+                with c2:
+                    st.markdown('<div style="font-size:11px;font-weight:800;color:#5C5450;margin-bottom:4px;letter-spacing:.5px;">CLIENTE</div>', unsafe_allow_html=True)
+                    novo_cli = st.text_input("_np_cli", placeholder="Nome do cliente",
+                        label_visibility="collapsed", key="novo_ped_cli_input")
+
+                st.markdown('<div style="font-size:11px;font-weight:800;color:#5C5450;margin-bottom:4px;letter-spacing:.5px;margin-top:8px;">PRODUTO / DESCRIÇÃO</div>', unsafe_allow_html=True)
+                novo_prod = st.text_input("_np_prod", placeholder="Ex: Conjunto Renda Preta P/M/G",
+                    label_visibility="collapsed", key="novo_ped_prod_input")
+
+                c3, c4 = st.columns(2)
+                with c3:
+                    st.markdown('<div style="font-size:11px;font-weight:800;color:#5C5450;margin-bottom:4px;letter-spacing:.5px;margin-top:8px;">QTD DE PEÇAS</div>', unsafe_allow_html=True)
+                    novo_qtd = st.number_input("_np_qtd", min_value=0, value=0, step=1,
+                        label_visibility="collapsed", key="novo_ped_qtd_input")
+                with c4:
+                    st.markdown('<div style="font-size:11px;font-weight:800;color:#5C5450;margin-bottom:4px;letter-spacing:.5px;margin-top:8px;">VALOR (R$)</div>', unsafe_allow_html=True)
+                    novo_vr = st.number_input("_np_vr", min_value=0.0, value=0.0, step=0.01,
+                        format="%.2f", label_visibility="collapsed", key="novo_ped_vr_input")
+
+                if st.session_state.novo_ped_erro:
+                    st.error(st.session_state.novo_ped_erro)
+
+                st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+                st.markdown('<div class="btn-novo-ped">', unsafe_allow_html=True)
+                if st.button("💾  Salvar Pedido", use_container_width=True, key="novo_ped_salvar"):
+                    _num = novo_num.strip()
+                    if not _num:
+                        st.session_state.novo_ped_erro = "❌ O número do pedido é obrigatório."
+                        st.rerun()
+                    elif not _num.isdigit():
+                        st.session_state.novo_ped_erro = "❌ O número deve conter apenas dígitos."
+                        st.rerun()
+                    else:
+                        _existe = _get("pedidos_base", f"numero=eq.{_num}&select=numero")
+                        if isinstance(_existe, list) and _existe:
+                            st.session_state.novo_ped_erro = f"❌ Pedido #{_num} já existe na base."
+                            st.rerun()
+                        else:
+                            cadastrar_pedido_avulso(
+                                numero=_num, cliente=novo_cli.strip(),
+                                produto=novo_prod.strip(),
+                                est_alocado=int(novo_qtd) if novo_qtd > 0 else None,
+                                vr_alocado=float(novo_vr) if novo_vr > 0 else None,
+                            )
+                            st.session_state.novo_ped_ok   = True
+                            st.session_state.novo_ped_erro = ""
+                            buscar_pedidos_base.clear()
+                            buscar_pedidos_por_etapa.clear()
+                            st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
