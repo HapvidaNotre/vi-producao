@@ -99,6 +99,18 @@ def _upsert(table, data, on_conflict):
     h = {**_sb_headers(), "Prefer": f"resolution=merge-duplicates,return=minimal"}
     r = requests.post(f"{SB_URL}/rest/v1/{table}?on_conflict={on_conflict}",
                       headers=h, data=json.dumps(data), timeout=10)
+    if not r.ok:
+        # Grava o erro no session_state para diagnóstico — visível na tela admin
+        try:
+            _err_detail = r.json()
+        except Exception:
+            _err_detail = r.text
+        import streamlit as _st
+        _st.session_state["_ultimo_erro_supabase"] = {
+            "status": r.status_code,
+            "table": table,
+            "detail": _err_detail,
+        }
     return r.ok
 
 # ─────────────────────────────────────
@@ -124,13 +136,14 @@ def status_pedido(numero):
 def cadastrar_pedido_avulso(numero, cliente="", produto="", est_alocado=None, vr_alocado=None):
     now_str = now_br().strftime("%d/%m/%Y %H:%M")
     payload = {"numero": numero, "cliente": cliente, "produto": produto,
-               "status": "aberto", "importado_em": now_str, "origem": "manual"}
+               "status": "aberto", "importado_em": now_str}
     if est_alocado is not None:
         payload["est_alocado"] = est_alocado
     if vr_alocado is not None:
         payload["vr_alocado"] = vr_alocado
-    _upsert("pedidos_base", payload, "numero")
+    ok = _upsert("pedidos_base", payload, "numero")
     buscar_pedidos_base.clear()
+    return ok
 
 def marcar_concluido(numero):
     """
@@ -1205,6 +1218,7 @@ def _render_status_pedido(num, status, etapa_idx):
             st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
             if st.button("✓ Cadastrar e Continuar", use_container_width=True):
                 cadastrar_pedido_avulso(num)
+                buscar_pedidos_por_etapa.clear()
                 st.session_state.pedido          = num
                 st.session_state.pedido_status   = None
                 st.session_state.pedido_validado = True
@@ -1696,6 +1710,7 @@ def tela_home():
                 st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
                 if st.button("✓ Cadastrar", use_container_width=True):
                     cadastrar_pedido_avulso(num_pend)
+                    buscar_pedidos_por_etapa.clear()
                     st.session_state.pedido_status  = None
                     st.session_state.pedido         = num_pend
                     st.session_state.pedido_validado = True
@@ -3597,6 +3612,18 @@ def tela_admin():
         }
         </style>""", unsafe_allow_html=True)
 
+        # ── Diagnóstico de erro Supabase (visível só quando falha) ──────────
+        _sb_err = st.session_state.get("_ultimo_erro_supabase")
+        if _sb_err:
+            with st.expander(f"🔴 Erro técnico Supabase (HTTP {_sb_err['status']}) — clique para ver", expanded=True):
+                st.code(json.dumps(_sb_err["detail"], ensure_ascii=False, indent=2)
+                        if isinstance(_sb_err["detail"], dict) else str(_sb_err["detail"]),
+                        language="json")
+                st.caption("Copie esse erro e envie ao desenvolvedor. Clique no botão abaixo para limpar.")
+                if st.button("✕ Limpar diagnóstico", key="limpar_err_sb"):
+                    st.session_state.pop("_ultimo_erro_supabase", None)
+                    st.rerun()
+
         # ── Sucesso após cadastro ─────────────────────────────────────
         if st.session_state.novo_ped_ok:
             st.success("✅ Pedido(s) adicionado(s) com sucesso! Os operadores já têm acesso.")
@@ -3726,24 +3753,31 @@ def tela_admin():
 
                     st.markdown('<div class="btn-novo-ped">', unsafe_allow_html=True)
                     if st.button("💾  Importar Pedido(s)", use_container_width=True, key="novo_ped_xlsx_salvar"):
-                        _erros = []; _ok = 0
+                        _erros = []; _falhas = []; _ok = 0
                         for _p in preview:
                             _existe = _get("pedidos_base", f"numero=eq.{_p['num']}&select=numero")
                             if isinstance(_existe, list) and _existe:
                                 _erros.append(f"#{_p['num']} já existe — ignorado")
                                 continue
-                            cadastrar_pedido_avulso(
+                            _inseriu = cadastrar_pedido_avulso(
                                 numero=_p["num"], cliente=_p["cli"],
                                 produto=_p["prod"], est_alocado=_p["est"], vr_alocado=_p["vr"]
                             )
-                            _ok += 1
+                            if _inseriu:
+                                _ok += 1
+                            else:
+                                _falhas.append(f"#{_p['num']} falhou ao salvar")
                         buscar_pedidos_base.clear()
                         buscar_pedidos_por_etapa.clear()
                         st.session_state.novo_ped_xlsx_preview = None
-                        if _erros:
-                            st.session_state.novo_ped_erro = "⚠️ " + " · ".join(_erros)
+                        msgs = []
+                        if _erros:  msgs.append("⚠️ Já existiam: " + ", ".join(_erros))
+                        if _falhas: msgs.append("❌ Erro ao salvar: " + ", ".join(_falhas) + " — verifique a conexão com o banco.")
+                        st.session_state.novo_ped_erro = "\n".join(msgs) if msgs else ""
                         if _ok > 0:
                             st.session_state.novo_ped_ok = True
+                        elif not _falhas and not _erros:
+                            st.session_state.novo_ped_erro = "❌ Nenhum pedido foi importado."
                         st.rerun()
                     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -3800,15 +3834,21 @@ def tela_admin():
                             st.session_state.novo_ped_erro = f"❌ Pedido #{_num} já existe na base."
                             st.rerun()
                         else:
-                            cadastrar_pedido_avulso(
+                            _inseriu = cadastrar_pedido_avulso(
                                 numero=_num, cliente=novo_cli.strip(),
                                 produto=novo_prod.strip(),
                                 est_alocado=int(novo_qtd) if novo_qtd > 0 else None,
                                 vr_alocado=float(novo_vr) if novo_vr > 0 else None,
                             )
-                            st.session_state.novo_ped_ok   = True
-                            st.session_state.novo_ped_erro = ""
                             buscar_pedidos_base.clear()
+                            if _inseriu:
+                                st.session_state.novo_ped_ok   = True
+                                st.session_state.novo_ped_erro = ""
+                            else:
+                                st.session_state.novo_ped_erro = (
+                                    f"❌ Falha ao salvar pedido #{_num} no banco. "
+                                    "Verifique a conexão com o Supabase ou os logs da aplicação."
+                                )
                             buscar_pedidos_por_etapa.clear()
                             st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
