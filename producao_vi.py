@@ -3579,6 +3579,18 @@ def tela_admin():
             box-shadow: 0 4px 0 rgba(20,40,100,0.35) !important;
         }
         .btn-novo-ped > button:hover { filter:brightness(1.08) !important; }
+        /* Abas do bloco Adicionar Pedido */
+        div[data-testid="stTabs"] button[role="tab"] {
+            color: #5C5450 !important;
+            font-weight: 800 !important;
+            font-size: 13px !important;
+        }
+        div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+            color: #1A1714 !important;
+        }
+        div[data-testid="stTabs"] button[role="tab"]:hover {
+            color: #1A1714 !important;
+        }
         </style>""", unsafe_allow_html=True)
 
         # ── Sucesso após cadastro ─────────────────────────────────────
