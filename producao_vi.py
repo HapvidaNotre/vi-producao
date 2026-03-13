@@ -359,15 +359,15 @@ def limpar_sessoes_ativas():
     _delete("sessoes_ativas", "operador=neq.___x___")
 
 def buscar_pedidos_avulsos():
+    # Pedidos manuais = percentual IS NULL (pedidos da planilha sempre têm percentual)
     rows = _get(
         "pedidos_base",
-        "select=numero,status,importado_em"
-        "&cliente=eq."
+        "select=numero,cliente,status,importado_em"
         "&percentual=is.null"
         "&order=importado_em.desc"
     )
     if isinstance(rows, list):
-        return [(r["numero"], r.get("status","aberto"), r.get("importado_em",""))
+        return [(r["numero"], r.get("cliente",""), r.get("status","aberto"), r.get("importado_em",""))
                 for r in rows]
     return []
 
@@ -3876,7 +3876,7 @@ def tela_admin():
     avulsos = buscar_pedidos_avulsos()
 
     with st.expander(
-        f"🗑️ Gerenciar Pedidos Avulsos  {'— ' + str(len(avulsos)) + ' encontrado(s)' if avulsos else '— nenhum cadastrado'}",
+        f"📋 Pedidos Adicionados Manualmente  {'— ' + str(len(avulsos)) + ' encontrado(s)' if avulsos else '— nenhum cadastrado'}",
         expanded=bool(avulsos)
     ):
         if not avulsos:
@@ -3886,24 +3886,26 @@ def tela_admin():
                         padding:18px 20px;text-align:center;">
                 <div style="font-size:22px;margin-bottom:6px;">✅</div>
                 <div style="font-size:13px;font-weight:700;color:#2d5a3d;">
-                    Nenhum pedido avulso cadastrado.</div>
+                    Nenhum pedido adicionado manualmente.</div>
                 <div style="font-size:11px;color:#4A7C59;margin-top:4px;font-weight:600;">
-                    Todos os pedidos vieram da planilha do Programa A.</div>
+                    Todos os pedidos vieram da planilha do Sistema A.</div>
             </div></body></html>""", height=100, scrolling=False)
         else:
             st.markdown("""
-            <div style="background:#FFFBEB;border:1.5px solid #F59E0B;border-radius:10px;
-                        padding:12px 16px;font-size:12px;font-weight:700;color:#92400E;margin-bottom:12px;">
-                ⚠️ Pedidos avulsos são cadastros manuais feitos durante a operação que
-                <strong>não existem na planilha</strong>. Exclua apenas os que foram
-                digitados por engano.
+            <div style="background:#F0F5FF;border:1.5px solid #3B7DD8;border-radius:10px;
+                        padding:12px 16px;font-size:12px;font-weight:700;color:#1e3a8a;margin-bottom:12px;">
+                ℹ️ Pedidos adicionados manualmente (via XLSX ou formulário). Eles somem desta lista
+                automaticamente após serem <strong>concluídos</strong> e <strong>excluídos</strong>,
+                ou quando a planilha do Sistema A for reimportada com esses pedidos incluídos.<br>
+                <span style="font-weight:600;color:#3B7DD8;margin-top:4px;display:block;">
+                ⏱ Enquanto estiverem em aberto ou em produção, permanecem visíveis aqui.</span>
             </div>
             """, unsafe_allow_html=True)
 
             if "confirm_excluir" not in st.session_state:
                 st.session_state.confirm_excluir = {}
 
-            for numero, status, importado_em in avulsos:
+            for numero, cliente, status, importado_em in avulsos:
                 regs_vinculados = _get("registros", f"pedido=eq.{numero}&select=id")
                 tem_registros   = isinstance(regs_vinculados, list) and len(regs_vinculados) > 0
                 cor_status      = "#4A7C59" if status == "aberto" else "#C8566A"
@@ -3920,17 +3922,16 @@ def tela_admin():
                     <div style="background:#fff;border:1.5px solid #EDE9E4;border-radius:10px;
                                 padding:11px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                         <span style="font-family:monospace;font-size:14px;font-weight:800;
-                                     color:#1A1714;">{numero}</span>
+                                     color:#1A1714;">#{numero}</span>
+                        {'<span style="font-size:12px;font-weight:700;color:#1A1714;">' + cliente + '</span>' if cliente else ''}
                         <span style="background:{cor_status}22;color:{cor_status};font-size:10px;
                                      font-weight:800;padding:2px 10px;border-radius:20px;
                                      text-transform:uppercase;">{lbl_status}</span>
                         <span style="font-size:11px;color:#9C9490;">
-                            Cadastrado em: {importado_em or "—"}</span>
+                            Adicionado em: {importado_em or "—"}</span>
                         {aviso_reg}
                     </div>
                     """, unsafe_allow_html=True)
-
-                with col_btn:
                     em_confirmacao = st.session_state.confirm_excluir.get(numero, False)
 
                     if not em_confirmacao:
