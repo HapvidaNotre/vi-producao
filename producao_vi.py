@@ -2522,165 +2522,221 @@ def _auto_refresh_watcher():
 
 
 def tela_admin_login():
-    render_logo()
-
     erro = st.session_state.erro_senha
 
-    components.html("""
-    <!DOCTYPE html>
-    <html>
-    <head>
+    erro_js = "true" if erro else "false"
+
+    components.html(f"""<!DOCTYPE html><html><head>
     <meta charset="UTF-8">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Nunito:wght@700;800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
     <style>
-      *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
-      body { background:transparent; font-family:'Inter',sans-serif; }
-      .card {
-        background: linear-gradient(145deg, #1c1917 0%, #292524 50%, #1c1917 100%);
-        border-radius: 24px; overflow: hidden;
-        border: 1px solid rgba(255,255,255,0.06);
-        box-shadow: 0 2px 0 rgba(255,255,255,0.04) inset, 0 -1px 0 rgba(0,0,0,0.5) inset,
-                    0 20px 60px rgba(0,0,0,0.5), 0 8px 20px rgba(0,0,0,0.3);
-        position: relative;
-      }
-      .orb { position:absolute; border-radius:50%; filter:blur(60px); opacity:0.15; animation:pulse 4s ease-in-out infinite; }
-      .orb-1 { width:220px; height:220px; background:#C8566A; top:-60px; right:-60px; animation-delay:0s; }
-      .orb-2 { width:160px; height:160px; background:#9E3F52; bottom:-40px; left:-40px; animation-delay:2s; }
-      @keyframes pulse { 0%,100%{opacity:.12;transform:scale(1);} 50%{opacity:.22;transform:scale(1.1);} }
-      .card-inner { position:relative; z-index:1; padding:36px 32px 32px; }
-      .icon-wrap {
-        width:64px; height:64px; border-radius:18px;
-        background:linear-gradient(145deg,#C8566A,#7A2D3E);
-        display:flex; align-items:center; justify-content:center;
-        margin:0 auto 22px;
-        box-shadow: 0 0 0 1px rgba(200,86,106,0.3), 0 8px 24px rgba(200,86,106,0.4), inset 0 1px 0 rgba(255,255,255,0.15);
-        animation:icon-glow 3s ease-in-out infinite;
-      }
-      @keyframes icon-glow {
-        0%,100%{box-shadow:0 0 0 1px rgba(200,86,106,0.3),0 8px 24px rgba(200,86,106,0.4),inset 0 1px 0 rgba(255,255,255,0.15);}
-        50%{box-shadow:0 0 0 4px rgba(200,86,106,0.15),0 8px 32px rgba(200,86,106,0.6),inset 0 1px 0 rgba(255,255,255,0.15);}
-      }
-      .title-area { text-align:center; margin-bottom:28px; }
-      .eyebrow { font-size:10px; font-weight:700; letter-spacing:3px; text-transform:uppercase; color:rgba(255,255,255,0.35); margin-bottom:6px; }
-      .title { font-size:26px; font-weight:800; color:#fff; letter-spacing:-0.5px; line-height:1.1; }
-      .subtitle { font-size:13px; color:rgba(255,255,255,0.4); margin-top:6px; font-weight:500; }
-      .divider { height:1px; background:linear-gradient(90deg,transparent,rgba(200,86,106,0.4),rgba(255,255,255,0.08),transparent); margin-bottom:24px; }
-      .status-bar { display:flex; align-items:center; justify-content:center; gap:20px; padding:12px 0 4px; }
-      .status-item { display:flex; align-items:center; gap:6px; }
-      .dot { width:7px; height:7px; border-radius:50%; animation:blink 2s ease-in-out infinite; }
-      .dot-green { background:#4ade80; box-shadow:0 0 8px #4ade80; }
-      .dot-amber { background:#C8566A; animation-delay:1s; }
-      @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
-      .status-text { font-size:11px; font-weight:600; color:rgba(255,255,255,0.35); letter-spacing:0.5px; }
-      .scanline { position:absolute; top:0; left:0; right:0; bottom:0;
-        background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,255,255,0.01) 2px,rgba(255,255,255,0.01) 4px);
-        pointer-events:none; border-radius:24px; z-index:0; }
+      *,*::before,*::after{{margin:0;padding:0;box-sizing:border-box;}}
+      html,body{{height:100%;background:transparent;font-family:'Nunito',sans-serif;}}
+
+      .wrap{{
+        min-height:560px;display:flex;align-items:center;justify-content:center;
+        padding:8px;
+      }}
+      .card{{
+        width:100%;max-width:420px;
+        background:linear-gradient(160deg,#1a1210 0%,#241816 40%,#1a1210 100%);
+        border-radius:28px;overflow:hidden;position:relative;
+        border:1px solid rgba(200,86,106,0.18);
+        box-shadow:0 32px 80px rgba(0,0,0,0.6),0 0 0 1px rgba(255,255,255,0.04) inset;
+      }}
+
+      /* Grain texture */
+      .card::before{{
+        content:"";position:absolute;inset:0;border-radius:28px;
+        background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+        pointer-events:none;z-index:0;opacity:0.6;
+      }}
+
+      /* Top accent bar */
+      .accent-bar{{
+        height:3px;
+        background:linear-gradient(90deg,transparent 0%,#C8566A 30%,#e8889a 50%,#C8566A 70%,transparent 100%);
+      }}
+
+      /* Orbs */
+      .orb{{position:absolute;border-radius:50%;filter:blur(70px);pointer-events:none;}}
+      .orb-1{{width:280px;height:280px;background:#8B2035;opacity:.18;top:-100px;right:-80px;animation:drift 8s ease-in-out infinite;}}
+      .orb-2{{width:200px;height:200px;background:#C8566A;opacity:.10;bottom:-60px;left:-60px;animation:drift 10s ease-in-out infinite reverse;}}
+      @keyframes drift{{0%,100%{{transform:translate(0,0);}}50%{{transform:translate(12px,-12px);}}}}
+
+      .inner{{position:relative;z-index:1;padding:40px 36px 36px;}}
+
+      /* Logo mark */
+      .logomark{{
+        width:72px;height:72px;border-radius:22px;margin:0 auto 28px;
+        background:linear-gradient(145deg,#2a1518,#1a0d0f);
+        border:1px solid rgba(200,86,106,0.35);
+        display:flex;align-items:center;justify-content:center;
+        box-shadow:0 0 0 6px rgba(200,86,106,0.06),0 12px 32px rgba(0,0,0,0.5);
+        animation:glow 4s ease-in-out infinite;
+      }}
+      @keyframes glow{{
+        0%,100%{{box-shadow:0 0 0 6px rgba(200,86,106,0.06),0 12px 32px rgba(0,0,0,0.5);}}
+        50%{{box-shadow:0 0 0 10px rgba(200,86,106,0.10),0 12px 40px rgba(200,86,106,0.25);}}
+      }}
+
+      .eyebrow{{font-size:9px;font-weight:800;letter-spacing:4px;text-transform:uppercase;
+                color:rgba(200,86,106,0.7);text-align:center;margin-bottom:8px;}}
+      .title{{
+        font-family:'Cormorant Garamond',serif;font-size:32px;font-weight:700;
+        color:#fff;text-align:center;letter-spacing:-0.5px;line-height:1;margin-bottom:6px;
+      }}
+      .subtitle{{font-size:12px;color:rgba(255,255,255,0.3);text-align:center;
+                 font-weight:700;letter-spacing:1px;margin-bottom:28px;}}
+
+      /* Divider */
+      .sep{{height:1px;background:linear-gradient(90deg,transparent,rgba(200,86,106,0.3),transparent);margin-bottom:28px;}}
+
+      /* Input area */
+      .input-label{{font-size:9px;font-weight:800;letter-spacing:3px;text-transform:uppercase;
+                    color:rgba(255,255,255,0.25);margin-bottom:10px;}}
+      .input-wrap{{
+        background:rgba(255,255,255,0.04);
+        border:1.5px solid rgba(255,255,255,0.10);
+        border-radius:14px;padding:14px 18px;
+        display:flex;align-items:center;gap:12px;
+        transition:border-color .2s,box-shadow .2s;
+        cursor:text;
+        margin-bottom:10px;
+      }}
+      .input-wrap.error{{border-color:rgba(200,86,106,0.6)!important;box-shadow:0 0 0 4px rgba(200,86,106,0.10);}}
+      .input-wrap:focus-within{{border-color:rgba(200,86,106,0.5);box-shadow:0 0 0 4px rgba(200,86,106,0.08);}}
+      .lock-icon{{opacity:.35;flex-shrink:0;}}
+      .dots{{
+        flex:1;font-family:'DM Mono',monospace;font-size:20px;letter-spacing:8px;
+        color:rgba(255,255,255,0.8);display:none;
+      }}
+      .placeholder{{flex:1;font-size:12px;color:rgba(255,255,255,0.2);font-weight:700;letter-spacing:2px;}}
+
+      /* Error msg */
+      .err-msg{{
+        display:none;align-items:center;gap:8px;
+        background:rgba(200,86,106,0.12);border:1px solid rgba(200,86,106,0.3);
+        border-radius:10px;padding:8px 14px;margin-bottom:16px;
+        font-size:11px;font-weight:800;color:rgba(200,86,106,0.9);
+      }}
+      .err-msg.show{{display:flex;}}
+
+      /* Status */
+      .status{{display:flex;align-items:center;justify-content:center;gap:18px;margin-top:16px;}}
+      .dot{{width:6px;height:6px;border-radius:50%;}}
+      .dot-on{{background:#4ade80;box-shadow:0 0 8px #4ade80;animation:blink 2s infinite;}}
+      .dot-off{{background:#C8566A;animation:blink 2s 1s infinite;}}
+      @keyframes blink{{0%,100%{{opacity:1;}}50%{{opacity:.3;}}}}
+      .status-lbl{{font-size:10px;font-weight:700;color:rgba(255,255,255,0.2);letter-spacing:.5px;}}
     </style>
     </head>
-    <body>
-    <div class="card">
-      <div class="scanline"></div>
+    <body><div class="wrap"><div class="card">
+      <div class="accent-bar"></div>
       <div class="orb orb-1"></div>
       <div class="orb orb-2"></div>
-      <div class="card-inner">
-        <div class="icon-wrap">
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="11" width="18" height="11" rx="2"></rect>
-            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+      <div class="inner">
+
+        <div class="logomark">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#C8566A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="3"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
           </svg>
         </div>
-        <div class="title-area">
-          <div class="eyebrow">Acesso Restrito</div>
-          <div class="title">Painel Administrativo</div>
-          <div class="subtitle">Vi Lingerie · Sistema de Produção</div>
-        </div>
-        <div class="divider"></div>
-        <div class="status-bar">
-          <div class="status-item"><div class="dot dot-green"></div><span class="status-text">Sistema Online</span></div>
-          <div class="status-item"><div class="dot dot-amber"></div><span class="status-text">Autenticação Necessária</span></div>
-        </div>
-      </div>
-    </div>
-    </body>
-    </html>
-    """, height=330, scrolling=False)
 
-    st.markdown("<br>", unsafe_allow_html=True)
+        <div class="eyebrow">Acesso Restrito</div>
+        <div class="title">Painel Admin</div>
+        <div class="subtitle">Vi Lingerie · Sistema de Produção</div>
+        <div class="sep"></div>
 
-    border_color = "#C8566A" if erro else "#E0DBD4"
-    shadow = "0 0 0 4px rgba(200,86,106,0.12)" if erro else "0 3px 12px rgba(0,0,0,0.06)"
-
-    st.markdown(f"""
-    <style>
-    div[data-testid="stTextInput"] label {{ display:none !important; }}
-    div[data-testid="stTextInput"] input {{
-        text-align:center !important; font-size:22px !important; font-weight:700 !important;
-        letter-spacing:8px !important; color:#1A1714 !important; height:62px !important;
-        border:2px solid {border_color} !important; border-radius:14px !important;
-        background:#fff !important; box-shadow:{shadow} !important;
-        padding:0 20px !important; font-family:'DM Mono',monospace !important;
-    }}
-    div[data-testid="stTextInput"] input::placeholder {{
-        color:#D0CAC4 !important; font-weight:500 !important;
-        letter-spacing:4px !important; font-size:18px !important;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-
-    st.markdown("""
-    <div style="font-size:10px;font-weight:700;letter-spacing:2.5px;color:#9C9490;
-                text-transform:uppercase;margin-bottom:10px;text-align:center;">
-        Senha de Acesso
-    </div>
-    """, unsafe_allow_html=True)
-
-    _, col_inp, _ = st.columns([0.3, 5, 0.3])
-    with col_inp:
-        senha = st.text_input("_", type="password", placeholder="· · · · · · · ·")
-
-    if erro:
-        st.markdown("""
-        <div style="text-align:center;margin-top:8px;">
-          <span style="display:inline-flex;align-items:center;gap:6px;background:#FEF2F2;
-                 border:1px solid #FECACA;border-radius:8px;padding:6px 14px;
-                 color:#C8566A;font-size:12px;font-weight:700;">
-            ⚠ Credenciais inválidas. Tente novamente.
+        <div class="input-label">Senha de acesso</div>
+        <div class="input-wrap" id="iw" onclick="document.getElementById('pw').focus()">
+          <span class="lock-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           </span>
+          <span class="placeholder" id="ph">········</span>
+          <span class="dots" id="dts"></span>
         </div>
-        """, unsafe_allow_html=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
+        <div class="err-msg {'show' if erro else ''}" id="errmsg">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Senha incorreta. Tente novamente.
+        </div>
+
+        <div class="status">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div class="dot dot-on"></div><span class="status-lbl">Sistema Online</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div class="dot dot-off"></div><span class="status-lbl">Autenticação Necessária</span>
+          </div>
+        </div>
+
+      </div>
+    </div></div>
+
+    <!-- Hidden real input -->
+    <input id="pw" type="password" style="position:fixed;opacity:0;width:1px;height:1px;top:0;left:0;pointer-events:none;"
+      oninput="sync()" onkeydown="if(event.key==='Enter')submit()">
+
+    <script>
+    var isErr = {erro_js};
+    function sync(){{
+      var v=document.getElementById('pw').value;
+      var ph=document.getElementById('ph');
+      var dts=document.getElementById('dts');
+      var iw=document.getElementById('iw');
+      if(v.length>0){{ph.style.display='none';dts.style.display='block';dts.textContent='●'.repeat(v.length);}}
+      else{{ph.style.display='block';dts.style.display='none';}}
+      if(isErr){{iw.classList.remove('error');isErr=false;document.getElementById('errmsg').classList.remove('show');}}
+      // Envia valor para Streamlit via sessionStorage para leitura
+      window.parent.postMessage({{type:'vi_passwd',value:v}},"*");
+    }}
+    function submit(){{
+      window.parent.postMessage({{type:'vi_passwd_submit',value:document.getElementById('pw').value}},"*");
+    }}
+    if(isErr){{
+      document.getElementById('iw').classList.add('error');
+    }}
+    // Auto-focus
+    setTimeout(function(){{document.getElementById('pw').focus();}},300);
+    </script>
+    </body></html>""", height=530, scrolling=False)
+
+    # Campo hidden para capturar a senha via Streamlit
+    st.markdown("""
+    <style>
+    div[data-testid="stTextInput"] {{ display:none !important; }}
+    </style>""", unsafe_allow_html=True)
+    senha = st.text_input("_senha_admin_hidden", type="password", key="admin_senha_hidden_field",
+                          label_visibility="collapsed")
+
+    # Botões
+    st.markdown("""
+    <style>
+    .btn-ghost > button {{ background:transparent !important; color:#9C9490 !important;
+        border:1.5px solid #DDD8D2 !important; font-size:13px !important; font-weight:700 !important; }}
+    .btn-ghost > button:hover {{ border-color:#9C9490 !important; color:#1A1714 !important; }}
+    .btn-admin-dark > button {{
+        background:linear-gradient(135deg,#1c1917,#2d1f1c) !important;
+        color:#fff !important; border:none !important;
+        box-shadow:0 5px 0 rgba(0,0,0,0.5),0 10px 24px rgba(0,0,0,0.25) !important;
+        font-size:14px !important; font-weight:800 !important; letter-spacing:.5px !important;
+        border-top:1px solid rgba(255,255,255,0.07) !important;
+    }}
+    .btn-admin-dark > button:hover {{ background:linear-gradient(135deg,#292524,#3d2520) !important; transform:translateY(-2px) !important; }}
+    .btn-admin-dark > button:active {{ transform:translateY(2px) !important; }}
+    </style>""", unsafe_allow_html=True)
 
     _, c1, gap, c2, _ = st.columns([0.3, 1.4, 0.3, 3, 0.3])
     with c1:
-        st.markdown("""
-        <style>
-        .btn-ghost > button { background:transparent !important; color:#5C5450 !important;
-            border:1.5px solid #DDD8D2 !important; font-size:13px !important; }
-        .btn-ghost > button:hover { border-color:#9C9490 !important; color:#1A1714 !important; }
-        </style>""", unsafe_allow_html=True)
         st.markdown('<div class="btn-ghost">', unsafe_allow_html=True)
-        if st.button("← Voltar", use_container_width=True):
+        if st.button("← Voltar", use_container_width=True, key="adm_login_voltar"):
             st.session_state.erro_senha = False; st.session_state.tela = "home"; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
     with c2:
-        st.markdown("""
-        <style>
-        .btn-admin-dark > button {
-            background:linear-gradient(135deg,#1c1917,#292524) !important;
-            color:#fff !important; border:none !important;
-            box-shadow:0 5px 0 rgba(0,0,0,0.50),0 10px 24px rgba(0,0,0,0.25) !important;
-            font-size:14px !important; letter-spacing:0.8px !important;
-            border-top:1px solid rgba(255,255,255,0.08) !important;
-        }
-        .btn-admin-dark > button:hover {
-            background:linear-gradient(135deg,#292524,#3d3530) !important;
-            transform:translateY(-2px) !important;
-        }
-        .btn-admin-dark > button:active { transform:translateY(3px) !important; }
-        </style>""", unsafe_allow_html=True)
         st.markdown('<div class="btn-admin-dark">', unsafe_allow_html=True)
-        if st.button("🔓  Acessar Painel", use_container_width=True):
+        if st.button("🔓  Acessar Painel", use_container_width=True, key="adm_login_acessar"):
             if senha == ADMIN_SENHA:
                 st.session_state.erro_senha = False; st.session_state.tela = "admin"; st.rerun()
             else:
