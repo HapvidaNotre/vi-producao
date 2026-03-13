@@ -4128,7 +4128,7 @@ def tela_operacoes():
             <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
               <span class="badge">{icon} {lbl}</span>
               <span class="ped">#{ped}</span>
-              {(f'<span style="font-size:10px;font-weight:800;color:#9C9490;margin-left:4px;">{qtd_pecas_card} pçs</span>') if qtd_pecas_card else ""}
+              {(f'<span style="display:inline-flex;align-items:center;gap:3px;background:{bg};border:1.5px solid {cor}33;border-radius:20px;padding:1px 9px;margin-left:4px;"><span style="font-family:monospace;font-size:12px;font-weight:900;color:{cor};">{qtd_pecas_card}</span><span style="font-size:10px;font-weight:700;color:{cor}99;">pçs</span></span>') if qtd_pecas_card else ""}
             </div>
           </div>
           <div class="timer-wrap">
