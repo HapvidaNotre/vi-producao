@@ -135,14 +135,21 @@ def status_pedido(numero):
 
 def cadastrar_pedido_avulso(numero, cliente="", produto="", est_alocado=None, vr_alocado=None):
     now_str = now_br().strftime("%d/%m/%Y %H:%M")
-    payload = {"numero": numero, "cliente": cliente, "produto": produto,
+    # Garante que numero é inteiro (coluna int4 no Supabase)
+    try:
+        numero_int = int(str(numero).strip())
+    except (ValueError, TypeError):
+        st.session_state["_ultimo_erro_supabase"] = {"status": 0, "table": "pedidos_base", "detail": f"Número inválido: {numero!r}"}
+        return False
+    payload = {"numero": numero_int, "cliente": cliente, "produto": produto,
                "status": "aberto", "importado_em": now_str}
     if est_alocado is not None:
-        payload["est_alocado"] = est_alocado
+        payload["est_alocado"] = int(est_alocado)
     if vr_alocado is not None:
-        payload["vr_alocado"] = vr_alocado
+        payload["vr_alocado"] = round(float(vr_alocado), 2)
     ok = _upsert("pedidos_base", payload, "numero")
     buscar_pedidos_base.clear()
+    buscar_pedidos_por_etapa.clear()
     return ok
 
 def marcar_concluido(numero):
@@ -3772,7 +3779,13 @@ def tela_admin():
                         st.session_state.novo_ped_xlsx_preview = None
                         msgs = []
                         if _erros:  msgs.append("⚠️ Já existiam: " + ", ".join(_erros))
-                        if _falhas: msgs.append("❌ Erro ao salvar: " + ", ".join(_falhas) + " — verifique a conexão com o banco.")
+                        if _falhas:
+                            # Pega detalhe do erro do banco se disponível
+                            _db_err = st.session_state.get("_ultimo_erro_supabase", {})
+                            _db_detail = ""
+                            if _db_err:
+                                _db_detail = f" (Banco: HTTP {_db_err.get('status','')} — {str(_db_err.get('detail',''))[:120]})"
+                            msgs.append("❌ Falha ao salvar: " + ", ".join(_falhas) + _db_detail)
                         st.session_state.novo_ped_erro = "\n".join(msgs) if msgs else ""
                         if _ok > 0:
                             st.session_state.novo_ped_ok = True
