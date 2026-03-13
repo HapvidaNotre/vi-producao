@@ -121,12 +121,16 @@ def status_pedido(numero):
     if not rows: return "nao_encontrado"
     return rows[0].get("status", "nao_encontrado")
 
-def cadastrar_pedido_avulso(numero):
+def cadastrar_pedido_avulso(numero, cliente="", produto="", est_alocado=None, vr_alocado=None):
     now_str = now_br().strftime("%d/%m/%Y %H:%M")
-    _upsert("pedidos_base",
-            {"numero": numero, "cliente": "", "produto": "",
-             "status": "aberto", "importado_em": now_str},
-            "numero")
+    payload = {"numero": numero, "cliente": cliente, "produto": produto,
+               "status": "aberto", "importado_em": now_str, "origem": "manual"}
+    if est_alocado is not None:
+        payload["est_alocado"] = est_alocado
+    if vr_alocado is not None:
+        payload["vr_alocado"] = vr_alocado
+    _upsert("pedidos_base", payload, "numero")
+    buscar_pedidos_base.clear()
 
 def marcar_concluido(numero):
     """
@@ -3540,6 +3544,120 @@ def tela_admin():
 
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
+    # ══════════════════════════════════════════════════════════════════
+    #  BLOCO — ADICIONAR PEDIDO MANUAL
+    # ══════════════════════════════════════════════════════════════════
+    with st.expander("➕ Adicionar Pedido Manual", expanded=False):
+
+        # Inicializa session_state do formulário
+        for _k, _v in [
+            ("novo_ped_num",      ""),
+            ("novo_ped_cli",      ""),
+            ("novo_ped_prod",     ""),
+            ("novo_ped_qtd",      0),
+            ("novo_ped_vr",       0.0),
+            ("novo_ped_ok",       False),
+            ("novo_ped_erro",     ""),
+        ]:
+            if _k not in st.session_state:
+                st.session_state[_k] = _v
+
+        if st.session_state.novo_ped_ok:
+            st.success("✅ Pedido adicionado com sucesso! O operador já pode trabalhar com ele.")
+            st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
+            if st.button("➕ Adicionar outro pedido", use_container_width=True, key="novo_ped_reset"):
+                st.session_state.novo_ped_ok  = False
+                st.session_state.novo_ped_num = ""
+                st.session_state.novo_ped_cli = ""
+                st.session_state.novo_ped_prod = ""
+                st.session_state.novo_ped_qtd = 0
+                st.session_state.novo_ped_vr  = 0.0
+                st.session_state.novo_ped_erro = ""
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div style="background:#F0F5FF;border:1.5px solid #3B7DD8;border-radius:12px;
+                        padding:12px 16px;margin-bottom:14px;font-size:12px;font-weight:700;color:#1e3a8a;">
+              ℹ️ Use este formulário para adicionar pedidos que <strong>não constam na planilha</strong>
+              do Sistema A. O pedido ficará disponível imediatamente para os operadores.
+            </div>""", unsafe_allow_html=True)
+
+            # ── Linha 1: Número (obrigatório) + Cliente ───────────────────────
+            c1, c2 = st.columns([1, 2])
+            with c1:
+                st.markdown('<div style="font-size:11px;font-weight:800;color:#5C5450;margin-bottom:4px;letter-spacing:.5px;">Nº DO PEDIDO *</div>', unsafe_allow_html=True)
+                novo_num = st.text_input("_np_num", placeholder="Ex: 50999",
+                    label_visibility="collapsed", key="novo_ped_num_input")
+            with c2:
+                st.markdown('<div style="font-size:11px;font-weight:800;color:#5C5450;margin-bottom:4px;letter-spacing:.5px;">CLIENTE</div>', unsafe_allow_html=True)
+                novo_cli = st.text_input("_np_cli", placeholder="Nome do cliente",
+                    label_visibility="collapsed", key="novo_ped_cli_input")
+
+            # ── Linha 2: Produto ──────────────────────────────────────────────
+            st.markdown('<div style="font-size:11px;font-weight:800;color:#5C5450;margin-bottom:4px;letter-spacing:.5px;margin-top:8px;">PRODUTO / DESCRIÇÃO</div>', unsafe_allow_html=True)
+            novo_prod = st.text_input("_np_prod", placeholder="Ex: Conjunto Renda Preta P/M/G",
+                label_visibility="collapsed", key="novo_ped_prod_input")
+
+            # ── Linha 3: Qtd de Peças + Valor ────────────────────────────────
+            c3, c4 = st.columns(2)
+            with c3:
+                st.markdown('<div style="font-size:11px;font-weight:800;color:#5C5450;margin-bottom:4px;letter-spacing:.5px;margin-top:8px;">QTD DE PEÇAS</div>', unsafe_allow_html=True)
+                novo_qtd = st.number_input("_np_qtd", min_value=0, value=0, step=1,
+                    label_visibility="collapsed", key="novo_ped_qtd_input")
+            with c4:
+                st.markdown('<div style="font-size:11px;font-weight:800;color:#5C5450;margin-bottom:4px;letter-spacing:.5px;margin-top:8px;">VALOR (R$)</div>', unsafe_allow_html=True)
+                novo_vr = st.number_input("_np_vr", min_value=0.0, value=0.0, step=0.01,
+                    format="%.2f", label_visibility="collapsed", key="novo_ped_vr_input")
+
+            # ── Erro ─────────────────────────────────────────────────────────
+            if st.session_state.novo_ped_erro:
+                st.error(st.session_state.novo_ped_erro)
+
+            # ── Botão salvar ──────────────────────────────────────────────────
+            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+            st.markdown("""<style>
+            .btn-novo-ped > button {
+                background: linear-gradient(135deg,#3B7DD8,#1e3a8a) !important;
+                color:#fff !important; border:none !important;
+                border-radius:12px !important; height:48px !important;
+                font-size:14px !important; font-weight:900 !important;
+                box-shadow: 0 4px 0 rgba(20,40,100,0.35) !important;
+            }
+            .btn-novo-ped > button:hover { filter:brightness(1.08) !important; }
+            </style>""", unsafe_allow_html=True)
+            st.markdown('<div class="btn-novo-ped">', unsafe_allow_html=True)
+            if st.button("💾  Salvar Pedido", use_container_width=True, key="novo_ped_salvar"):
+                _num = novo_num.strip()
+                if not _num:
+                    st.session_state.novo_ped_erro = "❌ O número do pedido é obrigatório."
+                    st.rerun()
+                elif not _num.isdigit():
+                    st.session_state.novo_ped_erro = "❌ O número do pedido deve conter apenas dígitos."
+                    st.rerun()
+                else:
+                    # Verifica se já existe
+                    _existe = _get("pedidos_base", f"numero=eq.{_num}&select=numero")
+                    if isinstance(_existe, list) and _existe:
+                        st.session_state.novo_ped_erro = f"❌ Pedido #{_num} já existe na base."
+                        st.rerun()
+                    else:
+                        cadastrar_pedido_avulso(
+                            numero      = _num,
+                            cliente     = novo_cli.strip(),
+                            produto     = novo_prod.strip(),
+                            est_alocado = int(novo_qtd) if novo_qtd > 0 else None,
+                            vr_alocado  = float(novo_vr) if novo_vr > 0 else None,
+                        )
+                        st.session_state.novo_ped_ok   = True
+                        st.session_state.novo_ped_erro = ""
+                        buscar_pedidos_base.clear()
+                        buscar_pedidos_por_etapa.clear()
+                        st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+
     avulsos = buscar_pedidos_avulsos()
 
     with st.expander(
@@ -4021,8 +4139,11 @@ def tela_operacoes():
         st.session_state["busca_pedido_painel"] = ""
 
     sessoes_raw = buscar_todas_sessoes_ativas()
-    # Filtra sessoes pausadas (iniciado_em == 0) — nao aparecem no painel
-    sessoes = [s for s in sessoes_raw if int(s.get("iniciado_em", 1)) != 0]
+    # Separa em andamento e pausadas — ambas aparecem no painel
+    sessoes_ativas  = [s for s in sessoes_raw if int(s.get("iniciado_em", 1)) != 0]
+    sessoes_pausadas = [s for s in sessoes_raw if int(s.get("iniciado_em", 1)) == 0]
+    # Mostra ativas primeiro, depois pausadas
+    sessoes = sessoes_ativas + sessoes_pausadas
     n_total = len(sessoes)
 
     ETAPA_COR  = ["#C8566A", "#3B7DD8", "#4A7C59"]
@@ -4037,10 +4158,11 @@ def tela_operacoes():
           <div style="font-size:10px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;
               color:#9C9490;margin-bottom:2px;">Painel de Operações</div>
           <div style="font-size:22px;font-weight:900;color:#1A1714;letter-spacing:-0.3px;">
-            Em Andamento
+            Operações
             <span style="font-size:14px;font-weight:700;color:#C8566A;margin-left:6px;">
-              {n_total} ativa{"s" if n_total != 1 else ""}
+              {len(sessoes_ativas)} ativa{"s" if len(sessoes_ativas) != 1 else ""}
             </span>
+            {(f'<span style="font-size:13px;font-weight:700;color:#7C3AED;margin-left:4px;">· {len(sessoes_pausadas)} pausada{"s" if len(sessoes_pausadas) != 1 else ""}</span>') if sessoes_pausadas else ""}
           </div>
         </div>""", unsafe_allow_html=True)
     with col_h2:
@@ -4148,8 +4270,9 @@ def tela_operacoes():
         bg       = ETAPA_BG[eta_idx]
         icon     = ETAPA_ICON[eta_idx]
         lbl      = ETAPAS_LBL[eta_idx]
-        # Tempo total = pausado anteriormente + tempo desde o último início
-        total_s  = tp + max(int(time.time()) - ini, 0)
+        pausado      = (ini == 0)  # True se sessão está pausada
+        # Tempo total acumulado
+        total_s  = tp if pausado else tp + max(int(time.time()) - ini, 0)
         h_t, r_t = divmod(total_s, 3600); m_t, s_t = divmod(r_t, 60)
         elapsed_str = f"{h_t:02d}:{m_t:02d}:{s_t:02d}"
         ini_op   = (op[0]+op[1]).upper() if len(op) >= 2 else op[0].upper()
@@ -4157,18 +4280,36 @@ def tela_operacoes():
         qtd_pecas_card = _qtd_map.get(str(ped))
         qtd_str_card   = f" · {qtd_pecas_card} pçs" if qtd_pecas_card else ""
 
-        # Card + timer ao vivo via JS — soma tempo_pausado ao elapsed do JS
+        # Visual diferente para pausados
+        card_border  = "#9C9490" if pausado else cor
+        card_bg      = "#F7F5F2" if pausado else "#fff"
+        av_bg        = "linear-gradient(135deg,#9C9490,#7a7470)" if pausado else f"linear-gradient(135deg,{cor},{cor}99)"
+        timer_lbl_txt = "pausado" if pausado else "em andamento"
+        timer_cor    = "#9C9490" if pausado else cor
+        # JS: só conta se ativo
+        js_timer = "" if pausado else f"""
+        (function(){{
+          var ini={ini}, paused={tp}, el=document.getElementById('tv_{uid}');
+          function u(){{
+            var e=paused+Math.floor(Date.now()/1000)-ini;
+            var h=Math.floor(e/3600),m=Math.floor((e%3600)/60),s=e%60;
+            el.textContent=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+          }}
+          u(); setInterval(u,1000);
+        }})();
+        """
+
         components.html(f"""<!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
         <style>
         *{{margin:0;padding:0;box-sizing:border-box;}}
         body{{background:transparent;font-family:Nunito,sans-serif;}}
-        .card{{background:#fff;border:1.5px solid #EDE9E4;border-left:5px solid {cor};
+        .card{{background:{card_bg};border:1.5px solid #EDE9E4;border-left:5px solid {card_border};
                border-radius:14px;padding:14px 16px;
                box-shadow:0 2px 14px rgba(0,0,0,0.06);
                display:flex;align-items:center;gap:14px;}}
         .av{{width:44px;height:44px;border-radius:50%;flex-shrink:0;
-             background:linear-gradient(135deg,{cor},{cor}99);
+             background:{av_bg};
              display:flex;align-items:center;justify-content:center;
              font-size:15px;font-weight:900;color:#fff;
              box-shadow:0 3px 10px rgba(0,0,0,0.16);}}
@@ -4180,7 +4321,7 @@ def tela_operacoes():
         .timer-lbl{{font-size:9px;font-weight:800;color:#9C9490;letter-spacing:1.5px;
                     text-transform:uppercase;margin-bottom:2px;}}
         .timer-val{{font-family:'DM Mono',monospace;font-size:24px;font-weight:500;
-                    color:{cor};letter-spacing:-1px;line-height:1;}}
+                    color:{timer_cor};letter-spacing:-1px;line-height:1;}}
         </style></head>
         <body>
         <div class="card">
@@ -4191,24 +4332,15 @@ def tela_operacoes():
               <span class="badge">{icon} {lbl}</span>
               <span class="ped">#{ped}</span>
               {(f'<span style="display:inline-flex;align-items:center;gap:3px;background:{bg};border:1.5px solid {cor}33;border-radius:20px;padding:1px 9px;margin-left:4px;"><span style="font-family:monospace;font-size:12px;font-weight:900;color:{cor};">{qtd_pecas_card}</span><span style="font-size:10px;font-weight:700;color:{cor}99;">pçs</span></span>') if qtd_pecas_card else ""}
+              {'<span style="display:inline-flex;align-items:center;gap:3px;background:#F3F0FF;border:1.5px solid #7C3AED33;border-radius:20px;padding:2px 10px;margin-left:2px;font-size:10px;font-weight:900;color:#7C3AED;">⏸ PAUSADO</span>' if pausado else ""}
             </div>
           </div>
           <div class="timer-wrap">
-            <div class="timer-lbl">em andamento</div>
+            <div class="timer-lbl">{timer_lbl_txt}</div>
             <div class="timer-val" id="tv_{uid}">{elapsed_str}</div>
           </div>
         </div>
-        <script>
-        (function(){{
-          var ini={ini}, paused={tp}, el=document.getElementById('tv_{uid}');
-          function u(){{
-            var e=paused+Math.floor(Date.now()/1000)-ini;
-            var h=Math.floor(e/3600),m=Math.floor((e%3600)/60),s=e%60;
-            el.textContent=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
-          }}
-          u(); setInterval(u,1000);
-        }})();
-        </script>
+        <script>{js_timer}</script>
         </body></html>""", height=80, scrolling=False)
 
         # ── Botões de ação: Finalizar | Pausar | Pausar p/ amanhã ──────────
@@ -4223,37 +4355,77 @@ def tela_operacoes():
         modo_pausa = st.session_state[_k_modo]
 
         if modo_pausa is None:
-            # ── Linha de botões normal ──────────────────────────────────
-            st.markdown("""<style>
-            .btn-finalizar > button { height:46px !important; }
-            .btn-pausar > button {
-                background:#fff !important; color:#E07B3A !important;
-                border:2px solid #E07B3A !important; border-radius:10px !important;
-                height:46px !important; font-size:12px !important; font-weight:800 !important;
-            }
-            </style>""", unsafe_allow_html=True)
-            col_f, col_p = st.columns([3, 2])
-            with col_f:
-                st.markdown('<div class="btn-finalizar">', unsafe_allow_html=True)
-                if st.button(f"■ Finalizar · #{ped}{qtd_str_card} · {op}",
-                             use_container_width=True, key=f"fin_{uid}"):
-                    tempo = max(tp + (int(time.time()) - ini), 1)
-                    salvar(ped, op, ETAPAS[eta_idx], eta_idx, tempo)
-                    remover_sessao_ativa(ped, eta_idx)
-                    if eta_idx == 2:
-                        marcar_concluido(ped)
-                    st.session_state["busca_pedido_painel"] = ""
-                    st.toast(f"✅ {op} · Pedido #{ped} finalizado em {fmt(tempo)}!", icon="🎉")
-                    st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
-            with col_p:
-                st.markdown('<div class="btn-pausar">', unsafe_allow_html=True)
-                if st.button("⏸ Pausar", use_container_width=True, key=f"pausar_{uid}"):
-                    st.session_state[_k_modo]  = "pausar"
-                    st.session_state[_k_senha] = ""
-                    st.session_state[_k_erro]  = False
-                    st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
+            if pausado:
+                # ── Card pausado: ▶ Retomar (sem senha) + Finalizar ────────
+                st.markdown(f"""<style>
+                .btn-retomar-{uid} > button {{
+                    background: linear-gradient(135deg,#7C3AED,#5b21b6) !important;
+                    color:#fff !important; border:none !important;
+                    border-radius:10px !important; height:50px !important;
+                    font-size:15px !important; font-weight:900 !important;
+                    box-shadow:0 4px 0 rgba(90,30,180,0.35) !important;
+                    letter-spacing:.3px !important;
+                }}
+                .btn-retomar-{uid} > button:hover {{ filter:brightness(1.08) !important; }}
+                .btn-finalizar > button {{ height:50px !important; }}
+                </style>""", unsafe_allow_html=True)
+                col_r, col_f = st.columns([3, 2])
+                with col_r:
+                    st.markdown(f'<div class="btn-retomar-{uid}">', unsafe_allow_html=True)
+                    if st.button(f"▶  Retomar · #{ped} · {op}",
+                                 use_container_width=True, key=f"retomar_{uid}"):
+                        novo_ini = int(time.time())
+                        _patch("sessoes_ativas",
+                               f"pedido=eq.{ped}&etapa_idx=eq.{eta_idx}",
+                               {"iniciado_em": novo_ini})
+                        buscar_todas_sessoes_ativas.clear()
+                        st.toast(f"▶ {op} · Pedido #{ped} retomado!", icon="▶️")
+                        st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
+                with col_f:
+                    st.markdown('<div class="btn-finalizar">', unsafe_allow_html=True)
+                    if st.button(f"■ Finalizar{qtd_str_card}",
+                                 use_container_width=True, key=f"fin_{uid}"):
+                        salvar(ped, op, ETAPAS[eta_idx], eta_idx, max(tp, 1))
+                        remover_sessao_ativa(ped, eta_idx)
+                        if eta_idx == 2:
+                            marcar_concluido(ped)
+                        st.session_state["busca_pedido_painel"] = ""
+                        st.toast(f"✅ {op} · Pedido #{ped} finalizado em {fmt(tp)}!", icon="🎉")
+                        st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
+            else:
+                # ── Card ativo: Finalizar + ⏸ Pausar (com senha) ───────────
+                st.markdown("""<style>
+                .btn-finalizar > button { height:46px !important; }
+                .btn-pausar > button {
+                    background:#fff !important; color:#E07B3A !important;
+                    border:2px solid #E07B3A !important; border-radius:10px !important;
+                    height:46px !important; font-size:12px !important; font-weight:800 !important;
+                }
+                </style>""", unsafe_allow_html=True)
+                col_f, col_p = st.columns([3, 2])
+                with col_f:
+                    st.markdown('<div class="btn-finalizar">', unsafe_allow_html=True)
+                    if st.button(f"■ Finalizar · #{ped}{qtd_str_card} · {op}",
+                                 use_container_width=True, key=f"fin_{uid}"):
+                        tempo = max(tp + (int(time.time()) - ini), 1)
+                        salvar(ped, op, ETAPAS[eta_idx], eta_idx, tempo)
+                        remover_sessao_ativa(ped, eta_idx)
+                        if eta_idx == 2:
+                            marcar_concluido(ped)
+                        st.session_state["busca_pedido_painel"] = ""
+                        st.toast(f"✅ {op} · Pedido #{ped} finalizado em {fmt(tempo)}!", icon="🎉")
+                        st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
+                with col_p:
+                    st.markdown('<div class="btn-pausar">', unsafe_allow_html=True)
+                    if st.button("⏸ Pausar", use_container_width=True, key=f"pausar_{uid}"):
+                        st.session_state[_k_modo]  = "pausar"
+                        st.session_state[_k_senha] = ""
+                        st.session_state[_k_erro]  = False
+                        st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
 
         else:
             # ── Bloco de confirmação de pausa com senha ─────────────────
