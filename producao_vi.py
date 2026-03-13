@@ -1843,6 +1843,7 @@ def tela_home():
 #  TELA: PRODUÇÃO
 # ─────────────────────────────────────
 def tela_producao():
+    _auto_refresh_watcher()
     render_logo()
     render_stepper(st.session_state.etapa_idx)
 
@@ -2496,7 +2497,7 @@ def _hash_pedidos_base():
     except Exception:
         return ""
 
-@st.fragment(run_every=30)
+@st.fragment(run_every=15)
 def _auto_refresh_watcher():
     """
     Fragment silencioso: re-executa a cada 30s.
@@ -2513,8 +2514,10 @@ def _auto_refresh_watcher():
 
     if current_hash != prev_hash:
         st.session_state["_pedidos_hash"] = current_hash
-        # Mostra toast rápido antes de atualizar
-        st.toast("📋 Planilha atualizada — carregando novos pedidos...", icon="🔄")
+        # Limpa caches para garantir que novos pedidos apareçam imediatamente
+        buscar_pedidos_base.clear()
+        buscar_pedidos_por_etapa.clear()
+        st.toast("📋 Pedidos atualizados — recarregando lista...", icon="🔄")
         st.rerun()
 
 
