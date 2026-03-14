@@ -4031,7 +4031,10 @@ def tela_admin():
             </tr>"""
 
         n_ops = len(op_map)
-        st.markdown(f"""<style>
+        op_table_height = 24 + 52 + n_ops * 47 + 16
+        components.html(f"""<!DOCTYPE html><html><head>
+        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+        <style>
         *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
         .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
         .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
@@ -4040,7 +4043,7 @@ def tela_admin():
         th:first-child{{text-align:left;padding-left:16px;}}
         tbody tr{{border-bottom:1px solid #F2EEE9;transition:background .15s;}}
         tbody tr:last-child{{border-bottom:none;}} tbody tr:hover{{background:#FDFAF9;}}
-        </style>
+        </style></head><body>
         <div class="lbl">Desempenho por Operador{" · " + filtro_data if filtro_data != "Todos os dias" else ""}</div>
         <div class="wrap"><table><thead><tr>
           <th style="color:rgba(255,255,255,0.45);">Operador</th>
@@ -4048,7 +4051,8 @@ def tela_admin():
           <th style="color:#7B9FE0;">Separação</th>
           <th style="color:#7AB895;">Embalagem</th>
           <th style="color:#D4A45A;">Conferência</th>
-        </tr></thead><tbody>{op_rows}</tbody></table></div>""", unsafe_allow_html=True)
+        </tr></thead><tbody>{op_rows}</tbody></table></div>
+        </body></html>""", height=op_table_height, scrolling=False)
     else:
         st.markdown("""<div style="background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;
                     padding:40px;text-align:center;color:#9C9490;font-size:14px;font-weight:600;">
@@ -4192,7 +4196,9 @@ def tela_admin():
         n_hist = min(len(regs_para_tabela), 80)
         hist_height = 56 + (n_hist * 46) + 20
 
-        st.markdown(f"""<style>
+        components.html(f"""<!DOCTYPE html><html><head>
+        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+        <style>
         *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
         .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
         .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
@@ -4201,14 +4207,15 @@ def tela_admin():
         th:first-child{{text-align:left;padding-left:16px;}} th:nth-child(2){{text-align:left;}}
         tbody tr{{border-bottom:1px solid #F2EEE9;}} tbody tr:last-child{{border-bottom:none;}}
         tbody tr:hover{{background:#FDFAF9;}}
-        </style>
+        </style></head><body>
         <div class="lbl">Histórico de Pedidos</div>
         <div class="wrap"><table><thead><tr>
           <th>Pedido</th><th>Operador</th><th>Etapa</th><th>Tempo</th>
           <th style="color:#7B9FE0;">Qtd Peças</th>
           <th style="color:#A0C8E0;">Início</th>
           <th style="color:#A0C8E0;">Fim</th>
-        </tr></thead><tbody>{hist_rows}</tbody></table></div>""", unsafe_allow_html=True)
+        </tr></thead><tbody>{hist_rows}</tbody></table></div>
+        </body></html>""", height=hist_height, scrolling=False)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
