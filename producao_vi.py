@@ -206,6 +206,28 @@ def pausar_para_amanha(pedido, etapa_idx, operador, tempo_acumulado):
     }, "pedido,etapa_idx")
     buscar_todas_sessoes_ativas.clear()
 
+def registrar_pausa_log(pedido, etapa_idx, operador, tempo_pausado_s, motivo=""):
+    """Salva um registro permanente da pausa na tabela pausas_log."""
+    payload = {
+        "pedido":          str(pedido),
+        "etapa_idx":       int(etapa_idx),
+        "operador":        operador,
+        "pausado_em":      now_br().strftime("%d/%m/%Y %H:%M"),
+        "tempo_pausado_s": int(tempo_pausado_s),
+        "motivo":          motivo.strip() if motivo else "",
+    }
+    _post("pausas_log", payload)
+
+@st.cache_data(ttl=10, show_spinner=False)
+def buscar_pausas_log():
+    rows = _get("pausas_log", "select=*&order=id.desc", paginar=True)
+    if isinstance(rows, list):
+        return [(r.get("id"), r.get("pedido"), r.get("operador"),
+                 r.get("etapa_idx"), r.get("pausado_em"),
+                 r.get("tempo_pausado_s"), r.get("motivo", ""))
+                for r in rows]
+    return []
+
 def buscar_tempo_pausado(pedido, etapa_idx):
     """Retorna os segundos pausados salvos na sessão ativa, ou 0."""
     rows = _get("sessoes_ativas",
@@ -2316,6 +2338,11 @@ def tela_producao():
                                              label_visibility="collapsed",
                                              key="pausa_senha_input")
 
+                motivo_input = st.text_input("_motivo_pausa",
+                                              placeholder="Motivo da pausa (opcional)...",
+                                              label_visibility="collapsed",
+                                              key="pausa_motivo_input")
+
                 st.markdown("""
                 <style>
                 .btn-pausar-conf > button {
@@ -2338,6 +2365,14 @@ def tela_producao():
                                 op,
                                 tempo_salvar
                             )
+                            registrar_pausa_log(
+                                st.session_state.pedido,
+                                etapa_idx,
+                                op,
+                                tempo_salvar,
+                                motivo_input
+                            )
+                            buscar_pausas_log.clear()
                             # Limpa o estado local sem remover a sessão do banco
                             st.session_state.rodando         = False
                             st.session_state.inicio          = None
@@ -4011,7 +4046,16 @@ def tela_admin():
         op_map[op]["tempos"].append(int(r[5] or 0))
         op_map[op]["pecas"] += int(r[8] or 0)
 
-    st.markdown("<br style='line-height:0.4'>", unsafe_allow_html=True)
+    # Cruzar pausas_log filtradas com op_map para contar pausas por operador
+    pausas_log_full = buscar_pausas_log()
+    pausas_filtradas_op = pausas_log_full
+    if filtro_data != "Todos os dias":
+        pausas_filtradas_op = [p for p in pausas_filtradas_op if str(p[4] or "").startswith(filtro_data)]
+    if filtro_op != "Todos os operadores":
+        pausas_filtradas_op = [p for p in pausas_filtradas_op if p[2] == filtro_op]
+    pausas_por_op = {}
+    for p in pausas_filtradas_op:
+        pausas_por_op[p[2]] = pausas_por_op.get(p[2], 0) + 1
 
     if op_map:
         # ── Ordenar por peças desc ─────────────────────────────────────────
@@ -4026,6 +4070,13 @@ def tela_admin():
             horas_trab  = tempo_total / 3600 if tempo_total > 0 else 0
             eficiencia  = f"{round(total_pecas / horas_trab, 1)} pçs/h" if horas_trab > 0 and total_pecas > 0 else "—"
             prod_ped    = f"{round(total_pecas / n_pedidos, 1)} pçs/ped" if n_pedidos > 0 and total_pecas > 0 else "—"
+            n_pausas_op = pausas_por_op.get(op, 0)
+            pausas_badge = (
+                f'<span style="background:#FFF0E6;color:#E07B3A;font-weight:800;'
+                f'font-size:12px;padding:2px 10px;border-radius:100px;">{n_pausas_op}</span>'
+                if n_pausas_op > 0
+                else '<span style="color:#C0BAB4;font-weight:700;font-size:12px;">0</span>'
+            )
             ini         = op[0].upper()
             medal       = medals[rank] if rank < 3 else ""
             op_rows += f"""<tr>
@@ -4045,6 +4096,7 @@ def tela_admin():
               <td style="padding:12px 8px;text-align:center;font-family:monospace;font-size:13px;color:#3B5EC6;font-weight:800;vertical-align:middle;">{total_pecas}</td>
               <td style="padding:12px 8px;text-align:center;font-family:monospace;font-size:12px;color:#4A7C59;font-weight:700;vertical-align:middle;">{fmt(tempo_total)}</td>
               <td style="padding:12px 8px;text-align:center;font-family:monospace;font-size:12px;color:#5C5450;font-weight:700;vertical-align:middle;">{fmt(tempo_medio)}</td>
+              <td style="padding:12px 8px;text-align:center;vertical-align:middle;">{pausas_badge}</td>
               <td style="padding:12px 8px;text-align:center;font-size:11px;color:#C47B2A;font-weight:800;vertical-align:middle;">{eficiencia}</td>
               <td style="padding:12px 8px;text-align:center;font-size:11px;color:#7C3AED;font-weight:700;vertical-align:middle;">{prod_ped}</td>
             </tr>"""
@@ -4071,6 +4123,7 @@ def tela_admin():
           <th style="color:#7B9FE0;">Peças</th>
           <th style="color:#7AB895;">Tempo Total</th>
           <th style="color:rgba(255,255,255,0.35);">Tempo Médio</th>
+          <th style="color:#E07B3A;">Pausas</th>
           <th style="color:#E5A96A;">Eficiência</th>
           <th style="color:#C4A4F0;">Produtividade</th>
         </tr></thead><tbody>{op_rows}</tbody></table></div>
@@ -4162,6 +4215,116 @@ def tela_admin():
         st.markdown("""<div style="background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;
                     padding:40px;text-align:center;color:#9C9490;font-size:14px;font-weight:600;">
             Nenhum registro encontrado para o filtro selecionado.</div>""", unsafe_allow_html=True)
+
+    st.markdown("<br style='line-height:0.4'>", unsafe_allow_html=True)
+
+    # ══════════════════════════════════════════════════════════════════
+    #  BLOCO — HISTÓRICO DE PAUSAS
+    # ══════════════════════════════════════════════════════════════════
+    pausas_log = buscar_pausas_log()
+
+    # Filtra pelo mesmo dia e operador dos outros filtros
+    pausas_filtradas = pausas_log
+    if filtro_data != "Todos os dias":
+        pausas_filtradas = [p for p in pausas_filtradas if str(p[4] or "").startswith(filtro_data)]
+    if filtro_op != "Todos os operadores":
+        pausas_filtradas = [p for p in pausas_filtradas if p[2] == filtro_op]
+
+    n_pausas = len(pausas_filtradas)
+    with st.expander(
+        f"⏸ Histórico de Pausas — {n_pausas} pausa(s)" if n_pausas > 0
+        else "⏸ Histórico de Pausas — nenhuma registrada",
+        expanded=n_pausas > 0
+    ):
+        if not pausas_filtradas:
+            components.html("""<!DOCTYPE html><html><body style="background:transparent;
+            font-family:Nunito,sans-serif;margin:0;padding:0;">
+            <div style="background:#FFF8F0;border:1.5px solid #E07B3A33;border-radius:12px;
+                        padding:20px;text-align:center;">
+              <div style="font-size:22px;margin-bottom:6px;">⏸</div>
+              <div style="font-size:13px;font-weight:700;color:#B85C20;">
+                Nenhuma pausa registrada para este filtro.</div>
+              <div style="font-size:11px;color:#9C9490;margin-top:4px;font-weight:600;">
+                As pausas aparecem aqui quando confirmadas com senha do gestor.</div>
+            </div></body></html>""", height=110, scrolling=False)
+        else:
+            ETAPA_TAG = {
+                0: '<span style="background:#EBF0FB;color:#3B5EC6;padding:2px 8px;border-radius:100px;font-size:10px;font-weight:800;">Separação</span>',
+                1: '<span style="background:#E8F2EC;color:#4A7C59;padding:2px 8px;border-radius:100px;font-size:10px;font-weight:800;">Embalagem</span>',
+                2: '<span style="background:#FBF2E6;color:#C47B2A;padding:2px 8px;border-radius:100px;font-size:10px;font-weight:800;">Conferência</span>',
+            }
+            pausa_rows = ""
+            for p in pausas_filtradas[:100]:
+                # p: (id, pedido, operador, etapa_idx, pausado_em, tempo_pausado_s, motivo)
+                etapa_tag  = ETAPA_TAG.get(p[3], str(p[3]))
+                pausado_em = p[4] if p[4] else "—"
+                tempo_p    = fmt(p[5]) if p[5] else "—"
+                motivo_p   = p[6] if p[6] else '<span style="color:#C0BAB4;font-style:italic;">—</span>'
+                pausa_rows += f"""<tr>
+                  <td style="padding:10px 14px;font-family:monospace;font-size:12px;font-weight:700;color:#1A1714;">{p[1]}</td>
+                  <td style="padding:10px 8px;font-size:13px;font-weight:700;color:#1A1714;">{p[2]}</td>
+                  <td style="padding:10px 8px;">{etapa_tag}</td>
+                  <td style="padding:10px 8px;font-size:11px;color:#9C9490;text-align:center;">{pausado_em}</td>
+                  <td style="padding:10px 8px;font-family:monospace;font-size:12px;font-weight:700;color:#E07B3A;text-align:center;">{tempo_p}</td>
+                  <td style="padding:10px 8px;font-size:12px;color:#5C5450;font-weight:600;">{motivo_p}</td>
+                </tr>"""
+
+            n_p = min(len(pausas_filtradas), 100)
+            pausa_height = 52 + n_p * 44 + 20
+            components.html(f"""<!DOCTYPE html><html><head>
+            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+            <style>
+            *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
+            .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
+            table{{width:100%;border-collapse:collapse;}} thead tr{{background:#1A1714;}}
+            th{{padding:11px 8px;font-size:8px;font-weight:800;letter-spacing:1.3px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-align:center;}}
+            th:first-child{{text-align:left;padding-left:14px;}} th:nth-child(2){{text-align:left;}} th:last-child{{text-align:left;}}
+            tbody tr{{border-bottom:1px solid #F2EEE9;}} tbody tr:last-child{{border-bottom:none;}}
+            tbody tr:hover{{background:#FFF8F0;}}
+            </style></head><body>
+            <div class="wrap"><table><thead><tr>
+              <th>Pedido</th><th>Operador</th><th>Etapa</th>
+              <th style="color:#D4A45A;">Pausado em</th>
+              <th style="color:#E07B3A;">Tempo</th>
+              <th style="color:rgba(255,255,255,0.35);">Motivo</th>
+            </tr></thead><tbody>{pausa_rows}</tbody></table></div>
+            </body></html>""", height=pausa_height, scrolling=False)
+
+            # ── Resumo por operador ────────────────────────────────────────
+            st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+            pausa_por_op = {}
+            for p in pausas_filtradas:
+                op_p = p[2]
+                if op_p not in pausa_por_op:
+                    pausa_por_op[op_p] = {"n": 0, "tempo": 0}
+                pausa_por_op[op_p]["n"]     += 1
+                pausa_por_op[op_p]["tempo"] += int(p[5] or 0)
+
+            resumo_rows = ""
+            for op_p, d_p in sorted(pausa_por_op.items(), key=lambda x: x[1]["n"], reverse=True):
+                resumo_rows += f"""
+                <div style="display:flex;justify-content:space-between;align-items:center;
+                     padding:8px 16px;border-bottom:1px solid #F2EEE9;">
+                  <span style="font-size:13px;font-weight:800;color:#1A1714;">{op_p}</span>
+                  <div style="display:flex;gap:16px;align-items:center;">
+                    <span style="background:#FFF0E6;color:#E07B3A;font-size:12px;font-weight:800;
+                          padding:2px 10px;border-radius:100px;">{d_p['n']} pausa(s)</span>
+                    <span style="font-family:monospace;font-size:12px;font-weight:700;color:#9C9490;">
+                      {fmt(d_p['tempo'])} parado</span>
+                  </div>
+                </div>"""
+
+            resumo_h = len(pausa_por_op) * 40 + 24
+            components.html(f"""<!DOCTYPE html><html><head>
+            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+            <style>*{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
+            .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:8px;}}
+            .card{{background:#fff;border-radius:14px;border:1.5px solid #EDE9E4;overflow:hidden;
+                   box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
+            </style></head><body>
+            <div class="lbl">Resumo de Pausas por Operador</div>
+            <div class="card">{resumo_rows}</div>
+            </body></html>""", height=resumo_h, scrolling=False)
 
     st.markdown("<br style='line-height:0.4'>", unsafe_allow_html=True)
 
@@ -4319,18 +4482,33 @@ def tela_admin():
         regs_hist_filtrados = regs_para_tabela
 
     if regs_hist_filtrados:
+        # Monta set de (pedido, operador) que tiveram pausa no mesmo dia
+        pedidos_com_pausa = set()
+        pausas_hist = buscar_pausas_log()
+        for p in pausas_hist:
+            if filtro_hist_data == "Todos os dias" or str(p[4] or "").startswith(filtro_hist_data):
+                pedidos_com_pausa.add((str(p[1]), str(p[2])))
+
         hist_rows = ""
         for r in regs_hist_filtrados[:200]:
             # r: (id, pedido, operador, etapa, etapa_idx, tempo_s, data_fim, inicio, qtd_pecas)
             fim_str    = r[6] if r[6] else "—"
             inicio_str = r[7] if r[7] else "—"
             qtd_str    = str(r[8]) if r[8] is not None else "—"
+            teve_pausa = (str(r[1]), str(r[2])) in pedidos_com_pausa
+            pausa_tag  = (
+                '<span style="background:#FFF0E6;color:#E07B3A;font-size:10px;font-weight:800;'
+                'padding:2px 8px;border-radius:100px;">Sim</span>'
+                if teve_pausa else
+                '<span style="color:#C0BAB4;font-size:10px;font-weight:700;">Não</span>'
+            )
             hist_rows += f"""<tr>
               <td style="padding:11px 16px;font-family:monospace;font-size:12px;font-weight:700;color:#1A1714;">{r[1]}</td>
               <td style="padding:11px 10px;font-size:13px;font-weight:700;color:#1A1714;">{r[2]}</td>
               <td style="padding:11px 10px;">{tag_html.get(r[4], r[3])}</td>
               <td style="padding:11px 10px;font-family:monospace;font-size:12px;font-weight:700;color:#4A7C59;text-align:center;">{fmt(r[5])}</td>
               <td style="padding:11px 10px;font-size:11px;font-weight:700;color:#3B5EC6;text-align:center;">{qtd_str}</td>
+              <td style="padding:11px 10px;text-align:center;">{pausa_tag}</td>
               <td style="padding:11px 10px;font-size:11px;color:#9C9490;text-align:center;">{inicio_str}</td>
               <td style="padding:11px 10px;font-size:11px;color:#9C9490;text-align:center;">{fim_str}</td>
             </tr>"""
@@ -4356,6 +4534,7 @@ def tela_admin():
         <div class="wrap"><table><thead><tr>
           <th>Pedido</th><th>Operador</th><th>Etapa</th><th>Tempo</th>
           <th style="color:#7B9FE0;">Qtd Peças</th>
+          <th style="color:#E07B3A;">Pausa</th>
           <th style="color:#A0C8E0;">Início</th>
           <th style="color:#A0C8E0;">Fim</th>
         </tr></thead><tbody>{hist_rows}</tbody></table></div>
@@ -4739,6 +4918,12 @@ def tela_operacoes():
                 type="password", label_visibility="collapsed",
                 key=f"senha_input_{uid}"
             )
+            # Campo de motivo
+            motivo_input_painel = st.text_input(
+                "_motivo_pausa_painel", placeholder="📝 Motivo da pausa (opcional)...",
+                label_visibility="collapsed",
+                key=f"motivo_input_{uid}"
+            )
             if st.session_state[_k_erro]:
                 st.markdown('<div style="color:#DC2626;font-size:11px;font-weight:700;'
                             'text-align:center;margin-top:2px;">❌ Senha incorreta</div>',
@@ -4767,6 +4952,8 @@ def tela_operacoes():
                         _patch("sessoes_ativas",
                                f"pedido=eq.{ped}&etapa_idx=eq.{eta_idx}",
                                {"iniciado_em": 0})
+                        registrar_pausa_log(ped, eta_idx, op, tempo_atual, motivo_input_painel)
+                        buscar_pausas_log.clear()
                         st.session_state[_k_modo]  = None
                         st.session_state[_k_erro]  = False
                         st.toast(f"⏸ Pedido #{ped} · {op} · pausado! Tempo salvo: {fmt(tempo_atual)}", icon="⏸")
