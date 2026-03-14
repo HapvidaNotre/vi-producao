@@ -3602,7 +3602,7 @@ def tela_admin():
 
                 if xlsx_file is not None:
                     try:
-                        import openpyxl, io
+                        import openpyxl
                         wb = openpyxl.load_workbook(io.BytesIO(xlsx_file.read()))
                         ws = wb.active
                         headers = [str(c.value).strip() if c.value else "" for c in next(ws.iter_rows(min_row=1, max_row=1))]
@@ -4176,9 +4176,46 @@ def tela_admin():
         2: '<span style="background:#FBF2E6;color:#C47B2A;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;">Conferência</span>',
     }
 
-    if regs_para_tabela:
+    # ── Filtro de dia do Histórico ──────────────────────────────────────────
+    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+
+    datas_hist = sorted({
+        r[6].split(" ")[0] for r in regs_para_tabela if r[6] and " " in str(r[6])
+    }, reverse=True) if regs_para_tabela else []
+
+    _dia_hist_padrao = datas_hist[0] if datas_hist else "Todos os dias"
+    opcoes_hist_data = ["Todos os dias"] + datas_hist
+    _idx_hist_padrao = opcoes_hist_data.index(_dia_hist_padrao) if _dia_hist_padrao in opcoes_hist_data else 0
+
+    fh1, fh2 = st.columns([2, 1])
+    with fh1:
+        filtro_hist_data = st.selectbox(
+            "📋 Histórico — filtrar por dia",
+            opcoes_hist_data,
+            index=_idx_hist_padrao,
+            key="admin_hist_filtro_data"
+        )
+    with fh2:
+        st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+        n_total_hist = len(regs_para_tabela)
+        n_dia_hist = len([r for r in regs_para_tabela
+                          if filtro_hist_data == "Todos os dias"
+                          or str(r[6]).startswith(filtro_hist_data)])
+        st.markdown(
+            f'<div style="background:#F0F5FF;border:1.5px solid #3B5EC6;border-radius:10px;'
+            f'padding:8px 14px;font-size:12px;font-weight:700;color:#3B5EC6;text-align:center;">'
+            f'{n_dia_hist} registro(s)</div>',
+            unsafe_allow_html=True
+        )
+
+    if filtro_hist_data != "Todos os dias":
+        regs_hist_filtrados = [r for r in regs_para_tabela if str(r[6]).startswith(filtro_hist_data)]
+    else:
+        regs_hist_filtrados = regs_para_tabela
+
+    if regs_hist_filtrados:
         hist_rows = ""
-        for r in regs_para_tabela[:80]:
+        for r in regs_hist_filtrados[:200]:
             # r: (id, pedido, operador, etapa, etapa_idx, tempo_s, data_fim, inicio, qtd_pecas)
             fim_str    = r[6] if r[6] else "—"
             inicio_str = r[7] if r[7] else "—"
@@ -4193,8 +4230,10 @@ def tela_admin():
               <td style="padding:11px 10px;font-size:11px;color:#9C9490;text-align:center;">{fim_str}</td>
             </tr>"""
 
-        n_hist = min(len(regs_para_tabela), 80)
+        n_hist = min(len(regs_hist_filtrados), 200)
         hist_height = 56 + (n_hist * 46) + 20
+
+        lbl_hist = f"Histórico de Pedidos · {filtro_hist_data}" if filtro_hist_data != "Todos os dias" else "Histórico de Pedidos"
 
         components.html(f"""<!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -4208,7 +4247,7 @@ def tela_admin():
         tbody tr{{border-bottom:1px solid #F2EEE9;}} tbody tr:last-child{{border-bottom:none;}}
         tbody tr:hover{{background:#FDFAF9;}}
         </style></head><body>
-        <div class="lbl">Histórico de Pedidos</div>
+        <div class="lbl">{lbl_hist}</div>
         <div class="wrap"><table><thead><tr>
           <th>Pedido</th><th>Operador</th><th>Etapa</th><th>Tempo</th>
           <th style="color:#7B9FE0;">Qtd Peças</th>
