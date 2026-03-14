@@ -3022,7 +3022,17 @@ def tela_admin():
     # ════════════════════════════════════════════════════════════════════
     st.markdown("""<style>
     div[data-testid="stTabs"] button[role="tab"] {
-        font-size:13px !important; font-weight:800 !important; padding:10px 20px !important;
+        font-size:13px !important; font-weight:800 !important;
+        padding:10px 20px !important;
+        color:#5C5450 !important;
+        background:transparent !important;
+    }
+    div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+        color:#1A1714 !important;
+    }
+    div[data-testid="stTabs"] button[role="tab"]:hover {
+        color:#1A1714 !important;
+        background:rgba(0,0,0,0.04) !important;
     }
     </style>""", unsafe_allow_html=True)
     _aba_prod, _aba_tools = st.tabs(["📊  Produtividade", "🔧  Ferramentas"])
@@ -3032,363 +3042,363 @@ def tela_admin():
     # ══════════════════════════════════════════════════════════════════
     with _aba_prod:
 
-      regs     = buscar()
-      ped_comp = list({r[1] for r in regs if r[4] == 2})
-      ops_ativ = list({r[2] for r in regs})
-      avg      = media([r[5] for r in regs]) // 60 if regs else 0
-      hoje_kpi = now_br().strftime("%d/%m/%Y")
-      ped_hoje = len({r[1] for r in regs if r[4] == 2 and str(r[6]).startswith(hoje_kpi)})
-      total_pecas = sum(r[8] for r in regs if r[4] == 0 and r[8]) if regs else 0
-      n_agora = len(buscar_todas_sessoes_ativas())
+        regs     = buscar()
+        ped_comp = list({r[1] for r in regs if r[4] == 2})
+        ops_ativ = list({r[2] for r in regs})
+        avg      = media([r[5] for r in regs]) // 60 if regs else 0
+        hoje_kpi = now_br().strftime("%d/%m/%Y")
+        ped_hoje = len({r[1] for r in regs if r[4] == 2 and str(r[6]).startswith(hoje_kpi)})
+        total_pecas = sum(r[8] for r in regs if r[4] == 0 and r[8]) if regs else 0
+        n_agora = len(buscar_todas_sessoes_ativas())
 
-      kpi_html = f"""
-      <!DOCTYPE html><html><head>
-      <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-      <style>
-      *{{margin:0;padding:0;box-sizing:border-box;}}
-      body{{background:transparent;font-family:Nunito,sans-serif;}}
-      .grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}}
-      .card{{background:#fff;border-radius:16px;padding:18px 16px 14px;
-             border:1.5px solid #EDE9E4;box-shadow:0 2px 12px rgba(0,0,0,0.05);position:relative;overflow:hidden;}}
-      .card-icon{{position:absolute;top:-4px;right:6px;font-size:42px;opacity:0.07;line-height:1;}}
-      .card-lbl{{font-size:9px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:#9C9490;margin-bottom:8px;}}
-      .card-num{{font-family:"DM Mono",monospace;font-size:30px;font-weight:500;letter-spacing:-1px;}}
-      .card-sub{{font-size:10px;font-weight:700;color:#9C9490;margin-top:5px;}}
-      .card-bar{{height:3px;border-radius:2px;margin-top:10px;opacity:0.3;}}
-      </style></head><body>
-      <div class="grid">
-        <div class="card"><div class="card-icon">📦</div>
-          <div class="card-lbl">Finalizados Hoje</div>
-          <div class="card-num" style="color:#C8566A;">{ped_hoje}</div>
-          <div class="card-sub">{len(ped_comp)} no período total</div>
-          <div class="card-bar" style="background:#C8566A;"></div></div>
-        <div class="card"><div class="card-icon">👥</div>
-          <div class="card-lbl">Operadores Ativos</div>
-          <div class="card-num" style="color:#4A7C59;">{len(ops_ativ)}</div>
-          <div class="card-sub">{n_agora} trabalhando agora</div>
-          <div class="card-bar" style="background:#4A7C59;"></div></div>
-        <div class="card"><div class="card-icon">⏱</div>
-          <div class="card-lbl">Tempo Médio</div>
-          <div class="card-num" style="color:#3B5EC6;">{avg}m</div>
-          <div class="card-sub">por pedido / etapa</div>
-          <div class="card-bar" style="background:#3B5EC6;"></div></div>
-        <div class="card"><div class="card-icon">👕</div>
-          <div class="card-lbl">Peças Separadas</div>
-          <div class="card-num" style="color:#C47B2A;">{total_pecas}</div>
-          <div class="card-sub">etapa de separação</div>
-          <div class="card-bar" style="background:#C47B2A;"></div></div>
-      </div>
-      </body></html>"""
-      components.html(kpi_html, height=120, scrolling=False)
+        kpi_html = f"""
+        <!DOCTYPE html><html><head>
+        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+        <style>
+        *{{margin:0;padding:0;box-sizing:border-box;}}
+        body{{background:transparent;font-family:Nunito,sans-serif;}}
+        .grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}}
+        .card{{background:#fff;border-radius:16px;padding:18px 16px 14px;
+               border:1.5px solid #EDE9E4;box-shadow:0 2px 12px rgba(0,0,0,0.05);position:relative;overflow:hidden;}}
+        .card-icon{{position:absolute;top:-4px;right:6px;font-size:42px;opacity:0.07;line-height:1;}}
+        .card-lbl{{font-size:9px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:#9C9490;margin-bottom:8px;}}
+        .card-num{{font-family:"DM Mono",monospace;font-size:30px;font-weight:500;letter-spacing:-1px;}}
+        .card-sub{{font-size:10px;font-weight:700;color:#9C9490;margin-top:5px;}}
+        .card-bar{{height:3px;border-radius:2px;margin-top:10px;opacity:0.3;}}
+        </style></head><body>
+        <div class="grid">
+          <div class="card"><div class="card-icon">📦</div>
+            <div class="card-lbl">Finalizados Hoje</div>
+            <div class="card-num" style="color:#C8566A;">{ped_hoje}</div>
+            <div class="card-sub">{len(ped_comp)} no período total</div>
+            <div class="card-bar" style="background:#C8566A;"></div></div>
+          <div class="card"><div class="card-icon">👥</div>
+            <div class="card-lbl">Operadores Ativos</div>
+            <div class="card-num" style="color:#4A7C59;">{len(ops_ativ)}</div>
+            <div class="card-sub">{n_agora} trabalhando agora</div>
+            <div class="card-bar" style="background:#4A7C59;"></div></div>
+          <div class="card"><div class="card-icon">⏱</div>
+            <div class="card-lbl">Tempo Médio</div>
+            <div class="card-num" style="color:#3B5EC6;">{avg}m</div>
+            <div class="card-sub">por pedido / etapa</div>
+            <div class="card-bar" style="background:#3B5EC6;"></div></div>
+          <div class="card"><div class="card-icon">👕</div>
+            <div class="card-lbl">Peças Separadas</div>
+            <div class="card-num" style="color:#C47B2A;">{total_pecas}</div>
+            <div class="card-sub">etapa de separação</div>
+            <div class="card-bar" style="background:#C47B2A;"></div></div>
+        </div>
+        </body></html>"""
+        components.html(kpi_html, height=120, scrolling=False)
 
-      op_map = {}
-      for r in regs:
-          op = r[2]
-          if op not in op_map: op_map[op] = {"p":set(),"sep":[],"conf":[],"emb":[],"tempo_total":0,"pecas":0}
-          op_map[op]["p"].add(r[1])
-          if r[5]: op_map[op]["tempo_total"] += r[5]
-          if r[8]: op_map[op]["pecas"] += r[8]
-          if r[4]==0: op_map[op]["sep"].append(r[5])
-          if r[4]==1: op_map[op]["conf"].append(r[5])
-          if r[4]==2: op_map[op]["emb"].append(r[5])
+        op_map = {}
+        for r in regs:
+            op = r[2]
+            if op not in op_map: op_map[op] = {"p":set(),"sep":[],"conf":[],"emb":[],"tempo_total":0,"pecas":0}
+            op_map[op]["p"].add(r[1])
+            if r[5]: op_map[op]["tempo_total"] += r[5]
+            if r[8]: op_map[op]["pecas"] += r[8]
+            if r[4]==0: op_map[op]["sep"].append(r[5])
+            if r[4]==1: op_map[op]["conf"].append(r[5])
+            if r[4]==2: op_map[op]["emb"].append(r[5])
 
-      st.markdown("<br style='line-height:0.3'>", unsafe_allow_html=True)
+        st.markdown("<br style='line-height:0.3'>", unsafe_allow_html=True)
 
-      todas_datas_regs = sorted({
-        r[6].split(" ")[0] for r in regs if r[6] and " " in str(r[6])
-      }, reverse=True) if regs else []
-      todos_ops_regs = sorted({r[2] for r in regs if r[2]}) if regs else []
+        todas_datas_regs = sorted({
+          r[6].split(" ")[0] for r in regs if r[6] and " " in str(r[6])
+        }, reverse=True) if regs else []
+        todos_ops_regs = sorted({r[2] for r in regs if r[2]}) if regs else []
 
-      fc1, fc2 = st.columns(2)
-      with fc1:
-        opcoes_data = ["Todos os dias"] + todas_datas_regs
-        filtro_data = st.selectbox("📅 Filtrar por dia", opcoes_data, key="admin_filtro_data")
-      with fc2:
-        opcoes_op = ["Todos os operadores"] + todos_ops_regs
-        filtro_op = st.selectbox("👤 Filtrar por operador", opcoes_op, key="admin_filtro_op")
+        fc1, fc2 = st.columns(2)
+        with fc1:
+          opcoes_data = ["Todos os dias"] + todas_datas_regs
+          filtro_data = st.selectbox("📅 Filtrar por dia", opcoes_data, key="admin_filtro_data")
+        with fc2:
+          opcoes_op = ["Todos os operadores"] + todos_ops_regs
+          filtro_op = st.selectbox("👤 Filtrar por operador", opcoes_op, key="admin_filtro_op")
 
-      regs_filtrados = regs
-      if filtro_data != "Todos os dias":
-        regs_filtrados = [r for r in regs_filtrados if str(r[6]).startswith(filtro_data)]
-      if filtro_op != "Todos os operadores":
-        regs_filtrados = [r for r in regs_filtrados if r[2] == filtro_op]
+        regs_filtrados = regs
+        if filtro_data != "Todos os dias":
+          regs_filtrados = [r for r in regs_filtrados if str(r[6]).startswith(filtro_data)]
+        if filtro_op != "Todos os operadores":
+          regs_filtrados = [r for r in regs_filtrados if r[2] == filtro_op]
 
-      tem_filtro = filtro_data != "Todos os dias" or filtro_op != "Todos os operadores"
-      if tem_filtro:
-        partes_filtro = []
-        if filtro_data != "Todos os dias": partes_filtro.append(f"📅 {filtro_data}")
-        if filtro_op   != "Todos os operadores": partes_filtro.append(f"👤 {filtro_op}")
-        ped_filt = len({r[1] for r in regs_filtrados})
-        st.markdown(
-            f'<div style="background:#F0F7F3;border:1.5px solid #4A7C59;border-radius:10px;'
-            f'padding:10px 16px;font-size:13px;font-weight:700;color:#2d5a3d;margin-bottom:4px;">'
-            f'Filtro ativo: {" · ".join(partes_filtro)} &nbsp;→&nbsp; '
-            f'<strong>{ped_filt} pedido(s)</strong> · {len(regs_filtrados)} registro(s)</div>',
-            unsafe_allow_html=True
-        )
+        tem_filtro = filtro_data != "Todos os dias" or filtro_op != "Todos os operadores"
+        if tem_filtro:
+          partes_filtro = []
+          if filtro_data != "Todos os dias": partes_filtro.append(f"📅 {filtro_data}")
+          if filtro_op   != "Todos os operadores": partes_filtro.append(f"👤 {filtro_op}")
+          ped_filt = len({r[1] for r in regs_filtrados})
+          st.markdown(
+              f'<div style="background:#F0F7F3;border:1.5px solid #4A7C59;border-radius:10px;'
+              f'padding:10px 16px;font-size:13px;font-weight:700;color:#2d5a3d;margin-bottom:4px;">'
+              f'Filtro ativo: {" · ".join(partes_filtro)} &nbsp;→&nbsp; '
+              f'<strong>{ped_filt} pedido(s)</strong> · {len(regs_filtrados)} registro(s)</div>',
+              unsafe_allow_html=True
+          )
 
-      regs_para_tabela = regs_filtrados
+        regs_para_tabela = regs_filtrados
 
-      op_map_filt = {}
-      for r in regs_filtrados:
-          op = r[2]
-          if op not in op_map_filt:
-              op_map_filt[op] = {"p":set(),"sep":[],"conf":[],"emb":[],"tempo_total":0,"pecas":0}
-          op_map_filt[op]["p"].add(r[1])
-          if r[5]: op_map_filt[op]["tempo_total"] += r[5]
-          if r[8]: op_map_filt[op]["pecas"] += r[8]
-          if r[4]==0: op_map_filt[op]["sep"].append(r[5])
-          if r[4]==1: op_map_filt[op]["conf"].append(r[5])
-          if r[4]==2: op_map_filt[op]["emb"].append(r[5])
+        op_map_filt = {}
+        for r in regs_filtrados:
+            op = r[2]
+            if op not in op_map_filt:
+                op_map_filt[op] = {"p":set(),"sep":[],"conf":[],"emb":[],"tempo_total":0,"pecas":0}
+            op_map_filt[op]["p"].add(r[1])
+            if r[5]: op_map_filt[op]["tempo_total"] += r[5]
+            if r[8]: op_map_filt[op]["pecas"] += r[8]
+            if r[4]==0: op_map_filt[op]["sep"].append(r[5])
+            if r[4]==1: op_map_filt[op]["conf"].append(r[5])
+            if r[4]==2: op_map_filt[op]["emb"].append(r[5])
 
-      st.markdown("<br style='line-height:0.4'>", unsafe_allow_html=True)
+        st.markdown("<br style='line-height:0.4'>", unsafe_allow_html=True)
 
-      if op_map_filt:
-          medalhas = ["🥇","🥈","🥉"]
-          op_sorted = sorted(op_map_filt.items(), key=lambda x: len(x[1]["p"]), reverse=True)
-          op_rows = ""
-          for rank_i, (op, d) in enumerate(op_sorted):
-              ini    = op[0].upper()
-              medal  = medalhas[rank_i] if rank_i < 3 else f"<span style='color:#9C9490;font-size:11px;'>#{rank_i+1}</span>"
-              n_ped  = len(d["p"])
-              todos_tempos = d["sep"] + d["conf"] + d["emb"]
-              t_med  = fmt(media(todos_tempos)) if todos_tempos else "—"
-              t_tot_s = d["tempo_total"]
-              if t_tot_s:
-                  _th, _tr = divmod(t_tot_s, 3600); _tm, _ts = divmod(_tr, 60)
-                  t_tot = f"{_th:02d}:{_tm:02d}:{_ts:02d}"
-              else:
-                  t_tot = "—"
-              op_rows += f"""<tr>
-                <td style="padding:12px 16px;vertical-align:middle;">
-                  <div style="display:flex;align-items:center;gap:10px;">
-                    <span style="font-size:17px;line-height:1;">{medal}</span>
-                    <div style="width:32px;height:32px;border-radius:50%;flex-shrink:0;
-                         background:linear-gradient(135deg,#D9617A,#9E3F52);
-                         display:flex;align-items:center;justify-content:center;
-                         font-size:13px;font-weight:900;color:#fff;">{ini}</div>
-                    <span style="font-weight:800;font-size:13px;color:#1A1714;">{op}</span>
-                  </div>
-                </td>
-                <td style="padding:12px 10px;text-align:center;vertical-align:middle;">
-                  <span style="background:#F5E8EB;color:#C8566A;font-weight:800;font-size:13px;padding:4px 12px;border-radius:100px;">{n_ped}</span>
-                </td>
-                <td style="padding:12px 10px;text-align:center;font-family:monospace;font-size:12px;color:#3B5EC6;font-weight:700;vertical-align:middle;">{t_med}</td>
-                <td style="padding:12px 10px;text-align:center;font-family:monospace;font-size:12px;color:#1A1714;font-weight:700;vertical-align:middle;">{t_tot}</td>
-              </tr>"""
+        if op_map_filt:
+            medalhas = ["🥇","🥈","🥉"]
+            op_sorted = sorted(op_map_filt.items(), key=lambda x: len(x[1]["p"]), reverse=True)
+            op_rows = ""
+            for rank_i, (op, d) in enumerate(op_sorted):
+                ini    = op[0].upper()
+                medal  = medalhas[rank_i] if rank_i < 3 else f"<span style='color:#9C9490;font-size:11px;'>#{rank_i+1}</span>"
+                n_ped  = len(d["p"])
+                todos_tempos = d["sep"] + d["conf"] + d["emb"]
+                t_med  = fmt(media(todos_tempos)) if todos_tempos else "—"
+                t_tot_s = d["tempo_total"]
+                if t_tot_s:
+                    _th, _tr = divmod(t_tot_s, 3600); _tm, _ts = divmod(_tr, 60)
+                    t_tot = f"{_th:02d}:{_tm:02d}:{_ts:02d}"
+                else:
+                    t_tot = "—"
+                op_rows += f"""<tr>
+                  <td style="padding:12px 16px;vertical-align:middle;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                      <span style="font-size:17px;line-height:1;">{medal}</span>
+                      <div style="width:32px;height:32px;border-radius:50%;flex-shrink:0;
+                           background:linear-gradient(135deg,#D9617A,#9E3F52);
+                           display:flex;align-items:center;justify-content:center;
+                           font-size:13px;font-weight:900;color:#fff;">{ini}</div>
+                      <span style="font-weight:800;font-size:13px;color:#1A1714;">{op}</span>
+                    </div>
+                  </td>
+                  <td style="padding:12px 10px;text-align:center;vertical-align:middle;">
+                    <span style="background:#F5E8EB;color:#C8566A;font-weight:800;font-size:13px;padding:4px 12px;border-radius:100px;">{n_ped}</span>
+                  </td>
+                  <td style="padding:12px 10px;text-align:center;font-family:monospace;font-size:12px;color:#3B5EC6;font-weight:700;vertical-align:middle;">{t_med}</td>
+                  <td style="padding:12px 10px;text-align:center;font-family:monospace;font-size:12px;color:#1A1714;font-weight:700;vertical-align:middle;">{t_tot}</td>
+                </tr>"""
 
-          n_ops = len(op_map_filt)
-          components.html(f"""
-          <!DOCTYPE html><html><head>
-          <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
-          <style>
-          *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
-          .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
-          .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-          table{{width:100%;border-collapse:collapse;}} thead tr{{background:#1A1714;}}
-          th{{padding:12px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;text-align:center;}}
-          th:first-child{{text-align:left;padding-left:16px;}}
-          tbody tr{{border-bottom:1px solid #F2EEE9;transition:background .15s;}}
-          tbody tr:last-child{{border-bottom:none;}} tbody tr:hover{{background:#FDFAF9;}}
-          </style></head><body>
-          <div class="lbl">🏆 Ranking de Operadores{" · " + filtro_data if filtro_data != "Todos os dias" else ""}</div>
-          <div class="wrap"><table><thead><tr>
-            <th style="color:rgba(255,255,255,0.45);text-align:left;padding-left:16px;">Operador</th>
-            <th style="color:rgba(255,255,255,0.45);">Pedidos</th>
-            <th style="color:#7B9FE0;">Tempo Médio</th>
-            <th style="color:#fff;">Tempo Total</th>
-          </tr></thead><tbody>{op_rows}</tbody></table></div>
-          </body></html>
-          """, height=56 + (n_ops * 62) + 20, scrolling=False)
-      else:
-          components.html("""<!DOCTYPE html><html><body style="background:transparent;font-family:sans-serif;">
-          <div style="background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;
-                      padding:40px;text-align:center;color:#9C9490;font-size:14px;font-weight:600;">
-              Nenhum registro encontrado para o filtro selecionado.</div></body></html>""", height=120, scrolling=False)
+            n_ops = len(op_map_filt)
+            components.html(f"""
+            <!DOCTYPE html><html><head>
+            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+            <style>
+            *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
+            .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
+            .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
+            table{{width:100%;border-collapse:collapse;}} thead tr{{background:#1A1714;}}
+            th{{padding:12px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;text-align:center;}}
+            th:first-child{{text-align:left;padding-left:16px;}}
+            tbody tr{{border-bottom:1px solid #F2EEE9;transition:background .15s;}}
+            tbody tr:last-child{{border-bottom:none;}} tbody tr:hover{{background:#FDFAF9;}}
+            </style></head><body>
+            <div class="lbl">🏆 Ranking de Operadores{" · " + filtro_data if filtro_data != "Todos os dias" else ""}</div>
+            <div class="wrap"><table><thead><tr>
+              <th style="color:rgba(255,255,255,0.45);text-align:left;padding-left:16px;">Operador</th>
+              <th style="color:rgba(255,255,255,0.45);">Pedidos</th>
+              <th style="color:#7B9FE0;">Tempo Médio</th>
+              <th style="color:#fff;">Tempo Total</th>
+            </tr></thead><tbody>{op_rows}</tbody></table></div>
+            </body></html>
+            """, height=56 + (n_ops * 62) + 20, scrolling=False)
+        else:
+            components.html("""<!DOCTYPE html><html><body style="background:transparent;font-family:sans-serif;">
+            <div style="background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;
+                        padding:40px;text-align:center;color:#9C9490;font-size:14px;font-weight:600;">
+                Nenhum registro encontrado para o filtro selecionado.</div></body></html>""", height=120, scrolling=False)
 
-      st.markdown("<br style='line-height:0.4'>", unsafe_allow_html=True)
+        st.markdown("<br style='line-height:0.4'>", unsafe_allow_html=True)
 
-      # ── Linha de botões de ação: 3 colunas iguais ─────────────────────────
-      st.markdown("""
-      <style>
-      .btn-warn > button {
-        background:#FEF3C7 !important; color:#92400E !important;
-        border:1.5px solid #F59E0B !important; border-radius:10px !important;
-        font-size:13px !important; font-weight:800 !important; height:48px !important;
-      }
-      .btn-warn > button:hover { background:#F59E0B !important; color:#fff !important; }
-      .btn-danger > button {
-        background:#FEF2F2 !important; color:#C8566A !important;
-        border:1.5px solid #FECACA !important; border-radius:10px !important;
-        font-size:13px !important; font-weight:800 !important; height:48px !important;
-      }
-      .btn-danger > button:hover { background:#C8566A !important; color:#fff !important; }
-      .btn-reset-dia > button {
-        background: linear-gradient(135deg,#7C3AED,#5B21B6) !important;
-        color: #fff !important; border: none !important;
-        border-radius: 10px !important; height: 48px !important;
-        font-size: 13px !important; font-weight: 800 !important;
-        box-shadow: 0 4px 0 rgba(60,10,120,0.35) !important;
-      }
-      .btn-reset-dia > button:hover { transform: translateY(-1px) !important; }
-      </style>""", unsafe_allow_html=True)
+        # ── Linha de botões de ação: 3 colunas iguais ─────────────────────────
+        st.markdown("""
+        <style>
+        .btn-warn > button {
+          background:#FEF3C7 !important; color:#92400E !important;
+          border:1.5px solid #F59E0B !important; border-radius:10px !important;
+          font-size:13px !important; font-weight:800 !important; height:48px !important;
+        }
+        .btn-warn > button:hover { background:#F59E0B !important; color:#fff !important; }
+        .btn-danger > button {
+          background:#FEF2F2 !important; color:#C8566A !important;
+          border:1.5px solid #FECACA !important; border-radius:10px !important;
+          font-size:13px !important; font-weight:800 !important; height:48px !important;
+        }
+        .btn-danger > button:hover { background:#C8566A !important; color:#fff !important; }
+        .btn-reset-dia > button {
+          background: linear-gradient(135deg,#7C3AED,#5B21B6) !important;
+          color: #fff !important; border: none !important;
+          border-radius: 10px !important; height: 48px !important;
+          font-size: 13px !important; font-weight: 800 !important;
+          box-shadow: 0 4px 0 rgba(60,10,120,0.35) !important;
+        }
+        .btn-reset-dia > button:hover { transform: translateY(-1px) !important; }
+        </style>""", unsafe_allow_html=True)
 
-      ba, bb, bc = st.columns(3)
-      with ba:
-          st.markdown('<div class="btn-warn">', unsafe_allow_html=True)
-          if st.button("⊘  Limpar PIPs", use_container_width=True, help="Remove sessões ativas fantasmas"):
-              limpar_sessoes_ativas(); st.rerun()
-          st.markdown('</div>', unsafe_allow_html=True)
-      with bb:
-          st.markdown('<div class="btn-danger">', unsafe_allow_html=True)
-          if st.button("🗑  Limpar dados", use_container_width=True):
-              limpar(); st.rerun()
-          st.markdown('</div>', unsafe_allow_html=True)
-      with bc:
-          st.markdown('<div class="btn-reset-dia">', unsafe_allow_html=True)
-          if st.button("🧹  Apagar hoje", use_container_width=True, key="btn_limpar_dia_inline"):
-              st.session_state.confirm_limpar_dia = True
-              st.rerun()
-          st.markdown('</div>', unsafe_allow_html=True)
+        ba, bb, bc = st.columns(3)
+        with ba:
+            st.markdown('<div class="btn-warn">', unsafe_allow_html=True)
+            if st.button("⊘  Limpar PIPs", use_container_width=True, help="Remove sessões ativas fantasmas"):
+                limpar_sessoes_ativas(); st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        with bb:
+            st.markdown('<div class="btn-danger">', unsafe_allow_html=True)
+            if st.button("🗑  Limpar dados", use_container_width=True):
+                limpar(); st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        with bc:
+            st.markdown('<div class="btn-reset-dia">', unsafe_allow_html=True)
+            if st.button("🧹  Apagar hoje", use_container_width=True, key="btn_limpar_dia_inline"):
+                st.session_state.confirm_limpar_dia = True
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
 
-      # ── Botão: Apagar tudo do dia de hoje ──────────────────────────────────
-      hoje_str = now_br().strftime("%d/%m/%Y")
+        # ── Botão: Apagar tudo do dia de hoje ──────────────────────────────────
+        hoje_str = now_br().strftime("%d/%m/%Y")
 
-      def limpar_dia(data_str):
-          rows = _get("registros", f"select=id&data=like.{data_str}%25")
-          if isinstance(rows, list):
-              for r in rows:
-                  _delete("registros", f"id=eq.{r['id']}")
-          limpar_sessoes_ativas()
-          todos_regs = _get("registros", "select=pedido")
-          pedidos_com_reg = {r["pedido"] for r in todos_regs} if isinstance(todos_regs, list) else set()
-          pedidos_base_rows = _get("pedidos_base", "select=numero")
-          if isinstance(pedidos_base_rows, list):
-              for p in pedidos_base_rows:
-                  if p["numero"] not in pedidos_com_reg:
-                      _patch("pedidos_base", f"numero=eq.{p['numero']}", {"status": "aberto"})
+        def limpar_dia(data_str):
+            rows = _get("registros", f"select=id&data=like.{data_str}%25")
+            if isinstance(rows, list):
+                for r in rows:
+                    _delete("registros", f"id=eq.{r['id']}")
+            limpar_sessoes_ativas()
+            todos_regs = _get("registros", "select=pedido")
+            pedidos_com_reg = {r["pedido"] for r in todos_regs} if isinstance(todos_regs, list) else set()
+            pedidos_base_rows = _get("pedidos_base", "select=numero")
+            if isinstance(pedidos_base_rows, list):
+                for p in pedidos_base_rows:
+                    if p["numero"] not in pedidos_com_reg:
+                        _patch("pedidos_base", f"numero=eq.{p['numero']}", {"status": "aberto"})
 
-      st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-      if "confirm_limpar_dia" not in st.session_state:
-          st.session_state.confirm_limpar_dia = False
+        if "confirm_limpar_dia" not in st.session_state:
+            st.session_state.confirm_limpar_dia = False
 
-      if st.session_state.confirm_limpar_dia:
-          import streamlit.components.v1 as _cv1t
-          _cv1t.html(f"""<!DOCTYPE html><html><head>
-          <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
-          </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;padding:0;">
-          <div style="background:#FEF2F2;border:2px solid #FCA5A5;border-radius:14px;
-                      padding:16px 20px;text-align:center;">
-            <div style="font-size:22px;margin-bottom:6px;">⚠️</div>
-            <div style="font-size:14px;font-weight:800;color:#991B1B;margin-bottom:4px;">
-              Apagar todos os registros de {hoje_str}?</div>
-            <div style="font-size:12px;color:#B91C1C;font-weight:600;">
-              Esta ação remove todos os registros e sessões do dia de hoje.<br>
-              Ideal para reiniciar os testes. <strong>Não pode ser desfeita.</strong>
-            </div>
-          </div></body></html>""", height=130, scrolling=False)
-          st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-          st.markdown("""
-          <style>
-          .btn-confirm-del > button {
-              background: linear-gradient(135deg,#DC2626,#991B1B) !important;
-              color:#fff !important; border:none !important;
-              border-radius:10px !important; height:48px !important;
-              font-size:13px !important; font-weight:800 !important;
-              box-shadow: 0 4px 0 rgba(100,10,10,0.40) !important;
-          }
-          .btn-confirm-del > button:hover { transform:translateY(-1px) !important; }
-          .btn-voltar > button { height:48px !important; }
-          </style>""", unsafe_allow_html=True)
-          ca, cb = st.columns(2)
-          with ca:
-              st.markdown('<div class="btn-confirm-del">', unsafe_allow_html=True)
-              if st.button("✓ Sim, apagar tudo de hoje", use_container_width=True, key="confirmar_del_dia"):
-                  limpar_dia(hoje_str)
-                  st.session_state.confirm_limpar_dia = False
-                  st.toast(f"✅ Todos os registros de {hoje_str} foram apagados!", icon="🧹")
-                  st.rerun()
-              st.markdown('</div>', unsafe_allow_html=True)
-          with cb:
-              st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
-              if st.button("✕ Cancelar", use_container_width=True, key="cancelar_del_dia"):
-                  st.session_state.confirm_limpar_dia = False
-                  st.rerun()
-              st.markdown('</div>', unsafe_allow_html=True)
+        if st.session_state.confirm_limpar_dia:
+            import streamlit.components.v1 as _cv1t
+            _cv1t.html(f"""<!DOCTYPE html><html><head>
+            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+            </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;padding:0;">
+            <div style="background:#FEF2F2;border:2px solid #FCA5A5;border-radius:14px;
+                        padding:16px 20px;text-align:center;">
+              <div style="font-size:22px;margin-bottom:6px;">⚠️</div>
+              <div style="font-size:14px;font-weight:800;color:#991B1B;margin-bottom:4px;">
+                Apagar todos os registros de {hoje_str}?</div>
+              <div style="font-size:12px;color:#B91C1C;font-weight:600;">
+                Esta ação remove todos os registros e sessões do dia de hoje.<br>
+                Ideal para reiniciar os testes. <strong>Não pode ser desfeita.</strong>
+              </div>
+            </div></body></html>""", height=130, scrolling=False)
+            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+            st.markdown("""
+            <style>
+            .btn-confirm-del > button {
+                background: linear-gradient(135deg,#DC2626,#991B1B) !important;
+                color:#fff !important; border:none !important;
+                border-radius:10px !important; height:48px !important;
+                font-size:13px !important; font-weight:800 !important;
+                box-shadow: 0 4px 0 rgba(100,10,10,0.40) !important;
+            }
+            .btn-confirm-del > button:hover { transform:translateY(-1px) !important; }
+            .btn-voltar > button { height:48px !important; }
+            </style>""", unsafe_allow_html=True)
+            ca, cb = st.columns(2)
+            with ca:
+                st.markdown('<div class="btn-confirm-del">', unsafe_allow_html=True)
+                if st.button("✓ Sim, apagar tudo de hoje", use_container_width=True, key="confirmar_del_dia"):
+                    limpar_dia(hoje_str)
+                    st.session_state.confirm_limpar_dia = False
+                    st.toast(f"✅ Todos os registros de {hoje_str} foram apagados!", icon="🧹")
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            with cb:
+                st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+                if st.button("✕ Cancelar", use_container_width=True, key="cancelar_del_dia"):
+                    st.session_state.confirm_limpar_dia = False
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
 
-      tag_html = {
-          0: '<span style="background:#EBF0FB;color:#3B5EC6;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;">Separação</span>',
-          1: '<span style="background:#E8F2EC;color:#4A7C59;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;">Embalagem</span>',
-          2: '<span style="background:#FBF2E6;color:#C47B2A;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;">Conferência</span>',
-      }
+        tag_html = {
+            0: '<span style="background:#EBF0FB;color:#3B5EC6;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;">Separação</span>',
+            1: '<span style="background:#E8F2EC;color:#4A7C59;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;">Embalagem</span>',
+            2: '<span style="background:#FBF2E6;color:#C47B2A;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;">Conferência</span>',
+        }
 
-      if regs_para_tabela:
-          hist_rows = ""
-          for r in regs_para_tabela[:80]:
-              fim_str    = r[6] if r[6] else "—"
-              inicio_str = r[7] if r[7] else "—"
-              qtd_str    = str(r[8]) if r[8] is not None else "—"
-              hist_rows += f"""<tr>
-                <td style="padding:11px 16px;font-family:monospace;font-size:12px;font-weight:700;color:#1A1714;">{r[1]}</td>
-                <td style="padding:11px 10px;font-size:13px;font-weight:700;color:#1A1714;">{r[2]}</td>
-                <td style="padding:11px 10px;">{tag_html.get(r[4], r[3])}</td>
-                <td style="padding:11px 10px;font-family:monospace;font-size:12px;font-weight:700;color:#4A7C59;text-align:center;">{fmt(r[5])}</td>
-                <td style="padding:11px 10px;font-size:11px;font-weight:700;color:#3B5EC6;text-align:center;">{qtd_str}</td>
-                <td style="padding:11px 10px;font-size:11px;color:#9C9490;text-align:center;">{inicio_str}</td>
-                <td style="padding:11px 10px;font-size:11px;color:#9C9490;text-align:center;">{fim_str}</td>
-              </tr>"""
-      st.markdown("<br>", unsafe_allow_html=True)
+        if regs_para_tabela:
+            hist_rows = ""
+            for r in regs_para_tabela[:80]:
+                fim_str    = r[6] if r[6] else "—"
+                inicio_str = r[7] if r[7] else "—"
+                qtd_str    = str(r[8]) if r[8] is not None else "—"
+                hist_rows += f"""<tr>
+                  <td style="padding:11px 16px;font-family:monospace;font-size:12px;font-weight:700;color:#1A1714;">{r[1]}</td>
+                  <td style="padding:11px 10px;font-size:13px;font-weight:700;color:#1A1714;">{r[2]}</td>
+                  <td style="padding:11px 10px;">{tag_html.get(r[4], r[3])}</td>
+                  <td style="padding:11px 10px;font-family:monospace;font-size:12px;font-weight:700;color:#4A7C59;text-align:center;">{fmt(r[5])}</td>
+                  <td style="padding:11px 10px;font-size:11px;font-weight:700;color:#3B5EC6;text-align:center;">{qtd_str}</td>
+                  <td style="padding:11px 10px;font-size:11px;color:#9C9490;text-align:center;">{inicio_str}</td>
+                  <td style="padding:11px 10px;font-size:11px;color:#9C9490;text-align:center;">{fim_str}</td>
+                </tr>"""
+        st.markdown("<br>", unsafe_allow_html=True)
 
-      if regs:
-          st.markdown("""
-          <style>
-          .btn-pdf > button { background:linear-gradient(135deg,#C8566A,#9E3F52) !important; color:#fff !important; border:none !important;
-              box-shadow:0 5px 0 rgba(100,20,35,0.40),0 8px 20px rgba(200,86,106,0.28) !important; font-weight:800 !important; height:54px !important; }
-          .btn-pdf > button:hover { transform:translateY(-2px) !important; }
-          .btn-xml > button { background:linear-gradient(135deg,#3B5EC6,#2a469e) !important; color:#fff !important; border:none !important;
-              box-shadow:0 5px 0 rgba(20,30,100,0.40),0 8px 20px rgba(59,94,198,0.28) !important; font-weight:800 !important; height:54px !important; }
-          .btn-xml > button:hover { transform:translateY(-2px) !important; }
-          </style>
-          """, unsafe_allow_html=True)
+        if regs:
+            st.markdown("""
+            <style>
+            .btn-pdf > button { background:linear-gradient(135deg,#C8566A,#9E3F52) !important; color:#fff !important; border:none !important;
+                box-shadow:0 5px 0 rgba(100,20,35,0.40),0 8px 20px rgba(200,86,106,0.28) !important; font-weight:800 !important; height:54px !important; }
+            .btn-pdf > button:hover { transform:translateY(-2px) !important; }
+            .btn-xml > button { background:linear-gradient(135deg,#3B5EC6,#2a469e) !important; color:#fff !important; border:none !important;
+                box-shadow:0 5px 0 rgba(20,30,100,0.40),0 8px 20px rgba(59,94,198,0.28) !important; font-weight:800 !important; height:54px !important; }
+            .btn-xml > button:hover { transform:translateY(-2px) !important; }
+            </style>
+            """, unsafe_allow_html=True)
 
-          ts = now_br().strftime("%Y%m%d_%H%M")
+            ts = now_br().strftime("%Y%m%d_%H%M")
 
-          buf_csv = io.StringIO()
-          csv.writer(buf_csv).writerows(
-              [["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data Fim","Início","Qtd Peças"]] + list(regs))
+            buf_csv = io.StringIO()
+            csv.writer(buf_csv).writerows(
+                [["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data Fim","Início","Qtd Peças"]] + list(regs))
 
-          pdf_bytes = gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg)
+            pdf_bytes = gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg)
 
-          df_xls = pd.DataFrame(list(regs), columns=["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data Fim","Início","Qtd Peças"])
-          buf_xls = io.BytesIO()
-          with pd.ExcelWriter(buf_xls, engine="openpyxl") as writer:
-              df_xls.to_excel(writer, index=False, sheet_name="Producao")
-          buf_xls.seek(0)
-          xls_bytes = buf_xls.read()
+            df_xls = pd.DataFrame(list(regs), columns=["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data Fim","Início","Qtd Peças"])
+            buf_xls = io.BytesIO()
+            with pd.ExcelWriter(buf_xls, engine="openpyxl") as writer:
+                df_xls.to_excel(writer, index=False, sheet_name="Producao")
+            buf_xls.seek(0)
+            xls_bytes = buf_xls.read()
 
-          c1, c2, c3 = st.columns(3)
-          with c1:
-              st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
-              st.download_button("⬇  Exportar CSV", data=buf_csv.getvalue().encode(),
-                  file_name=f"vi_producao_{ts}.csv", mime="text/csv", use_container_width=True)
-              st.markdown('</div>', unsafe_allow_html=True)
-          with c2:
-              st.markdown('<div class="btn-xml">', unsafe_allow_html=True)
-              st.download_button("📊  Exportar XLS", data=xls_bytes,
-                  file_name=f"vi_producao_{ts}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
-              st.markdown('</div>', unsafe_allow_html=True)
-          with c3:
-              st.markdown('<div class="btn-pdf">', unsafe_allow_html=True)
-              st.download_button("📄  Exportar PDF", data=pdf_bytes,
-                  file_name=f"vi_relatorio_{ts}.pdf", mime="application/pdf", use_container_width=True)
-              st.markdown('</div>', unsafe_allow_html=True)
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+                st.download_button("⬇  Exportar CSV", data=buf_csv.getvalue().encode(),
+                    file_name=f"vi_producao_{ts}.csv", mime="text/csv", use_container_width=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+            with c2:
+                st.markdown('<div class="btn-xml">', unsafe_allow_html=True)
+                st.download_button("📊  Exportar XLS", data=xls_bytes,
+                    file_name=f"vi_producao_{ts}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+            with c3:
+                st.markdown('<div class="btn-pdf">', unsafe_allow_html=True)
+                st.download_button("📄  Exportar PDF", data=pdf_bytes,
+                    file_name=f"vi_relatorio_{ts}.pdf", mime="application/pdf", use_container_width=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 
 
 
-    # ════════════════════════════════════════════════════════════════════
-    #  ABA 2 — FERRAMENTAS
-    # ════════════════════════════════════════════════════════════════════
+      # ════════════════════════════════════════════════════════════════════
+      #  ABA 2 — FERRAMENTAS
+      # ════════════════════════════════════════════════════════════════════
     with _aba_tools:
         st.markdown("""
         <div style="background:#F0F5FF;border:1.5px solid #3B7DD8;border-radius:12px;
