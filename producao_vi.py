@@ -2846,7 +2846,7 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg):
     return buf.getvalue()
 
 
-def _tela_admin_v2():
+def _tela_admin_v3():
     render_logo()
 
     c1, c2 = st.columns([3, 1])
@@ -2933,14 +2933,12 @@ def _tela_admin_v2():
         expanded=n_and > 0
     ):
         if not sessoes_agora:
-            components.html("""
-            <!DOCTYPE html><html><body style="background:transparent;font-family:sans-serif;">
-            <div style="background:#F0F7F3;border:1.5px solid #4A7C59;border-radius:12px;
+            st.markdown("""<div style="background:#F0F7F3;border:1.5px solid #4A7C59;border-radius:12px;
                         padding:20px;text-align:center;">
                 <div style="font-size:26px;margin-bottom:6px;">✅</div>
                 <div style="font-size:13px;font-weight:700;color:#2d5a3d;">
                     Nenhuma operação em andamento no momento.</div>
-            </div></body></html>""", height=96, scrolling=False)
+            </div>""", unsafe_allow_html=True)
         else:
             ETAPA_COR  = ["#C8566A",  "#3B7DD8",  "#4A7C59"]
             ETAPA_BG   = ["#FFF0F2",  "#F0F5FF",  "#F0F7F3"]
@@ -2972,27 +2970,7 @@ def _tela_admin_v2():
                 </tr>"""
 
             altura = 52 + n_and * 47
-            components.html(f"""<!DOCTYPE html><html><head>
-            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
-            <style>
-            *{{margin:0;padding:0;box-sizing:border-box;}}
-            body{{background:transparent;font-family:Nunito,sans-serif;}}
-            .wrap{{background:#fff;border-radius:14px;border:1.5px solid #EDE9E4;
-                   overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-            table{{width:100%;border-collapse:collapse;}}
-            thead tr{{background:#1A1714;}}
-            th{{padding:11px 14px;font-size:9px;font-weight:800;letter-spacing:1.8px;
-               text-transform:uppercase;color:rgba(255,255,255,0.40);white-space:nowrap;}}
-            th.td-c{{text-align:center;}}
-            .td-ped{{padding:12px 14px;font-family:monospace;font-size:13px;
-                    font-weight:800;color:#1A1714;white-space:nowrap;}}
-            .td-op{{padding:12px 10px;font-size:13px;font-weight:700;color:#1A1714;}}
-            .td-c{{padding:12px 10px;text-align:center;}}
-            tbody tr{{border-bottom:1px solid #F2EEE9;}}
-            tbody tr:last-child{{border-bottom:none;}}
-            tbody tr:hover td{{background:#FDFAF9;}}
-            </style></head><body>
-            <div class="wrap">
+            st.markdown(f"""<div class="wrap">
               <table>
                 <thead><tr>
                   <th>Pedido</th>
@@ -3002,8 +2980,7 @@ def _tela_admin_v2():
                 </tr></thead>
                 <tbody>{linhas_html}</tbody>
               </table>
-            </div>
-            </body></html>""", height=min(altura, 420), scrolling=altura > 420)
+            </div>""", unsafe_allow_html=True)
 
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
@@ -3048,13 +3025,12 @@ def _tela_admin_v2():
             cli_r  = info_r.get("cliente", "")
 
             if base_r == "nao_encontrado":
-                components.html(f"""<!DOCTYPE html><html><body style="background:transparent;font-family:sans-serif;">
-                <div style="background:#FFFBEB;border:2px solid #F59E0B;border-radius:12px;
+                st.markdown(f"""<div style="background:#FFFBEB;border:2px solid #F59E0B;border-radius:12px;
                             padding:14px 20px;text-align:center;margin-top:8px;">
                   <div style="font-size:20px;margin-bottom:4px;">❓</div>
                   <div style="font-size:13px;font-weight:800;color:#92400E;">
                     Pedido <span style="font-family:monospace;">#{num_r}</span> não encontrado.</div>
-                </div></body></html>""", height=86, scrolling=False)
+                </div>""", unsafe_allow_html=True)
             else:
                 # Monta linha do stepper para cada etapa
                 ETAPA_ICON  = ["📦", "🗃️", "✅"]
@@ -3196,10 +3172,7 @@ def _tela_admin_v2():
                     </div>"""
 
                 h_card = 80 + 90 + len(etapas_r) * 62 + (40 if sess_ativa else 0)
-                components.html(f"""<!DOCTYPE html><html><head>
-                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
-                </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
-                <div style="background:#fff;border:1.5px solid #EDE9E4;border-radius:16px;
+                st.markdown(f"""<div style="background:#fff;border:1.5px solid #EDE9E4;border-radius:16px;
                             padding:16px 18px;box-shadow:0 2px 12px rgba(0,0,0,0.05);margin-top:8px;">
                   <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
                     <span style="font-family:'DM Mono',monospace;font-size:18px;font-weight:800;
@@ -3213,7 +3186,7 @@ def _tela_admin_v2():
                   {dados_ped_html}
                   {andamento_html}
                   {etapas_html}
-                </div></body></html>""", height=h_card + 52, scrolling=False)
+                </div>""", unsafe_allow_html=True)
 
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
@@ -3222,14 +3195,11 @@ def _tela_admin_v2():
     # ══════════════════════════════════════════════════════════════════
     with st.expander("↩️ Voltar Etapa do Pedido", expanded=False):
 
-        components.html("""<!DOCTYPE html><html><head>
-        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
-        </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
-        <div style="background:#F0F5FF;border:1.5px solid #3B7DD8;border-radius:10px;
+        st.markdown("""<div style="background:#F0F5FF;border:1.5px solid #3B7DD8;border-radius:10px;
                     padding:11px 16px;font-size:12px;font-weight:700;color:#1e3a6e;">
             ↩️ Apaga o registro da <strong>última etapa concluída</strong> do pedido,
             voltando-o para a etapa anterior. O operador original é mantido.
-        </div></body></html>""", height=56, scrolling=False)
+        </div>""", unsafe_allow_html=True)
 
         st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
@@ -3266,28 +3236,24 @@ def _tela_admin_v2():
             vep_etps = vep_info.get("etapas", [])
 
             if vep_base == "nao_encontrado":
-                components.html(f"""<!DOCTYPE html><html><body style="background:transparent;font-family:sans-serif;">
-                <div style="background:#FFFBEB;border:2px solid #F59E0B;border-radius:12px;
+                st.markdown(f"""<div style="background:#FFFBEB;border:2px solid #F59E0B;border-radius:12px;
                             padding:14px 20px;text-align:center;margin-top:8px;">
                   <div style="font-size:20px;margin-bottom:4px;">❓</div>
                   <div style="font-size:13px;font-weight:800;color:#92400E;">
                     Pedido <span style="font-family:monospace;">#{vep_num}</span> não encontrado.</div>
-                </div></body></html>""", height=90, scrolling=False)
+                </div>""", unsafe_allow_html=True)
             else:
                 # Última etapa concluída
                 etps_feitas = [e for e in vep_etps if e.get("feita")]
 
                 if not etps_feitas:
-                    components.html(f"""<!DOCTYPE html><html><head>
-                    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
-                    </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
-                    <div style="background:#F5F5F5;border:1.5px solid #D1D5DB;border-radius:12px;
+                    st.markdown(f"""<div style="background:#F5F5F5;border:1.5px solid #D1D5DB;border-radius:12px;
                                 padding:16px 20px;text-align:center;margin-top:8px;">
                       <div style="font-size:20px;margin-bottom:4px;">○</div>
                       <div style="font-size:13px;font-weight:800;color:#6B7280;">
                         Pedido <span style="font-family:monospace;">#{vep_num}</span>
                         não tem nenhuma etapa concluída para voltar.</div>
-                    </div></body></html>""", height=90, scrolling=False)
+                    </div>""", unsafe_allow_html=True)
                 else:
                     ultima = etps_feitas[-1]
                     ult_idx = ultima["idx"]
@@ -3336,10 +3302,7 @@ def _tela_admin_v2():
                                 f'</div>'
                             )
 
-                    components.html(f"""<!DOCTYPE html><html><head>
-                    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
-                    </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
-                    <div style="background:#fff;border:1.5px solid #EDE9E4;border-radius:14px;
+                    st.markdown(f"""<div style="background:#fff;border:1.5px solid #EDE9E4;border-radius:14px;
                                 padding:14px 18px;box-shadow:0 2px 10px rgba(0,0,0,0.05);margin-top:6px;">
                       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
                         <span style="font-family:monospace;font-size:17px;font-weight:900;color:#1A1714;">#{vep_num}</span>
@@ -3349,7 +3312,7 @@ def _tela_admin_v2():
                       <div style="display:flex;flex-direction:column;gap:6px;">
                         {etapas_html}
                       </div>
-                    </div></body></html>""", height=80 + len(vep_etps) * 58, scrolling=False)
+                    </div>""", unsafe_allow_html=True)
 
                     st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
@@ -3361,10 +3324,7 @@ def _tela_admin_v2():
                             st.session_state.vep_confirm = True
                             st.rerun()
                     else:
-                        components.html(f"""<!DOCTYPE html><html><head>
-                        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
-                        </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
-                        <div style="background:#FEF2F2;border:2px solid #F87171;border-radius:12px;
+                        st.markdown(f"""<div style="background:#FEF2F2;border:2px solid #F87171;border-radius:12px;
                                     padding:12px 18px;text-align:center;">
                           <div style="font-size:13px;font-weight:800;color:#991B1B;margin-bottom:4px;">
                             Confirmar remoção da etapa?</div>
@@ -3372,7 +3332,7 @@ def _tela_admin_v2():
                             <span style="font-family:monospace;">#{vep_num}</span>
                             &nbsp;·&nbsp; {ult_lbl} &nbsp;·&nbsp; por {ult_op}
                           </div>
-                        </div></body></html>""", height=78, scrolling=False)
+                        </div>""", unsafe_allow_html=True)
 
                         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
                         st.markdown("""
@@ -3416,14 +3376,11 @@ def _tela_admin_v2():
     # ── Expander: Zerar Pedido ───────────────────────────────────────────────
     with st.expander("🔄 Zerar Pedido (Voltar à Estaca Zero)", expanded=False):
 
-        components.html("""<!DOCTYPE html><html><head>
-        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
-        </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
-        <div style="background:#FEF2F2;border:1.5px solid #FCA5A5;border-radius:10px;
+        st.markdown("""<div style="background:#FEF2F2;border:1.5px solid #FCA5A5;border-radius:10px;
                     padding:11px 16px;font-size:12px;font-weight:700;color:#991B1B;">
             ⚠️ Esta ação <strong>apaga todos os registros e sessões</strong> do pedido no Sistema B.
             O pedido voltará ao estado inicial — como se nunca tivesse sido trabalhado.
-        </div></body></html>""", height=58, scrolling=False)
+        </div>""", unsafe_allow_html=True)
 
         st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
@@ -3463,13 +3420,12 @@ def _tela_admin_v2():
             zer_etps = zer_info.get("etapas", [])
 
             if zer_base == "nao_encontrado":
-                components.html(f"""<!DOCTYPE html><html><body style="background:transparent;font-family:sans-serif;">
-                <div style="background:#FFFBEB;border:2px solid #F59E0B;border-radius:12px;
+                st.markdown(f"""<div style="background:#FFFBEB;border:2px solid #F59E0B;border-radius:12px;
                             padding:14px 20px;text-align:center;margin-top:8px;">
                   <div style="font-size:20px;margin-bottom:4px;">❓</div>
                   <div style="font-size:13px;font-weight:800;color:#92400E;">
                     Pedido <span style="font-family:monospace;">#{zer_num}</span> não encontrado.</div>
-                </div></body></html>""", height=90, scrolling=False)
+                </div>""", unsafe_allow_html=True)
             else:
                 # Conta etapas feitas
                 etps_feitas  = [e for e in zer_etps if e.get("feita")]
@@ -3492,10 +3448,7 @@ def _tela_admin_v2():
                 bg_st  = "#F0F7F3" if zer_base == "aberto" else "#FFF0F2"
                 lbl_st = "Aberto"  if zer_base == "aberto" else "Concluído"
 
-                components.html(f"""<!DOCTYPE html><html><head>
-                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
-                </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
-                <div style="background:#fff;border:1.5px solid #EDE9E4;border-radius:14px;
+                st.markdown(f"""<div style="background:#fff;border:1.5px solid #EDE9E4;border-radius:14px;
                             padding:14px 20px;box-shadow:0 2px 10px rgba(0,0,0,0.05);margin-top:8px;">
                   <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
                     <span style="font-family:monospace;font-size:18px;font-weight:800;color:#1A1714;">#{zer_num}</span>
@@ -3515,7 +3468,7 @@ def _tela_admin_v2():
                     {"e <strong>" + str(n_and) + " sessão(ões) ativa(s)</strong>" if n_and else ""}.
                     Status voltará para <strong>Aberto</strong>.
                   </div>
-                </div></body></html>""", height=148, scrolling=False)
+                </div>""", unsafe_allow_html=True)
 
                 st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
@@ -3524,10 +3477,7 @@ def _tela_admin_v2():
                         st.session_state.zer_confirm = True
                         st.rerun()
                 else:
-                    components.html(f"""<!DOCTYPE html><html><head>
-                    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
-                    </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
-                    <div style="background:#FEF2F2;border:2px solid #F87171;border-radius:12px;
+                    st.markdown(f"""<div style="background:#FEF2F2;border:2px solid #F87171;border-radius:12px;
                                 padding:13px 20px;text-align:center;">
                       <div style="font-size:13px;font-weight:800;color:#991B1B;margin-bottom:3px;">
                         Tem certeza? Esta ação não pode ser desfeita.</div>
@@ -3535,7 +3485,7 @@ def _tela_admin_v2():
                         Todos os registros do pedido <span style="font-family:monospace;">#{zer_num}</span>
                         serão apagados do Sistema B.
                       </div>
-                    </div></body></html>""", height=80, scrolling=False)
+                    </div>""", unsafe_allow_html=True)
 
                     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
                     st.markdown("""
@@ -3640,13 +3590,12 @@ def _tela_admin_v2():
 
         else:
             # ── ABAS: XLSX | Manual ───────────────────────────────────
-            _modo_add = st.radio("_modo_", ["📂 Importar XLSX", "✏️ Cadastro Manual"],
-              horizontal=True, label_visibility="collapsed", key="modo_add_k")
+            aba_xlsx, aba_manual = st.tabs(["📂 Importar XLSX", "✏️ Cadastro Manual"])
 
             # ════════════════════════════════════════════════
-            #  MODO 1 — IMPORTAR XLSX
+            #  ABA 1 — IMPORTAR XLSX
             # ════════════════════════════════════════════════
-            if _modo_add == "📂 Importar XLSX":
+            with aba_xlsx:
                 st.markdown("""
                 <div style="background:#F0F5FF;border:1.5px solid #3B7DD8;border-radius:10px;
                             padding:10px 14px;margin-bottom:12px;font-size:12px;font-weight:700;color:#1e3a8a;">
@@ -3783,9 +3732,9 @@ def _tela_admin_v2():
                     st.markdown('</div>', unsafe_allow_html=True)
 
             # ════════════════════════════════════════════════
-            #  MODO 2 — CADASTRO MANUAL
+            #  ABA 2 — CADASTRO MANUAL
             # ════════════════════════════════════════════════
-            elif _modo_add == "✏️ Cadastro Manual":
+            with aba_manual:
                 st.markdown("""
                 <div style="background:#F0F5FF;border:1.5px solid #3B7DD8;border-radius:10px;
                             padding:10px 14px;margin-bottom:12px;font-size:12px;font-weight:700;color:#1e3a8a;">
@@ -3863,16 +3812,14 @@ def _tela_admin_v2():
         expanded=bool(avulsos)
     ):
         if not avulsos:
-            components.html("""
-            <!DOCTYPE html><html><body style="background:transparent;font-family:sans-serif;">
-            <div style="background:#F0F7F3;border:1.5px solid #4A7C59;border-radius:12px;
+            st.markdown("""<div style="background:#F0F7F3;border:1.5px solid #4A7C59;border-radius:12px;
                         padding:18px 20px;text-align:center;">
                 <div style="font-size:22px;margin-bottom:6px;">✅</div>
                 <div style="font-size:13px;font-weight:700;color:#2d5a3d;">
                     Nenhum pedido avulso cadastrado.</div>
                 <div style="font-size:11px;color:#4A7C59;margin-top:4px;font-weight:600;">
                     Todos os pedidos vieram da planilha do Programa A.</div>
-            </div></body></html>""", height=100, scrolling=False)
+            </div>""", unsafe_allow_html=True)
         else:
             st.markdown("""
             <div style="background:#FFFBEB;border:1.5px solid #F59E0B;border-radius:10px;
@@ -4000,7 +3947,7 @@ def _tela_admin_v2():
       <div class="card"><div class="card-icon">👕</div><div class="card-lbl">Peças Separadas</div><div class="card-num" style="color:#C47B2A;">{_pecas_sep}</div><div style="font-size:10px;color:#9C9490;margin-top:3px;">etapa separação</div><div class="card-bar" style="background:#C47B2A;"></div></div>
     </div>
     </body></html>"""
-    components.html(kpi_html, height=115, scrolling=False)
+    st.markdown(kpi_html, unsafe_allow_html=True)
 
     op_map = {}
     for r in regs:
@@ -4094,33 +4041,17 @@ def _tela_admin_v2():
             </tr>"""
 
         n_ops = len(op_map)
-        components.html(f"""
-        <!DOCTYPE html><html><head>
-        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
-        <style>
-        *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
-        .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
-        .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-        table{{width:100%;border-collapse:collapse;}} thead tr{{background:#1A1714;}}
-        th{{padding:12px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;text-align:center;}}
-        th:first-child{{text-align:left;padding-left:16px;}}
-        tbody tr{{border-bottom:1px solid #F2EEE9;transition:background .15s;}}
-        tbody tr:last-child{{border-bottom:none;}} tbody tr:hover{{background:#FDFAF9;}}
-        </style></head><body>
-        <div class="lbl">🏆 Ranking{" · " + filtro_data if filtro_data != "Todos os dias" else ""}</div>
+        st.markdown(f"""<div class="lbl">🏆 Ranking{" · " + filtro_data if filtro_data != "Todos os dias" else ""}</div>
         <div class="wrap"><table><thead><tr>
           <th style="color:rgba(255,255,255,0.45);text-align:left;padding-left:16px;">Operador</th>
           <th style="color:rgba(255,255,255,0.45);">Pedidos</th>
           <th style="color:#7B9FE0;">Tempo Médio</th>
           <th style="color:#fff;">Tempo Total</th>
-        </tr></thead><tbody>{op_rows}</tbody></table></div>
-        </body></html>
-        """, height=56 + (n_ops * 62) + 20, scrolling=False)
+        </tr></thead><tbody>{op_rows}</tbody></table></div>""", unsafe_allow_html=True)
     else:
-        components.html("""<!DOCTYPE html><html><body style="background:transparent;font-family:sans-serif;">
-        <div style="background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;
+        st.markdown("""<div style="background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;
                     padding:40px;text-align:center;color:#9C9490;font-size:14px;font-weight:600;">
-            Nenhum registro encontrado para o filtro selecionado.</div></body></html>""", height=120, scrolling=False)
+            Nenhum registro encontrado para o filtro selecionado.</div>""", unsafe_allow_html=True)
 
     st.markdown("<br style='line-height:0.4'>", unsafe_allow_html=True)
 
@@ -4260,28 +4191,13 @@ def _tela_admin_v2():
         n_hist = min(len(regs_para_tabela), 80)
         hist_height = 56 + (n_hist * 46) + 20
 
-        components.html(f"""
-        <!DOCTYPE html><html><head>
-        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
-        <style>
-        *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
-        .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
-        .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-        table{{width:100%;border-collapse:collapse;}} thead tr{{background:#1A1714;}}
-        th{{padding:12px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-align:center;}}
-        th:first-child{{text-align:left;padding-left:16px;}} th:nth-child(2){{text-align:left;}}
-        tbody tr{{border-bottom:1px solid #F2EEE9;}} tbody tr:last-child{{border-bottom:none;}}
-        tbody tr:hover{{background:#FDFAF9;}}
-        </style></head><body>
-        <div class="lbl">Histórico de Pedidos</div>
+        st.markdown(f"""<div class="lbl">Histórico de Pedidos</div>
         <div class="wrap"><table><thead><tr>
           <th>Pedido</th><th>Operador</th><th>Etapa</th><th>Tempo</th>
           <th style="color:#7B9FE0;">Qtd Peças</th>
           <th style="color:#A0C8E0;">Início</th>
           <th style="color:#A0C8E0;">Fim</th>
-        </tr></thead><tbody>{hist_rows}</tbody></table></div>
-        </body></html>
-        """, height=min(hist_height, 600), scrolling=hist_height > 600)
+        </tr></thead><tbody>{hist_rows}</tbody></table></div>""", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -4715,5 +4631,5 @@ def tela_operacoes():
     "producao":    tela_producao,
     "operacoes":   tela_operacoes,
     "admin_login": tela_admin_login,
-    "admin":       _tela_admin_v2,
+    "admin":       _tela_admin_v3,
 }.get(st.session_state.tela, tela_home)()
