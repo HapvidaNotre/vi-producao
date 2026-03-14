@@ -2755,22 +2755,30 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg):
     if op_map:
         story.append(Paragraph("DESEMPENHO POR OPERADOR", S_SECTION))
         op_header = [
-            Paragraph("<b>OPERADOR</b>",    ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO)),
-            Paragraph("<b>PEDIDOS</b>",     ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
-            Paragraph("<b>SEPARAÇÃO</b>",   ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
-            Paragraph("<b>CONFERÊNCIA</b>", ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
-            Paragraph("<b>EMBALAGEM</b>",   ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>OPERADOR</b>",      ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO)),
+            Paragraph("<b>PEDIDOS</b>",        ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>PEÇAS</b>",          ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>TEMPO TOTAL</b>",    ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>TEMPO MÉDIO</b>",    ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>EFICIÊNCIA</b>",     ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
         ]
-        op_rows = [op_header]
-        for i, (op, d) in enumerate(op_map.items()):
-            op_rows.append([
+        op_rows_pdf = [op_header]
+        for i, (op, d) in enumerate(sorted(op_map.items(), key=lambda x: x[1]["pecas"], reverse=True)):
+            n_ped    = len(d["p"])
+            t_total  = d["tempo_total"]
+            t_medio  = media(d["tempos"])
+            pcs      = d["pecas"]
+            h_trab   = t_total / 3600 if t_total > 0 else 0
+            efic_str = f"{round(pcs/h_trab,1)} pcs/h" if h_trab > 0 and pcs > 0 else "—"
+            op_rows_pdf.append([
                 Paragraph(f"<b>{op}</b>", ParagraphStyle("o", fontName="Helvetica-Bold", fontSize=9, textColor=ESCURO)),
-                Paragraph(str(len(d["p"])), ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
-                Paragraph(fmt(media(d["sep"]))  if d["sep"]  else "—", ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
-                Paragraph(fmt(media(d["conf"])) if d["conf"] else "—", ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
-                Paragraph(fmt(media(d["emb"]))  if d["emb"]  else "—", ParagraphStyle("c", fontSize=9, textColor=VERDE,  alignment=TA_CENTER, fontName="Helvetica-Bold")),
+                Paragraph(str(n_ped),     ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
+                Paragraph(str(pcs),       ParagraphStyle("c", fontSize=9, textColor=VERDE,  alignment=TA_CENTER, fontName="Helvetica-Bold")),
+                Paragraph(fmt(t_total),   ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
+                Paragraph(fmt(t_medio),   ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
+                Paragraph(efic_str,       ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
             ])
-        op_tbl = Table(op_rows, colWidths=["30%","14%","18%","20%","18%"])
+        op_tbl = Table(op_rows_pdf, colWidths=["28%","12%","12%","16%","16%","16%"])
         op_tbl.setStyle(TableStyle([
             ("BACKGROUND",    (0,0), (-1,0), ROSA),
             ("ROWBACKGROUNDS",(0,1), (-1,-1), [CLARO, BRANCO]),
@@ -3918,7 +3926,7 @@ def tela_admin():
     ped_comp = list({r[1] for r in regs if r[4] == 2})
     ops_ativ = list({r[2] for r in regs})
     avg      = media([r[5] for r in regs]) // 60 if regs else 0
-    total_r  = len(regs)
+    total_pecas_geral = sum(r[8] for r in regs if r[8] is not None)
 
     kpi_html = f"""
     <!DOCTYPE html><html><head>
@@ -3938,7 +3946,7 @@ def tela_admin():
       <div class="card"><div class="card-icon">📦</div><div class="card-lbl">Pedidos Concluídos</div><div class="card-num" style="color:#C8566A;">{len(ped_comp)}</div><div class="card-bar" style="background:#C8566A;"></div></div>
       <div class="card"><div class="card-icon">👥</div><div class="card-lbl">Operadores Ativos</div><div class="card-num" style="color:#4A7C59;">{len(ops_ativ)}</div><div class="card-bar" style="background:#4A7C59;"></div></div>
       <div class="card"><div class="card-icon">⏱</div><div class="card-lbl">Tempo Médio</div><div class="card-num" style="color:#3B5EC6;">{avg}m</div><div class="card-bar" style="background:#3B5EC6;"></div></div>
-      <div class="card"><div class="card-icon">📊</div><div class="card-lbl">Total Registros</div><div class="card-num" style="color:#C47B2A;">{total_r}</div><div class="card-bar" style="background:#C47B2A;"></div></div>
+      <div class="card"><div class="card-icon">👕</div><div class="card-lbl">Peças Separadas</div><div class="card-num" style="color:#C47B2A;">{total_pecas_geral}</div><div class="card-bar" style="background:#C47B2A;"></div></div>
     </div>
     </body></html>"""
     st.markdown(kpi_html, unsafe_allow_html=True)
@@ -3946,13 +3954,12 @@ def tela_admin():
     op_map = {}
     for r in regs:
         op = r[2]
-        if op not in op_map: op_map[op] = {"p":set(),"sep":[],"conf":[],"emb":[]}
+        if op not in op_map:
+            op_map[op] = {"p": set(), "pecas": 0, "tempo_total": 0, "tempos": []}
         op_map[op]["p"].add(r[1])
-        if r[4]==0: op_map[op]["sep"].append(r[5])
-        if r[4]==1: op_map[op]["emb"].append(r[5])   # Mesa_Embalagem → emb
-        if r[4]==2: op_map[op]["conf"].append(r[5])  # Conferencia → conf
-
-    st.markdown("<br style='line-height:0.3'>", unsafe_allow_html=True)
+        op_map[op]["tempo_total"] += int(r[5] or 0)
+        op_map[op]["tempos"].append(int(r[5] or 0))
+        op_map[op]["pecas"] += int(r[8] or 0)
 
     todas_datas_regs = sorted({
         r[6].split(" ")[0] for r in regs if r[6] and " " in str(r[6])
@@ -3997,41 +4004,54 @@ def tela_admin():
     op_map = {}
     for r in regs_filtrados:
         op = r[2]
-        if op not in op_map: op_map[op] = {"p":set(),"sep":[],"conf":[],"emb":[]}
+        if op not in op_map:
+            op_map[op] = {"p": set(), "pecas": 0, "tempo_total": 0, "tempos": []}
         op_map[op]["p"].add(r[1])
-        if r[4]==0: op_map[op]["sep"].append(r[5])
-        if r[4]==1: op_map[op]["emb"].append(r[5])   # Mesa_Embalagem → emb
-        if r[4]==2: op_map[op]["conf"].append(r[5])  # Conferencia → conf
+        op_map[op]["tempo_total"] += int(r[5] or 0)
+        op_map[op]["tempos"].append(int(r[5] or 0))
+        op_map[op]["pecas"] += int(r[8] or 0)
 
     st.markdown("<br style='line-height:0.4'>", unsafe_allow_html=True)
 
     if op_map:
+        # ── Ordenar por peças desc ─────────────────────────────────────────
+        op_sorted = sorted(op_map.items(), key=lambda x: x[1]["pecas"], reverse=True)
         op_rows = ""
-        for op, d in op_map.items():
-            sep_t  = fmt(media(d["sep"]))  if d["sep"]  else "—"
-            conf_t = fmt(media(d["conf"])) if d["conf"] else "—"
-            emb_t  = fmt(media(d["emb"]))  if d["emb"]  else "—"
-            ini    = op[0].upper()
+        medals = ["🥇", "🥈", "🥉"]
+        for rank, (op, d) in enumerate(op_sorted):
+            n_pedidos   = len(d["p"])
+            total_pecas = d["pecas"]
+            tempo_total = d["tempo_total"]
+            tempo_medio = media(d["tempos"])
+            horas_trab  = tempo_total / 3600 if tempo_total > 0 else 0
+            eficiencia  = f"{round(total_pecas / horas_trab, 1)} pçs/h" if horas_trab > 0 and total_pecas > 0 else "—"
+            prod_ped    = f"{round(total_pecas / n_pedidos, 1)} pçs/ped" if n_pedidos > 0 and total_pecas > 0 else "—"
+            ini         = op[0].upper()
+            medal       = medals[rank] if rank < 3 else ""
             op_rows += f"""<tr>
-              <td style="padding:13px 16px;vertical-align:middle;">
+              <td style="padding:12px 16px;vertical-align:middle;">
                 <div style="display:flex;align-items:center;gap:10px;">
-                  <div style="width:36px;height:36px;border-radius:50%;flex-shrink:0;
+                  <div style="width:34px;height:34px;border-radius:50%;flex-shrink:0;
                        background:linear-gradient(135deg,#D9617A,#9E3F52);
                        display:flex;align-items:center;justify-content:center;
-                       font-size:15px;font-weight:900;color:#fff;">{ini}</div>
-                  <span style="font-weight:800;font-size:14px;color:#1A1714;">{op}</span>
+                       font-size:14px;font-weight:900;color:#fff;">{ini}</div>
+                  <span style="font-weight:800;font-size:13px;color:#1A1714;">{op}</span>
+                  {f'<span style="font-size:14px;margin-left:2px;">{medal}</span>' if medal else ""}
                 </div>
               </td>
-              <td style="padding:13px 10px;text-align:center;vertical-align:middle;">
-                <span style="background:#F5E8EB;color:#C8566A;font-weight:800;font-size:13px;padding:4px 14px;border-radius:100px;">{len(d["p"])}</span>
+              <td style="padding:12px 8px;text-align:center;vertical-align:middle;">
+                <span style="background:#F5E8EB;color:#C8566A;font-weight:800;font-size:13px;padding:3px 12px;border-radius:100px;">{n_pedidos}</span>
               </td>
-              <td style="padding:13px 10px;text-align:center;font-family:monospace;font-size:13px;color:#3B5EC6;font-weight:700;vertical-align:middle;">{sep_t}</td>
-              <td style="padding:13px 10px;text-align:center;font-family:monospace;font-size:13px;color:#4A7C59;font-weight:700;vertical-align:middle;">{emb_t}</td>
-              <td style="padding:13px 10px;text-align:center;font-family:monospace;font-size:13px;color:#C47B2A;font-weight:700;vertical-align:middle;">{conf_t}</td>
+              <td style="padding:12px 8px;text-align:center;font-family:monospace;font-size:13px;color:#3B5EC6;font-weight:800;vertical-align:middle;">{total_pecas}</td>
+              <td style="padding:12px 8px;text-align:center;font-family:monospace;font-size:12px;color:#4A7C59;font-weight:700;vertical-align:middle;">{fmt(tempo_total)}</td>
+              <td style="padding:12px 8px;text-align:center;font-family:monospace;font-size:12px;color:#5C5450;font-weight:700;vertical-align:middle;">{fmt(tempo_medio)}</td>
+              <td style="padding:12px 8px;text-align:center;font-size:11px;color:#C47B2A;font-weight:800;vertical-align:middle;">{eficiencia}</td>
+              <td style="padding:12px 8px;text-align:center;font-size:11px;color:#7C3AED;font-weight:700;vertical-align:middle;">{prod_ped}</td>
             </tr>"""
 
         n_ops = len(op_map)
-        op_table_height = 24 + 52 + n_ops * 47 + 16
+        op_table_height = 24 + 52 + n_ops * 52 + 16
+        lbl_op = f"Desempenho por Operador · {filtro_data}" if filtro_data != "Todos os dias" else "Desempenho por Operador"
         components.html(f"""<!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
         <style>
@@ -4039,20 +4059,105 @@ def tela_admin():
         .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
         .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
         table{{width:100%;border-collapse:collapse;}} thead tr{{background:#1A1714;}}
-        th{{padding:12px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;text-align:center;}}
+        th{{padding:11px 8px;font-size:8px;font-weight:800;letter-spacing:1.3px;text-transform:uppercase;text-align:center;}}
         th:first-child{{text-align:left;padding-left:16px;}}
         tbody tr{{border-bottom:1px solid #F2EEE9;transition:background .15s;}}
         tbody tr:last-child{{border-bottom:none;}} tbody tr:hover{{background:#FDFAF9;}}
         </style></head><body>
-        <div class="lbl">Desempenho por Operador{" · " + filtro_data if filtro_data != "Todos os dias" else ""}</div>
+        <div class="lbl">{lbl_op}</div>
         <div class="wrap"><table><thead><tr>
           <th style="color:rgba(255,255,255,0.45);">Operador</th>
           <th style="color:rgba(255,255,255,0.45);">Pedidos</th>
-          <th style="color:#7B9FE0;">Separação</th>
-          <th style="color:#7AB895;">Embalagem</th>
-          <th style="color:#D4A45A;">Conferência</th>
+          <th style="color:#7B9FE0;">Peças</th>
+          <th style="color:#7AB895;">Tempo Total</th>
+          <th style="color:rgba(255,255,255,0.35);">Tempo Médio</th>
+          <th style="color:#E5A96A;">Eficiência</th>
+          <th style="color:#C4A4F0;">Produtividade</th>
         </tr></thead><tbody>{op_rows}</tbody></table></div>
         </body></html>""", height=op_table_height, scrolling=False)
+
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+        # ── Ranking do Dia ─────────────────────────────────────────────────
+        ranking_html = ""
+        max_pcs_rank = op_sorted[0][1]["pecas"] if op_sorted else 1
+        for rank, (op, d) in enumerate(op_sorted[:5]):
+            pcs     = d["pecas"]
+            bar_pct = int(pcs / max_pcs_rank * 100) if max_pcs_rank > 0 else 0
+            medal_bg  = ["#FFD700","#C0C0C0","#CD7F32"]
+            m_color   = medal_bg[rank] if rank < 3 else "#EDE9E4"
+            m_txt     = ["🥇","🥈","🥉"][rank] if rank < 3 else f"#{rank+1}"
+            ranking_html += f"""
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+              <div style="width:32px;height:32px;border-radius:50%;background:{m_color};
+                   display:flex;align-items:center;justify-content:center;
+                   font-size:16px;flex-shrink:0;">{m_txt}</div>
+              <div style="flex:1;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                  <span style="font-size:13px;font-weight:800;color:#1A1714;">{op}</span>
+                  <span style="font-family:monospace;font-size:13px;font-weight:700;color:#3B5EC6;">{pcs} peças</span>
+                </div>
+                <div style="background:#F2EEE9;border-radius:4px;height:6px;overflow:hidden;">
+                  <div style="width:{bar_pct}%;height:100%;background:linear-gradient(90deg,#C8566A,#9E3F52);border-radius:4px;"></div>
+                </div>
+              </div>
+            </div>"""
+
+        ranking_height = 24 + min(len(op_sorted), 5) * 58 + 32
+        components.html(f"""<!DOCTYPE html><html><head>
+        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+        <style>*{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
+        .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:12px;}}
+        .card{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;padding:18px 20px;
+               box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
+        </style></head><body>
+        <div class="lbl">🏆 Ranking do Dia — Peças Produzidas</div>
+        <div class="card">{ranking_html}</div>
+        </body></html>""", height=ranking_height, scrolling=False)
+
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+        # ── Produção por Hora ──────────────────────────────────────────────
+        from collections import defaultdict
+        pecas_por_hora = defaultdict(int)
+        for r in regs_filtrados:
+            hora_str = str(r[6] or "")
+            if " " in hora_str:
+                try:
+                    hora = int(hora_str.split(" ")[1].split(":")[0])
+                    pecas_por_hora[hora] += int(r[8] or 0)
+                except Exception:
+                    pass
+
+        if pecas_por_hora:
+            horas_existentes = sorted(pecas_por_hora.keys())
+            h_min = max(min(horas_existentes) - 1, 0)
+            h_max = min(max(horas_existentes) + 1, 23)
+            horas_range = list(range(h_min, h_max + 1))
+            max_pcs_hora = max(pecas_por_hora.values()) if pecas_por_hora else 1
+            bars_html = ""
+            for h in horas_range:
+                pcs_h   = pecas_por_hora.get(h, 0)
+                bar_h   = int(pcs_h / max_pcs_hora * 110) if max_pcs_hora > 0 else 0
+                cor_bar = "#C8566A" if pcs_h == max_pcs_hora else "#3B5EC6"
+                bars_html += f"""
+                <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;min-width:28px;">
+                  <div style="font-family:monospace;font-size:10px;font-weight:700;color:#3B5EC6;min-height:16px;">{pcs_h if pcs_h > 0 else ""}</div>
+                  <div style="width:100%;max-width:36px;height:{bar_h}px;background:{cor_bar};border-radius:4px 4px 0 0;"></div>
+                  <div style="font-size:9px;font-weight:800;color:#9C9490;">{h:02d}h</div>
+                </div>"""
+            components.html(f"""<!DOCTYPE html><html><head>
+            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+            <style>*{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
+            .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:12px;}}
+            .card{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;padding:16px 20px 12px;
+                   box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
+            .bars{{display:flex;align-items:flex-end;gap:6px;height:130px;padding-top:20px;}}
+            </style></head><body>
+            <div class="lbl">📈 Produção por Hora</div>
+            <div class="card"><div class="bars">{bars_html}</div></div>
+            </body></html>""", height=180, scrolling=False)
+
     else:
         st.markdown("""<div style="background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;
                     padding:40px;text-align:center;color:#9C9490;font-size:14px;font-weight:600;">
