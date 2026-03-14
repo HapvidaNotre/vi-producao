@@ -3640,13 +3640,13 @@ def tela_admin():
 
         else:
             # ── ABAS: XLSX | Manual ───────────────────────────────────
-            _modo = st.radio("_modo_add", ["📂 Importar XLSX", "✏️ Cadastro Manual"],
-                horizontal=True, label_visibility="collapsed", key="modo_add_pedido")
+            _modo_add = st.radio("_modo_", ["📂 Importar XLSX", "✏️ Cadastro Manual"],
+              horizontal=True, label_visibility="collapsed", key="modo_add_k")
 
             # ════════════════════════════════════════════════
             #  MODO 1 — IMPORTAR XLSX
             # ════════════════════════════════════════════════
-            if _modo == "📂 Importar XLSX":
+            if _modo_add == "📂 Importar XLSX":
                 st.markdown("""
                 <div style="background:#F0F5FF;border:1.5px solid #3B7DD8;border-radius:10px;
                             padding:10px 14px;margin-bottom:12px;font-size:12px;font-weight:700;color:#1e3a8a;">
@@ -3785,7 +3785,7 @@ def tela_admin():
             # ════════════════════════════════════════════════
             #  MODO 2 — CADASTRO MANUAL
             # ════════════════════════════════════════════════
-            elif _modo == "✏️ Cadastro Manual":
+            elif _modo_add == "✏️ Cadastro Manual":
                 st.markdown("""
                 <div style="background:#F0F5FF;border:1.5px solid #3B7DD8;border-radius:10px;
                             padding:10px 14px;margin-bottom:12px;font-size:12px;font-weight:700;color:#1e3a8a;">
@@ -3989,19 +3989,18 @@ def tela_admin():
     .card{{background:#fff;border-radius:16px;padding:18px 16px 14px;
            border:1.5px solid #EDE9E4;box-shadow:0 2px 12px rgba(0,0,0,0.05);position:relative;overflow:hidden;}}
     .card-icon{{position:absolute;top:-6px;right:4px;font-size:44px;opacity:0.07;line-height:1;}}
-    .card-lbl{{font-size:9px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:#9C9490;margin-bottom:6px;}}
+    .card-lbl{{font-size:9px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:#9C9490;margin-bottom:8px;}}
     .card-num{{font-family:"DM Mono",monospace;font-size:32px;font-weight:500;letter-spacing:-1px;}}
-    .card-sub{{font-size:10px;font-weight:700;color:#9C9490;margin-top:4px;}}
-    .card-bar{{height:3px;border-radius:2px;margin-top:10px;opacity:0.3;}}
+    .card-bar{{height:3px;border-radius:2px;margin-top:12px;opacity:0.3;}}
     </style></head><body>
     <div class="grid">
-      <div class="card"><div class="card-icon">📦</div><div class="card-lbl">Finalizados Hoje</div><div class="card-num" style="color:#C8566A;">{_ped_hoje}</div><div class="card-sub">{len(ped_comp)} no período</div><div class="card-bar" style="background:#C8566A;"></div></div>
-      <div class="card"><div class="card-icon">👥</div><div class="card-lbl">Operadores Ativos</div><div class="card-num" style="color:#4A7C59;">{len(ops_ativ)}</div><div class="card-sub">{_n_agora} agora</div><div class="card-bar" style="background:#4A7C59;"></div></div>
-      <div class="card"><div class="card-icon">⏱</div><div class="card-lbl">Tempo Médio</div><div class="card-num" style="color:#3B5EC6;">{avg}m</div><div class="card-sub">por pedido/etapa</div><div class="card-bar" style="background:#3B5EC6;"></div></div>
-      <div class="card"><div class="card-icon">👕</div><div class="card-lbl">Peças Separadas</div><div class="card-num" style="color:#C47B2A;">{_pecas_sep}</div><div class="card-sub">etapa separação</div><div class="card-bar" style="background:#C47B2A;"></div></div>
+      <div class="card"><div class="card-icon">📦</div><div class="card-lbl">Finalizados Hoje</div><div class="card-num" style="color:#C8566A;">{_ped_hoje}</div><div style="font-size:10px;color:#9C9490;margin-top:3px;">{len(ped_comp)} no período</div><div class="card-bar" style="background:#C8566A;"></div></div>
+      <div class="card"><div class="card-icon">👥</div><div class="card-lbl">Operadores Ativos</div><div class="card-num" style="color:#4A7C59;">{len(ops_ativ)}</div><div style="font-size:10px;color:#9C9490;margin-top:3px;">{_n_agora} agora</div><div class="card-bar" style="background:#4A7C59;"></div></div>
+      <div class="card"><div class="card-icon">⏱</div><div class="card-lbl">Tempo Médio</div><div class="card-num" style="color:#3B5EC6;">{avg}m</div><div style="font-size:10px;color:#9C9490;margin-top:3px;">por pedido/etapa</div><div class="card-bar" style="background:#3B5EC6;"></div></div>
+      <div class="card"><div class="card-icon">👕</div><div class="card-lbl">Peças Separadas</div><div class="card-num" style="color:#C47B2A;">{_pecas_sep}</div><div style="font-size:10px;color:#9C9490;margin-top:3px;">etapa separação</div><div class="card-bar" style="background:#C47B2A;"></div></div>
     </div>
     </body></html>"""
-    components.html(kpi_html, height=120, scrolling=False)
+    components.html(kpi_html, height=115, scrolling=False)
 
     op_map = {}
     for r in regs:
@@ -4061,37 +4060,37 @@ def tela_admin():
     st.markdown("<br style='line-height:0.4'>", unsafe_allow_html=True)
 
     if op_map:
-        _medalhas  = ["🥇","🥈","🥉"]
-        _op_sorted = sorted(op_map.items(), key=lambda x: len(x[1]["p"]), reverse=True)
         op_rows = ""
-        for _ri, (op, d) in enumerate(_op_sorted):
+        _op_s = sorted(op_map.items(), key=lambda x: len(x[1]["p"]), reverse=True)
+        _meds = ["🥇","🥈","🥉"]
+        for _ri, (op, d) in enumerate(_op_s):
             _ini   = op[0].upper()
-            _medal = _medalhas[_ri] if _ri < 3 else f"#{_ri+1}"
-            _n_ped = len(d["p"])
-            _todos = d["sep"] + d["conf"] + d["emb"]
-            _t_med = fmt(media(_todos)) if _todos else "—"
-            _t_tot_s = sum(_todos)
-            if _t_tot_s:
-                _th2, _tr2 = divmod(_t_tot_s, 3600); _tm2, _ts2 = divmod(_tr2, 60)
-                _t_tot = f"{_th2:02d}:{_tm2:02d}:{_ts2:02d}"
+            _medal = _meds[_ri] if _ri < 3 else f"#{_ri+1}"
+            _n_p   = len(d["p"])
+            _tt    = d["sep"] + d["conf"] + d["emb"]
+            _tmed  = fmt(media(_tt)) if _tt else "—"
+            _ts2   = sum(_tt)
+            if _ts2:
+                _h2,_r2=divmod(_ts2,3600); _m2,_s2=divmod(_r2,60)
+                _ttot  = f"{_h2:02d}:{_m2:02d}:{_s2:02d}"
             else:
-                _t_tot = "—"
+                _ttot  = "—"
             op_rows += f"""<tr>
               <td style="padding:12px 16px;vertical-align:middle;">
-                <div style="display:flex;align-items:center;gap:10px;">
-                  <span style="font-size:16px;line-height:1;flex-shrink:0;">{_medal}</span>
-                  <div style="width:34px;height:34px;border-radius:50%;flex-shrink:0;
+                <div style="display:flex;align-items:center;gap:9px;">
+                  <span style="font-size:16px;line-height:1;">{_medal}</span>
+                  <div style="width:32px;height:32px;border-radius:50%;flex-shrink:0;
                        background:linear-gradient(135deg,#D9617A,#9E3F52);
                        display:flex;align-items:center;justify-content:center;
-                       font-size:14px;font-weight:900;color:#fff;">{_ini}</div>
-                  <span style="font-weight:800;font-size:14px;color:#1A1714;">{op}</span>
+                       font-size:13px;font-weight:900;color:#fff;">{_ini}</div>
+                  <span style="font-weight:800;font-size:13px;color:#1A1714;">{op}</span>
                 </div>
               </td>
               <td style="padding:12px 10px;text-align:center;vertical-align:middle;">
-                <span style="background:#F5E8EB;color:#C8566A;font-weight:800;font-size:13px;padding:4px 14px;border-radius:100px;">{_n_ped}</span>
+                <span style="background:#F5E8EB;color:#C8566A;font-weight:800;font-size:13px;padding:4px 12px;border-radius:100px;">{_n_p}</span>
               </td>
-              <td style="padding:12px 10px;text-align:center;font-family:monospace;font-size:13px;color:#3B5EC6;font-weight:700;vertical-align:middle;">{_t_med}</td>
-              <td style="padding:12px 10px;text-align:center;font-family:monospace;font-size:13px;color:#1A1714;font-weight:700;vertical-align:middle;">{_t_tot}</td>
+              <td style="padding:12px 10px;text-align:center;font-family:monospace;font-size:12px;color:#3B5EC6;font-weight:700;vertical-align:middle;">{_tmed}</td>
+              <td style="padding:12px 10px;text-align:center;font-family:monospace;font-size:12px;color:#1A1714;font-weight:700;vertical-align:middle;">{_ttot}</td>
             </tr>"""
 
         n_ops = len(op_map)
@@ -4108,7 +4107,7 @@ def tela_admin():
         tbody tr{{border-bottom:1px solid #F2EEE9;transition:background .15s;}}
         tbody tr:last-child{{border-bottom:none;}} tbody tr:hover{{background:#FDFAF9;}}
         </style></head><body>
-        <div class="lbl">🏆 Ranking de Operadores{" · " + filtro_data if filtro_data != "Todos os dias" else ""}</div>
+        <div class="lbl">🏆 Ranking{" · " + filtro_data if filtro_data != "Todos os dias" else ""}</div>
         <div class="wrap"><table><thead><tr>
           <th style="color:rgba(255,255,255,0.45);text-align:left;padding-left:16px;">Operador</th>
           <th style="color:rgba(255,255,255,0.45);">Pedidos</th>
@@ -4286,27 +4285,22 @@ def tela_admin():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ── Exportar — calculado sempre (evita UnboundLocalError no Streamlit) ────
-    ts       = now_br().strftime("%Y%m%d_%H%M")
-    buf_csv  = io.StringIO()
-    buf_xls  = io.BytesIO()
-    pdf_bytes  = b""
-    xls_bytes  = b""
-    csv_bytes  = b""
-
+    _ts_exp    = now_br().strftime("%Y%m%d_%H%M")
+    _csv_bytes = b""
+    _pdf_bytes = b""
+    _xls_bytes = b""
     if regs:
-        csv.writer(buf_csv).writerows(
+        _buf_csv = io.StringIO()
+        csv.writer(_buf_csv).writerows(
             [["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data Fim","Início","Qtd Peças"]] + list(regs))
-        csv_bytes = buf_csv.getvalue().encode()
-
-        pdf_bytes = gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg)
-
-        df_xls = pd.DataFrame(list(regs), columns=["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data Fim","Início","Qtd Peças"])
-        with pd.ExcelWriter(buf_xls, engine="openpyxl") as writer:
-            df_xls.to_excel(writer, index=False, sheet_name="Producao")
-        buf_xls.seek(0)
-        xls_bytes = buf_xls.read()
-
+        _csv_bytes = _buf_csv.getvalue().encode()
+        _pdf_bytes = gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg)
+        _df_xls    = pd.DataFrame(list(regs), columns=["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data Fim","Início","Qtd Peças"])
+        _buf_xls   = io.BytesIO()
+        with pd.ExcelWriter(_buf_xls, engine="openpyxl") as _wr:
+            _df_xls.to_excel(_wr, index=False, sheet_name="Producao")
+        _buf_xls.seek(0)
+        _xls_bytes = _buf_xls.read()
     st.markdown("""
     <style>
     .btn-pdf > button { background:linear-gradient(135deg,#C8566A,#9E3F52) !important; color:#fff !important; border:none !important;
@@ -4317,27 +4311,23 @@ def tela_admin():
     .btn-xml > button:hover { transform:translateY(-2px) !important; }
     </style>
     """, unsafe_allow_html=True)
-
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
-        st.download_button("⬇  Exportar CSV", data=csv_bytes,
-            file_name=f"vi_producao_{ts}.csv", mime="text/csv",
-            use_container_width=True, disabled=not bool(regs))
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c2:
-        st.markdown('<div class="btn-xml">', unsafe_allow_html=True)
-        st.download_button("📊  Exportar XLS", data=xls_bytes,
-            file_name=f"vi_producao_{ts}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True, disabled=not bool(regs))
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c3:
-        st.markdown('<div class="btn-pdf">', unsafe_allow_html=True)
-        st.download_button("📄  Exportar PDF", data=pdf_bytes,
-            file_name=f"vi_relatorio_{ts}.pdf", mime="application/pdf",
-            use_container_width=True, disabled=not bool(regs))
-        st.markdown('</div>', unsafe_allow_html=True)
+    if regs:
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+            st.download_button("⬇  Exportar CSV", data=_csv_bytes,
+                file_name=f"vi_producao_{_ts_exp}.csv", mime="text/csv", use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+        with c2:
+            st.markdown('<div class="btn-xml">', unsafe_allow_html=True)
+            st.download_button("📊  Exportar XLS", data=_xls_bytes,
+                file_name=f"vi_producao_{_ts_exp}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+        with c3:
+            st.markdown('<div class="btn-pdf">', unsafe_allow_html=True)
+            st.download_button("📄  Exportar PDF", data=_pdf_bytes,
+                file_name=f"vi_relatorio_{_ts_exp}.pdf", mime="application/pdf", use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ─────────────────────────────────────
