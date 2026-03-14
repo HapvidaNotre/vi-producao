@@ -427,6 +427,8 @@ elif _pip_action == "fechar":
 #  HELPERS
 # ─────────────────────────────────────
 def fmt(s):
+    if s is None: return "—"
+    s = int(s)
     if s < 60: return f"{s}s"
     m, sec = divmod(s, 60)
     if m < 60: return f"{m}m {sec:02d}s"
@@ -438,7 +440,9 @@ def logo_b64():
     p = Path(__file__).parent / "logo_vi.png"
     return base64.b64encode(p.read_bytes()).decode() if p.exists() else None
 
-def media(lst): return int(sum(lst)/len(lst)) if lst else 0
+def media(lst):
+    lst_clean = [x for x in lst if x is not None]
+    return int(sum(lst_clean) / len(lst_clean)) if lst_clean else 0
 
 def get_elapsed():
     if st.session_state.get("rodando") and st.session_state.get("inicio"):
@@ -3945,8 +3949,8 @@ def tela_admin():
         if op not in op_map: op_map[op] = {"p":set(),"sep":[],"conf":[],"emb":[]}
         op_map[op]["p"].add(r[1])
         if r[4]==0: op_map[op]["sep"].append(r[5])
-        if r[4]==1: op_map[op]["conf"].append(r[5])
-        if r[4]==2: op_map[op]["emb"].append(r[5])
+        if r[4]==1: op_map[op]["emb"].append(r[5])   # Mesa_Embalagem → emb
+        if r[4]==2: op_map[op]["conf"].append(r[5])  # Conferencia → conf
 
     st.markdown("<br style='line-height:0.3'>", unsafe_allow_html=True)
 
@@ -3996,8 +4000,8 @@ def tela_admin():
         if op not in op_map: op_map[op] = {"p":set(),"sep":[],"conf":[],"emb":[]}
         op_map[op]["p"].add(r[1])
         if r[4]==0: op_map[op]["sep"].append(r[5])
-        if r[4]==1: op_map[op]["conf"].append(r[5])
-        if r[4]==2: op_map[op]["emb"].append(r[5])
+        if r[4]==1: op_map[op]["emb"].append(r[5])   # Mesa_Embalagem → emb
+        if r[4]==2: op_map[op]["conf"].append(r[5])  # Conferencia → conf
 
     st.markdown("<br style='line-height:0.4'>", unsafe_allow_html=True)
 
