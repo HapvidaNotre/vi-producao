@@ -3013,22 +3013,49 @@ def tela_admin():
     # ════════════════════════════════════════════════════════════════════
     #  ABAS PRINCIPAIS
     # ════════════════════════════════════════════════════════════════════
-    st.markdown("""<style>
-    div[data-testid="stTabs"] button[role="tab"] {
+    # ── Navegação por botões (evita st.tabs + components.html = ForwardMsg MISS) ──
+    if "admin_aba" not in st.session_state:
+        st.session_state.admin_aba = "prod"
+
+    st.markdown("""
+    <style>
+    .nav-admin { display:flex; gap:8px; margin-bottom:16px; }
+    .nav-admin-btn > button {
+        border-radius:10px !important; height:42px !important;
         font-size:13px !important; font-weight:800 !important;
-        padding:10px 20px !important; color:#5C5450 !important;
-        background:transparent !important;
+        width:100% !important;
     }
-    div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
-        color:#1A1714 !important;
+    .nav-admin-btn-on > button {
+        background:#1A1714 !important; color:#fff !important;
+        border:none !important;
+        box-shadow:0 3px 0 rgba(0,0,0,0.3) !important;
     }
-    div[data-testid="stTabs"] button[role="tab"]:hover {
-        color:#1A1714 !important; background:rgba(0,0,0,0.04) !important;
+    .nav-admin-btn-off > button {
+        background:#F0EDE9 !important; color:#5C5450 !important;
+        border:1.5px solid #DDD8D2 !important;
+    }
+    .nav-admin-btn-off > button:hover {
+        background:#E8E4DF !important; color:#1A1714 !important;
     }
     </style>""", unsafe_allow_html=True)
-    _aba_prod, _aba_tools = st.tabs(["📊  Produtividade", "🔧  Ferramentas"])
 
-    with _aba_prod:
+    _nc1, _nc2 = st.columns(2)
+    with _nc1:
+        _cls1 = "nav-admin-btn nav-admin-btn-on" if st.session_state.admin_aba == "prod" else "nav-admin-btn nav-admin-btn-off"
+        st.markdown(f'<div class="{_cls1}">', unsafe_allow_html=True)
+        if st.button("📊  Produtividade", use_container_width=True, key="nav_prod_btn"):
+            st.session_state.admin_aba = "prod"; st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+    with _nc2:
+        _cls2 = "nav-admin-btn nav-admin-btn-on" if st.session_state.admin_aba == "tools" else "nav-admin-btn nav-admin-btn-off"
+        st.markdown(f'<div class="{_cls2}">', unsafe_allow_html=True)
+        if st.button("🔧  Ferramentas", use_container_width=True, key="nav_tools_btn"):
+            st.session_state.admin_aba = "tools"; st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+
+    if st.session_state.admin_aba == "prod":
         regs     = buscar()
         ped_comp = list({r[1] for r in regs if r[4] == 2})
         ops_ativ = list({r[2] for r in regs})
@@ -3392,7 +3419,7 @@ def tela_admin():
 
 
 
-    with _aba_tools:
+    if st.session_state.admin_aba == "tools":
         st.markdown("""
         <div style="background:#F0F5FF;border:1.5px solid #3B7DD8;border-radius:12px;
                     padding:12px 18px;font-size:12px;font-weight:700;color:#1e3a8a;margin-bottom:16px;">
