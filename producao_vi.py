@@ -3055,6 +3055,15 @@ def tela_admin():
 
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
+    # ── Variáveis inicializadas no escopo da função (evita UnboundLocalError) ──
+    regs          = []
+    ped_comp      = []
+    ops_ativ      = []
+    avg           = 0
+    op_map        = {}
+    regs_filtrados   = []
+    regs_para_tabela = []
+
     if st.session_state.admin_aba == "prod":
         regs     = buscar()
         ped_comp = list({r[1] for r in regs if r[4] == 2})
