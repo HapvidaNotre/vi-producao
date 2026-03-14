@@ -4286,50 +4286,58 @@ def tela_admin():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    # ── Exportar — calculado sempre (evita UnboundLocalError no Streamlit) ────
+    ts       = now_br().strftime("%Y%m%d_%H%M")
+    buf_csv  = io.StringIO()
+    buf_xls  = io.BytesIO()
+    pdf_bytes  = b""
+    xls_bytes  = b""
+    csv_bytes  = b""
+
     if regs:
-        st.markdown("""
-        <style>
-        .btn-pdf > button { background:linear-gradient(135deg,#C8566A,#9E3F52) !important; color:#fff !important; border:none !important;
-            box-shadow:0 5px 0 rgba(100,20,35,0.40),0 8px 20px rgba(200,86,106,0.28) !important; font-weight:800 !important; height:54px !important; }
-        .btn-pdf > button:hover { transform:translateY(-2px) !important; }
-        .btn-xml > button { background:linear-gradient(135deg,#3B5EC6,#2a469e) !important; color:#fff !important; border:none !important;
-            box-shadow:0 5px 0 rgba(20,30,100,0.40),0 8px 20px rgba(59,94,198,0.28) !important; font-weight:800 !important; height:54px !important; }
-        .btn-xml > button:hover { transform:translateY(-2px) !important; }
-        </style>
-        """, unsafe_allow_html=True)
-
-        ts = now_br().strftime("%Y%m%d_%H%M")
-
-        buf_csv = io.StringIO()
         csv.writer(buf_csv).writerows(
             [["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data Fim","Início","Qtd Peças"]] + list(regs))
+        csv_bytes = buf_csv.getvalue().encode()
 
         pdf_bytes = gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg)
 
-        # ── Gerar XLS ──
         df_xls = pd.DataFrame(list(regs), columns=["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data Fim","Início","Qtd Peças"])
-        buf_xls = io.BytesIO()
         with pd.ExcelWriter(buf_xls, engine="openpyxl") as writer:
             df_xls.to_excel(writer, index=False, sheet_name="Producao")
         buf_xls.seek(0)
         xls_bytes = buf_xls.read()
 
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
-            st.download_button("⬇  Exportar CSV", data=buf_csv.getvalue().encode(),
-                file_name=f"vi_producao_{ts}.csv", mime="text/csv", use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-        with c2:
-            st.markdown('<div class="btn-xml">', unsafe_allow_html=True)
-            st.download_button("📊  Exportar XLS", data=xls_bytes,
-                file_name=f"vi_producao_{ts}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-        with c3:
-            st.markdown('<div class="btn-pdf">', unsafe_allow_html=True)
-            st.download_button("📄  Exportar PDF", data=pdf_bytes,
-                file_name=f"vi_relatorio_{ts}.pdf", mime="application/pdf", use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <style>
+    .btn-pdf > button { background:linear-gradient(135deg,#C8566A,#9E3F52) !important; color:#fff !important; border:none !important;
+        box-shadow:0 5px 0 rgba(100,20,35,0.40),0 8px 20px rgba(200,86,106,0.28) !important; font-weight:800 !important; height:54px !important; }
+    .btn-pdf > button:hover { transform:translateY(-2px) !important; }
+    .btn-xml > button { background:linear-gradient(135deg,#3B5EC6,#2a469e) !important; color:#fff !important; border:none !important;
+        box-shadow:0 5px 0 rgba(20,30,100,0.40),0 8px 20px rgba(59,94,198,0.28) !important; font-weight:800 !important; height:54px !important; }
+    .btn-xml > button:hover { transform:translateY(-2px) !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+        st.download_button("⬇  Exportar CSV", data=csv_bytes,
+            file_name=f"vi_producao_{ts}.csv", mime="text/csv",
+            use_container_width=True, disabled=not bool(regs))
+        st.markdown('</div>', unsafe_allow_html=True)
+    with c2:
+        st.markdown('<div class="btn-xml">', unsafe_allow_html=True)
+        st.download_button("📊  Exportar XLS", data=xls_bytes,
+            file_name=f"vi_producao_{ts}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True, disabled=not bool(regs))
+        st.markdown('</div>', unsafe_allow_html=True)
+    with c3:
+        st.markdown('<div class="btn-pdf">', unsafe_allow_html=True)
+        st.download_button("📄  Exportar PDF", data=pdf_bytes,
+            file_name=f"vi_relatorio_{ts}.pdf", mime="application/pdf",
+            use_container_width=True, disabled=not bool(regs))
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ─────────────────────────────────────
