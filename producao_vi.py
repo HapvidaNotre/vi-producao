@@ -2539,81 +2539,52 @@ def _auto_refresh_watcher():
 def tela_admin_login():
     erro = st.session_state.erro_senha
 
-    # ── Card visual (sem elementos interativos) ─────────────────────────────
-    components.html(f"""<!DOCTYPE html><html><head>
-    <meta charset="UTF-8">
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+    # ── Card visual ──────────────────────────────────────────────────────────
+    st.markdown("""
     <style>
-      *,*::before,*::after{{margin:0;padding:0;box-sizing:border-box;}}
-      html,body{{height:100%;background:transparent;font-family:'Nunito',sans-serif;}}
-      .wrap{{min-height:320px;display:flex;align-items:center;justify-content:center;padding:8px;}}
-      .card{{
-        width:100%;max-width:420px;
-        background:linear-gradient(160deg,#1a1210 0%,#241816 40%,#1a1210 100%);
-        border-radius:28px;overflow:hidden;position:relative;
-        border:1px solid rgba(200,86,106,0.18);
-        box-shadow:0 32px 80px rgba(0,0,0,0.6),0 0 0 1px rgba(255,255,255,0.04) inset;
-      }}
-      .card::before{{
-        content:"";position:absolute;inset:0;border-radius:28px;
-        background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-        pointer-events:none;z-index:0;opacity:0.6;
-      }}
-      .accent-bar{{height:3px;background:linear-gradient(90deg,transparent 0%,#C8566A 30%,#e8889a 50%,#C8566A 70%,transparent 100%);}}
-      .orb{{position:absolute;border-radius:50%;filter:blur(70px);pointer-events:none;}}
-      .orb-1{{width:280px;height:280px;background:#8B2035;opacity:.18;top:-100px;right:-80px;animation:drift 8s ease-in-out infinite;}}
-      .orb-2{{width:200px;height:200px;background:#C8566A;opacity:.10;bottom:-60px;left:-60px;animation:drift 10s ease-in-out infinite reverse;}}
-      @keyframes drift{{0%,100%{{transform:translate(0,0);}}50%{{transform:translate(12px,-12px);}}}}
-      .inner{{position:relative;z-index:1;padding:36px 32px 28px;}}
-      .logomark{{
-        width:68px;height:68px;border-radius:20px;margin:0 auto 24px;
-        background:linear-gradient(145deg,#2a1518,#1a0d0f);
-        border:1px solid rgba(200,86,106,0.35);
-        display:flex;align-items:center;justify-content:center;
-        box-shadow:0 0 0 6px rgba(200,86,106,0.06),0 12px 32px rgba(0,0,0,0.5);
-        animation:glow 4s ease-in-out infinite;
-      }}
-      @keyframes glow{{
-        0%,100%{{box-shadow:0 0 0 6px rgba(200,86,106,0.06),0 12px 32px rgba(0,0,0,0.5);}}
-        50%{{box-shadow:0 0 0 10px rgba(200,86,106,0.10),0 12px 40px rgba(200,86,106,0.25);}}
-      }}
-      .eyebrow{{font-size:9px;font-weight:800;letter-spacing:4px;text-transform:uppercase;color:rgba(200,86,106,0.7);text-align:center;margin-bottom:7px;}}
-      .title{{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:700;color:#fff;text-align:center;letter-spacing:-0.5px;line-height:1;margin-bottom:5px;}}
-      .subtitle{{font-size:11px;color:rgba(255,255,255,0.3);text-align:center;font-weight:700;letter-spacing:1px;margin-bottom:20px;}}
-      .sep{{height:1px;background:linear-gradient(90deg,transparent,rgba(200,86,106,0.3),transparent);margin-bottom:20px;}}
-      .status{{display:flex;align-items:center;justify-content:center;gap:18px;margin-top:6px;}}
-      .dot{{width:6px;height:6px;border-radius:50%;}}
-      .dot-on{{background:#4ade80;box-shadow:0 0 8px #4ade80;animation:blink 2s infinite;}}
-      .dot-off{{background:#C8566A;animation:blink 2s 1s infinite;}}
-      @keyframes blink{{0%,100%{{opacity:1;}}50%{{opacity:.3;}}}}
-      .status-lbl{{font-size:10px;font-weight:700;color:rgba(255,255,255,0.2);letter-spacing:.5px;}}
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Nunito:wght@700;800;900&display=swap');
+    .adm-wrap{display:flex;align-items:center;justify-content:center;padding:8px;margin-bottom:8px;}
+    .adm-card{width:100%;max-width:420px;background:linear-gradient(160deg,#1a1210 0%,#241816 40%,#1a1210 100%);border-radius:28px;overflow:hidden;position:relative;border:1px solid rgba(200,86,106,0.18);box-shadow:0 32px 80px rgba(0,0,0,0.6),0 0 0 1px rgba(255,255,255,0.04) inset;}
+    .adm-accent{height:3px;background:linear-gradient(90deg,transparent 0%,#C8566A 30%,#e8889a 50%,#C8566A 70%,transparent 100%);}
+    .adm-orb{position:absolute;border-radius:50%;filter:blur(70px);pointer-events:none;}
+    .adm-orb1{width:280px;height:280px;background:#8B2035;opacity:.18;top:-100px;right:-80px;animation:adm-drift 8s ease-in-out infinite;}
+    .adm-orb2{width:200px;height:200px;background:#C8566A;opacity:.10;bottom:-60px;left:-60px;animation:adm-drift 10s ease-in-out infinite reverse;}
+    @keyframes adm-drift{0%,100%{transform:translate(0,0);}50%{transform:translate(12px,-12px);}}
+    .adm-inner{position:relative;z-index:1;padding:36px 32px 28px;}
+    .adm-logo{width:68px;height:68px;border-radius:20px;margin:0 auto 24px;background:linear-gradient(145deg,#2a1518,#1a0d0f);border:1px solid rgba(200,86,106,0.35);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 6px rgba(200,86,106,0.06),0 12px 32px rgba(0,0,0,0.5);animation:adm-glow 4s ease-in-out infinite;}
+    @keyframes adm-glow{0%,100%{box-shadow:0 0 0 6px rgba(200,86,106,0.06),0 12px 32px rgba(0,0,0,0.5);}50%{box-shadow:0 0 0 10px rgba(200,86,106,0.10),0 12px 40px rgba(200,86,106,0.25);}}
+    .adm-eyebrow{font-size:9px;font-weight:800;letter-spacing:4px;text-transform:uppercase;color:rgba(200,86,106,0.7);text-align:center;margin-bottom:7px;}
+    .adm-title{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:700;color:#fff;text-align:center;letter-spacing:-0.5px;line-height:1;margin-bottom:5px;}
+    .adm-sub{font-size:11px;color:rgba(255,255,255,0.3);text-align:center;font-weight:700;letter-spacing:1px;margin-bottom:20px;}
+    .adm-sep{height:1px;background:linear-gradient(90deg,transparent,rgba(200,86,106,0.3),transparent);margin-bottom:20px;}
+    .adm-status{display:flex;align-items:center;justify-content:center;gap:18px;margin-top:6px;}
+    .adm-dot{width:6px;height:6px;border-radius:50%;display:inline-block;}
+    .adm-dot-on{background:#4ade80;box-shadow:0 0 8px #4ade80;animation:adm-blink 2s infinite;}
+    .adm-dot-off{background:#C8566A;animation:adm-blink 2s 1s infinite;}
+    @keyframes adm-blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+    .adm-slbl{font-size:10px;font-weight:700;color:rgba(255,255,255,0.2);letter-spacing:.5px;}
     </style>
-    </head>
-    <body><div class="wrap"><div class="card">
-      <div class="accent-bar"></div>
-      <div class="orb orb-1"></div><div class="orb orb-2"></div>
-      <div class="inner">
-        <div class="logomark">
+    <div class="adm-wrap"><div class="adm-card">
+      <div class="adm-accent"></div>
+      <div class="adm-orb adm-orb1"></div><div class="adm-orb adm-orb2"></div>
+      <div class="adm-inner">
+        <div class="adm-logo">
           <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#C8566A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="11" width="18" height="11" rx="3"/>
             <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
           </svg>
         </div>
-        <div class="eyebrow">Acesso Restrito</div>
-        <div class="title">Painel Admin</div>
-        <div class="subtitle">Vi Lingerie · Sistema de Produção</div>
-        <div class="sep"></div>
-        <div class="status">
-          <div style="display:flex;align-items:center;gap:6px;">
-            <div class="dot dot-on"></div><span class="status-lbl">Sistema Online</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:6px;">
-            <div class="dot dot-off"></div><span class="status-lbl">Autenticação Necessária</span>
-          </div>
+        <div class="adm-eyebrow">Acesso Restrito</div>
+        <div class="adm-title">Painel Admin</div>
+        <div class="adm-sub">Vi Lingerie · Sistema de Produção</div>
+        <div class="adm-sep"></div>
+        <div class="adm-status">
+          <div style="display:flex;align-items:center;gap:6px;"><span class="adm-dot adm-dot-on"></span><span class="adm-slbl">Sistema Online</span></div>
+          <div style="display:flex;align-items:center;gap:6px;"><span class="adm-dot adm-dot-off"></span><span class="adm-slbl">Autenticação Necessária</span></div>
         </div>
       </div>
     </div></div>
-    </body></html>""", height=340, scrolling=False)
+    """, unsafe_allow_html=True)
 
     # ── Estilo para os widgets nativos do Streamlit ─────────────────────────
     st.markdown("""
@@ -3608,12 +3579,13 @@ def tela_admin():
 
         else:
             # ── ABAS: XLSX | Manual ───────────────────────────────────
-            aba_xlsx, aba_manual = st.tabs(["📂 Importar XLSX", "✏️ Cadastro Manual"])
+            _modo_add = st.radio("_m", ["📂 Importar XLSX", "✏️ Cadastro Manual"],
+                horizontal=True, label_visibility="collapsed", key="modo_add_k")
 
             # ════════════════════════════════════════════════
-            #  ABA 1 — IMPORTAR XLSX
+            #  MODO 1 — IMPORTAR XLSX
             # ════════════════════════════════════════════════
-            with aba_xlsx:
+            if _modo_add == "📂 Importar XLSX":
                 st.markdown("""
                 <div style="background:#F0F5FF;border:1.5px solid #3B7DD8;border-radius:10px;
                             padding:10px 14px;margin-bottom:12px;font-size:12px;font-weight:700;color:#1e3a8a;">
@@ -3750,9 +3722,9 @@ def tela_admin():
                     st.markdown('</div>', unsafe_allow_html=True)
 
             # ════════════════════════════════════════════════
-            #  ABA 2 — CADASTRO MANUAL
+            #  MODO 2 — CADASTRO MANUAL
             # ════════════════════════════════════════════════
-            with aba_manual:
+            elif _modo_add == "✏️ Cadastro Manual":
                 st.markdown("""
                 <div style="background:#F0F5FF;border:1.5px solid #3B7DD8;border-radius:10px;
                             padding:10px 14px;margin-bottom:12px;font-size:12px;font-weight:700;color:#1e3a8a;">
