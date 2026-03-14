@@ -2846,7 +2846,7 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg):
     return buf.getvalue()
 
 
-def tela_admin():
+def _tela_admin_v2():
     render_logo()
 
     c1, c2 = st.columns([3, 1])
@@ -4715,5 +4715,5 @@ def tela_operacoes():
     "producao":    tela_producao,
     "operacoes":   tela_operacoes,
     "admin_login": tela_admin_login,
-    "admin":       tela_admin,
+    "admin":       _tela_admin_v2,
 }.get(st.session_state.tela, tela_home)()
