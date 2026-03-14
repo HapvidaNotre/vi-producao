@@ -4029,13 +4029,35 @@ def tela_admin():
                 st.markdown('</div>', unsafe_allow_html=True)
 
             else:
-                # ── ABAS: XLSX | Manual ───────────────────────────────────
-                aba_xlsx, aba_manual = st.tabs(["📂 Importar XLSX", "✏️ Cadastro Manual"])
+                # ── SELETOR: XLSX | Manual (radio estilizado — evita st.tabs aninhado) ───
+                st.markdown("""
+                <style>
+                div[data-testid="stHorizontalBlock"]:has(.modo-add-radio) { gap:0 !important; }
+                .modo-add-radio > div { display:flex; gap:0; }
+                .modo-add-radio label {
+                    flex:1; text-align:center; padding:9px 0;
+                    font-size:12px; font-weight:800; cursor:pointer;
+                    border:1.5px solid #DDD8D2; color:#9C9490;
+                    background:#F7F5F2; transition:all .15s;
+                }
+                .modo-add-radio label:first-of-type { border-radius:10px 0 0 10px; }
+                .modo-add-radio label:last-of-type  { border-radius:0 10px 10px 0; border-left:none; }
+                .modo-add-radio input[type="radio"]:checked + label {
+                    background:#1A1714 !important; color:#fff !important;
+                    border-color:#1A1714 !important;
+                }
+                .modo-add-radio input[type="radio"] { display:none; }
+                </style>""", unsafe_allow_html=True)
 
-                # ════════════════════════════════════════════════
-                #  ABA 1 — IMPORTAR XLSX
-                # ════════════════════════════════════════════════
-                with aba_xlsx:
+                _modo_add = st.radio(
+                    "_modo_add_label",
+                    ["📂 Importar XLSX", "✏️ Cadastro Manual"],
+                    horizontal=True,
+                    label_visibility="collapsed",
+                    key="modo_add_pedido",
+                )
+
+                if _modo_add == "📂 Importar XLSX":
                     st.markdown("""
                     <div style="background:#F0F5FF;border:1.5px solid #3B7DD8;border-radius:10px;
                                 padding:10px 14px;margin-bottom:12px;font-size:12px;font-weight:700;color:#1e3a8a;">
@@ -4172,9 +4194,9 @@ def tela_admin():
                         st.markdown('</div>', unsafe_allow_html=True)
 
                 # ════════════════════════════════════════════════
-                #  ABA 2 — CADASTRO MANUAL
+                #  MODO 2 — CADASTRO MANUAL
                 # ════════════════════════════════════════════════
-                with aba_manual:
+                elif _modo_add == "✏️ Cadastro Manual":
                     st.markdown("""
                     <div style="background:#F0F5FF;border:1.5px solid #3B7DD8;border-radius:10px;
                                 padding:10px 14px;margin-bottom:12px;font-size:12px;font-weight:700;color:#1e3a8a;">
