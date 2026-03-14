@@ -135,22 +135,14 @@ def status_pedido(numero):
 
 def cadastrar_pedido_avulso(numero, cliente="", produto="", est_alocado=None, vr_alocado=None):
     now_str = now_br().strftime("%d/%m/%Y %H:%M")
-    try:
-        numero_int = int(str(numero).strip())
-    except (ValueError, TypeError):
-        st.session_state["_ultimo_erro_supabase"] = {"status": 0, "table": "pedidos_base", "detail": f"Número inválido: {numero!r}"}
-        return False
-    payload = {"numero": numero_int, "cliente": cliente, "produto": produto,
+    payload = {"numero": numero, "cliente": cliente, "produto": produto,
                "status": "aberto", "importado_em": now_str}
     if est_alocado is not None:
-        try: payload["est_alocado"] = int(est_alocado)
-        except: pass
+        payload["est_alocado"] = est_alocado
     if vr_alocado is not None:
-        try: payload["vr_alocado"] = round(float(vr_alocado), 2)
-        except: pass
+        payload["vr_alocado"] = vr_alocado
     ok = _upsert("pedidos_base", payload, "numero")
     buscar_pedidos_base.clear()
-    buscar_pedidos_por_etapa.clear()
     return ok
 
 def marcar_concluido(numero):
@@ -359,15 +351,15 @@ def limpar_sessoes_ativas():
     _delete("sessoes_ativas", "operador=neq.___x___")
 
 def buscar_pedidos_avulsos():
-    # Pedidos manuais = percentual IS NULL (pedidos da planilha sempre têm percentual)
     rows = _get(
         "pedidos_base",
-        "select=numero,cliente,status,importado_em"
+        "select=numero,status,importado_em"
+        "&cliente=eq."
         "&percentual=is.null"
         "&order=importado_em.desc"
     )
     if isinstance(rows, list):
-        return [(r["numero"], r.get("cliente",""), r.get("status","aberto"), r.get("importado_em",""))
+        return [(r["numero"], r.get("status","aberto"), r.get("importado_em",""))
                 for r in rows]
     return []
 
@@ -3694,34 +3686,24 @@ def tela_admin():
                         idx_obs  = _col(["Observação","Observacao"])
                         idx_prod = _col(["Perfil","Produto"])
 
-                        import re as _re
-                        def _limpar_nome_cliente(raw):
-                            """Remove prefixo numérico tipo '32273 - ' e retorna só o nome."""
-                            if not raw: return ""
-                            s = str(raw).strip()
-                            # Ignora só números ou datas
-                            if _re.match(r"^\d+$", s): return ""
-                            if "datetime" in s or _re.match(r"\d{4}-\d{2}", s): return ""
-                            # Remove qualquer prefixo "NUMERO - " ou "NUMERO  -  " (espaços variados)
-                            s = _re.sub(r"^\d+\s*-\s*", "", s).strip()
-                            # Se ficou vazio ou ainda é número puro, descarta
-                            if not s or _re.match(r"^\d+$", s): return ""
-                            return s
-
                         pedidos_xlsx = []
                         for row in ws.iter_rows(min_row=2, values_only=True):
                             num = row[idx_num] if idx_num is not None else None
                             if not num: continue
-                            num = str(int(num)) if isinstance(num, (int, float)) else str(num).strip()
-                            # Extrai nome do cliente: percorre TODAS as colunas "Cliente"
-                            # e usa a primeira que retornar nome válido após limpeza
+                            num = str(int(num)) if isinstance(num, float) else str(num).strip()
+                            # Extrai nome do cliente — percorre as colunas "Cliente" até achar uma string
+                            import re
                             cli = ""
                             for _ci in range(len(headers)):
                                 if headers[_ci].strip().lower() == "cliente" and row[_ci]:
-                                    _nome = _limpar_nome_cliente(row[_ci])
-                                    if _nome:
-                                        cli = _nome
-                                        break
+                                    _raw = str(row[_ci]).strip()
+                                    # Ignora colunas que são só números ou datas
+                                    if re.match(r'^\d+$', _raw): continue
+                                    if "datetime" in _raw or re.match(r'\d{4}-\d{2}', _raw): continue
+                                    # Remove prefixo "CODIGO - "
+                                    _match = re.findall(r'\d+ - (.+)', _raw)
+                                    cli = _match[-1].strip() if _match else _raw
+                                    if cli: break
                             est  = row[idx_est]  if idx_est  is not None else None
                             vr   = row[idx_vr]   if idx_vr   is not None else None
                             obs  = str(row[idx_obs]).strip()  if idx_obs  is not None and row[idx_obs] and str(row[idx_obs]) != "None" else ""
@@ -3880,25 +3862,22 @@ def tela_admin():
         expanded=bool(avulsos)
     ):
         if not avulsos:
-            components.html("""
-            <!DOCTYPE html><html><body style="background:transparent;font-family:sans-serif;">
+            st.markdown("""
             <div style="background:#F0F7F3;border:1.5px solid #4A7C59;border-radius:12px;
                         padding:18px 20px;text-align:center;">
                 <div style="font-size:22px;margin-bottom:6px;">✅</div>
                 <div style="font-size:13px;font-weight:700;color:#2d5a3d;">
                     Nenhum pedido adicionado manualmente.</div>
                 <div style="font-size:11px;color:#4A7C59;margin-top:4px;font-weight:600;">
-                    Todos os pedidos vieram da planilha do Sistema A.</div>
-            </div></body></html>""", height=100, scrolling=False)
+                    Todos os pedidos vieram da planilha do Programa A.</div>
+            </div>""", unsafe_allow_html=True)
         else:
             st.markdown("""
             <div style="background:#F0F5FF;border:1.5px solid #3B7DD8;border-radius:10px;
                         padding:12px 16px;font-size:12px;font-weight:700;color:#1e3a8a;margin-bottom:12px;">
-                ℹ️ Pedidos adicionados manualmente (via XLSX ou formulário). Eles somem desta lista
-                automaticamente após serem <strong>concluídos</strong> e <strong>excluídos</strong>,
-                ou quando a planilha do Sistema A for reimportada com esses pedidos incluídos.<br>
-                <span style="font-weight:600;color:#3B7DD8;margin-top:4px;display:block;">
-                ⏱ Enquanto estiverem em aberto ou em produção, permanecem visíveis aqui.</span>
+                📋 Pedidos adicionados manualmente pelo gestor. O pedido permanece visível
+                enquanto estiver <strong>em aberto ou em produção</strong>. Some quando for
+                excluído ou quando a planilha reimportada já incluir o pedido.
             </div>
             """, unsafe_allow_html=True)
 
@@ -3918,20 +3897,23 @@ def tela_admin():
                         f'⚠ {len(regs_vinculados)} registro(s) de produção serão removidos</span>'
                         if tem_registros else ""
                     )
+                    cli_show = f" · {cliente}" if cliente else ""
                     st.markdown(f"""
                     <div style="background:#fff;border:1.5px solid #EDE9E4;border-radius:10px;
                                 padding:11px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                         <span style="font-family:monospace;font-size:14px;font-weight:800;
-                                     color:#1A1714;">#{numero}</span>
-                        {'<span style="font-size:12px;font-weight:700;color:#1A1714;">' + cliente + '</span>' if cliente else ''}
+                                     color:#1A1714;">{numero}</span>
                         <span style="background:{cor_status}22;color:{cor_status};font-size:10px;
                                      font-weight:800;padding:2px 10px;border-radius:20px;
                                      text-transform:uppercase;">{lbl_status}</span>
+                        {f'<span style="font-size:12px;font-weight:700;color:#5C5450;">{cliente}</span>' if cliente else ""}
                         <span style="font-size:11px;color:#9C9490;">
-                            Adicionado em: {importado_em or "—"}</span>
+                            Cadastrado em: {importado_em or "—"}</span>
                         {aviso_reg}
                     </div>
                     """, unsafe_allow_html=True)
+
+                with col_btn:
                     em_confirmacao = st.session_state.confirm_excluir.get(numero, False)
 
                     if not em_confirmacao:
@@ -4725,4 +4707,3 @@ def tela_operacoes():
     "admin_login": tela_admin_login,
     "admin":       tela_admin,
 }.get(st.session_state.tela, tela_home)()
-
