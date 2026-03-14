@@ -3235,184 +3235,154 @@ def tela_admin():
 
       ba, bb, bc = st.columns(3)
       with ba:
-        st.markdown('<div class="btn-warn">', unsafe_allow_html=True)
-        if st.button("⊘  Limpar PIPs", use_container_width=True, help="Remove sessões ativas fantasmas"):
-            limpar_sessoes_ativas(); st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+          st.markdown('<div class="btn-warn">', unsafe_allow_html=True)
+          if st.button("⊘  Limpar PIPs", use_container_width=True, help="Remove sessões ativas fantasmas"):
+              limpar_sessoes_ativas(); st.rerun()
+          st.markdown('</div>', unsafe_allow_html=True)
       with bb:
-        st.markdown('<div class="btn-danger">', unsafe_allow_html=True)
-        if st.button("🗑  Limpar dados", use_container_width=True):
-            limpar(); st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+          st.markdown('<div class="btn-danger">', unsafe_allow_html=True)
+          if st.button("🗑  Limpar dados", use_container_width=True):
+              limpar(); st.rerun()
+          st.markdown('</div>', unsafe_allow_html=True)
       with bc:
-        st.markdown('<div class="btn-reset-dia">', unsafe_allow_html=True)
-        if st.button("🧹  Apagar hoje", use_container_width=True, key="btn_limpar_dia_inline"):
-            st.session_state.confirm_limpar_dia = True
-            st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+          st.markdown('<div class="btn-reset-dia">', unsafe_allow_html=True)
+          if st.button("🧹  Apagar hoje", use_container_width=True, key="btn_limpar_dia_inline"):
+              st.session_state.confirm_limpar_dia = True
+              st.rerun()
+          st.markdown('</div>', unsafe_allow_html=True)
 
       # ── Botão: Apagar tudo do dia de hoje ──────────────────────────────────
       hoje_str = now_br().strftime("%d/%m/%Y")
 
       def limpar_dia(data_str):
-        rows = _get("registros", f"select=id&data=like.{data_str}%25")
-        if isinstance(rows, list):
-            for r in rows:
-                _delete("registros", f"id=eq.{r['id']}")
-        limpar_sessoes_ativas()
-        todos_regs = _get("registros", "select=pedido")
-        pedidos_com_reg = {r["pedido"] for r in todos_regs} if isinstance(todos_regs, list) else set()
-        pedidos_base_rows = _get("pedidos_base", "select=numero")
-        if isinstance(pedidos_base_rows, list):
-            for p in pedidos_base_rows:
-                if p["numero"] not in pedidos_com_reg:
-                    _patch("pedidos_base", f"numero=eq.{p['numero']}", {"status": "aberto"})
+          rows = _get("registros", f"select=id&data=like.{data_str}%25")
+          if isinstance(rows, list):
+              for r in rows:
+                  _delete("registros", f"id=eq.{r['id']}")
+          limpar_sessoes_ativas()
+          todos_regs = _get("registros", "select=pedido")
+          pedidos_com_reg = {r["pedido"] for r in todos_regs} if isinstance(todos_regs, list) else set()
+          pedidos_base_rows = _get("pedidos_base", "select=numero")
+          if isinstance(pedidos_base_rows, list):
+              for p in pedidos_base_rows:
+                  if p["numero"] not in pedidos_com_reg:
+                      _patch("pedidos_base", f"numero=eq.{p['numero']}", {"status": "aberto"})
 
       st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
       if "confirm_limpar_dia" not in st.session_state:
-        st.session_state.confirm_limpar_dia = False
+          st.session_state.confirm_limpar_dia = False
 
       if st.session_state.confirm_limpar_dia:
-        import streamlit.components.v1 as _cv1t
-        _cv1t.html(f"""<!DOCTYPE html><html><head>
-        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
-        </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;padding:0;">
-        <div style="background:#FEF2F2;border:2px solid #FCA5A5;border-radius:14px;
-                    padding:16px 20px;text-align:center;">
-          <div style="font-size:22px;margin-bottom:6px;">⚠️</div>
-          <div style="font-size:14px;font-weight:800;color:#991B1B;margin-bottom:4px;">
-            Apagar todos os registros de {hoje_str}?</div>
-          <div style="font-size:12px;color:#B91C1C;font-weight:600;">
-            Esta ação remove todos os registros e sessões do dia de hoje.<br>
-            Ideal para reiniciar os testes. <strong>Não pode ser desfeita.</strong>
-          </div>
-        </div></body></html>""", height=130, scrolling=False)
-
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-        st.markdown("""
-        <style>
-        .btn-confirm-del > button {
-            background: linear-gradient(135deg,#DC2626,#991B1B) !important;
-            color:#fff !important; border:none !important;
-            border-radius:10px !important; height:48px !important;
-            font-size:13px !important; font-weight:800 !important;
-            box-shadow: 0 4px 0 rgba(100,10,10,0.40) !important;
-        }
-        .btn-confirm-del > button:hover { transform:translateY(-1px) !important; }
-        .btn-voltar > button { height:48px !important; }
-        </style>""", unsafe_allow_html=True)
-        ca, cb = st.columns(2)
-        with ca:
-            st.markdown('<div class="btn-confirm-del">', unsafe_allow_html=True)
-            if st.button("✓ Sim, apagar tudo de hoje", use_container_width=True, key="confirmar_del_dia"):
-                limpar_dia(hoje_str)
-                st.session_state.confirm_limpar_dia = False
-                st.toast(f"✅ Todos os registros de {hoje_str} foram apagados!", icon="🧹")
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-        with cb:
-            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
-            if st.button("✕ Cancelar", use_container_width=True, key="cancelar_del_dia"):
-                st.session_state.confirm_limpar_dia = False
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+          import streamlit.components.v1 as _cv1t
+          _cv1t.html(f"""<!DOCTYPE html><html><head>
+          <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+          </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;padding:0;">
+          <div style="background:#FEF2F2;border:2px solid #FCA5A5;border-radius:14px;
+                      padding:16px 20px;text-align:center;">
+            <div style="font-size:22px;margin-bottom:6px;">⚠️</div>
+            <div style="font-size:14px;font-weight:800;color:#991B1B;margin-bottom:4px;">
+              Apagar todos os registros de {hoje_str}?</div>
+            <div style="font-size:12px;color:#B91C1C;font-weight:600;">
+              Esta ação remove todos os registros e sessões do dia de hoje.<br>
+              Ideal para reiniciar os testes. <strong>Não pode ser desfeita.</strong>
+            </div>
+          </div></body></html>""", height=130, scrolling=False)
+          st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+          st.markdown("""
+          <style>
+          .btn-confirm-del > button {
+              background: linear-gradient(135deg,#DC2626,#991B1B) !important;
+              color:#fff !important; border:none !important;
+              border-radius:10px !important; height:48px !important;
+              font-size:13px !important; font-weight:800 !important;
+              box-shadow: 0 4px 0 rgba(100,10,10,0.40) !important;
+          }
+          .btn-confirm-del > button:hover { transform:translateY(-1px) !important; }
+          .btn-voltar > button { height:48px !important; }
+          </style>""", unsafe_allow_html=True)
+          ca, cb = st.columns(2)
+          with ca:
+              st.markdown('<div class="btn-confirm-del">', unsafe_allow_html=True)
+              if st.button("✓ Sim, apagar tudo de hoje", use_container_width=True, key="confirmar_del_dia"):
+                  limpar_dia(hoje_str)
+                  st.session_state.confirm_limpar_dia = False
+                  st.toast(f"✅ Todos os registros de {hoje_str} foram apagados!", icon="🧹")
+                  st.rerun()
+              st.markdown('</div>', unsafe_allow_html=True)
+          with cb:
+              st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+              if st.button("✕ Cancelar", use_container_width=True, key="cancelar_del_dia"):
+                  st.session_state.confirm_limpar_dia = False
+                  st.rerun()
+              st.markdown('</div>', unsafe_allow_html=True)
 
       tag_html = {
-        0: '<span style="background:#EBF0FB;color:#3B5EC6;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;">Separação</span>',
-        1: '<span style="background:#E8F2EC;color:#4A7C59;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;">Embalagem</span>',
-        2: '<span style="background:#FBF2E6;color:#C47B2A;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;">Conferência</span>',
+          0: '<span style="background:#EBF0FB;color:#3B5EC6;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;">Separação</span>',
+          1: '<span style="background:#E8F2EC;color:#4A7C59;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;">Embalagem</span>',
+          2: '<span style="background:#FBF2E6;color:#C47B2A;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;">Conferência</span>',
       }
 
       if regs_para_tabela:
-        hist_rows = ""
-        for r in regs_para_tabela[:80]:
-            # r: (id, pedido, operador, etapa, etapa_idx, tempo_s, data_fim, inicio, qtd_pecas)
-            fim_str    = r[6] if r[6] else "—"
-            inicio_str = r[7] if r[7] else "—"
-            qtd_str    = str(r[8]) if r[8] is not None else "—"
-            hist_rows += f"""<tr>
-              <td style="padding:11px 16px;font-family:monospace;font-size:12px;font-weight:700;color:#1A1714;">{r[1]}</td>
-              <td style="padding:11px 10px;font-size:13px;font-weight:700;color:#1A1714;">{r[2]}</td>
-              <td style="padding:11px 10px;">{tag_html.get(r[4], r[3])}</td>
-              <td style="padding:11px 10px;font-family:monospace;font-size:12px;font-weight:700;color:#4A7C59;text-align:center;">{fmt(r[5])}</td>
-              <td style="padding:11px 10px;font-size:11px;font-weight:700;color:#3B5EC6;text-align:center;">{qtd_str}</td>
-              <td style="padding:11px 10px;font-size:11px;color:#9C9490;text-align:center;">{inicio_str}</td>
-              <td style="padding:11px 10px;font-size:11px;color:#9C9490;text-align:center;">{fim_str}</td>
-            </tr>"""
-
-        n_hist = min(len(regs_para_tabela), 80)
-        hist_height = 56 + (n_hist * 46) + 20
-
-        components.html(f"""
-        <!DOCTYPE html><html><head>
-        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
-        <style>
-        *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
-        .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
-        .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-        table{{width:100%;border-collapse:collapse;}} thead tr{{background:#1A1714;}}
-        th{{padding:12px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-align:center;}}
-        th:first-child{{text-align:left;padding-left:16px;}} th:nth-child(2){{text-align:left;}}
-        tbody tr{{border-bottom:1px solid #F2EEE9;}} tbody tr:last-child{{border-bottom:none;}}
-        tbody tr:hover{{background:#FDFAF9;}}
-        </style></head><body>
-        <div class="lbl">Histórico de Pedidos</div>
-        <div class="wrap"><table><thead><tr>
-          <th>Pedido</th><th>Operador</th><th>Etapa</th><th>Tempo</th>
-          <th style="color:#7B9FE0;">Qtd Peças</th>
-          <th style="color:#A0C8E0;">Início</th>
-          <th style="color:#A0C8E0;">Fim</th>
-        </tr></thead><tbody>{hist_rows}</tbody></table></div>
-        </body></html>
-        """, height=min(hist_height, 600), scrolling=hist_height > 600)
-
+          hist_rows = ""
+          for r in regs_para_tabela[:80]:
+              fim_str    = r[6] if r[6] else "—"
+              inicio_str = r[7] if r[7] else "—"
+              qtd_str    = str(r[8]) if r[8] is not None else "—"
+              hist_rows += f"""<tr>
+                <td style="padding:11px 16px;font-family:monospace;font-size:12px;font-weight:700;color:#1A1714;">{r[1]}</td>
+                <td style="padding:11px 10px;font-size:13px;font-weight:700;color:#1A1714;">{r[2]}</td>
+                <td style="padding:11px 10px;">{tag_html.get(r[4], r[3])}</td>
+                <td style="padding:11px 10px;font-family:monospace;font-size:12px;font-weight:700;color:#4A7C59;text-align:center;">{fmt(r[5])}</td>
+                <td style="padding:11px 10px;font-size:11px;font-weight:700;color:#3B5EC6;text-align:center;">{qtd_str}</td>
+                <td style="padding:11px 10px;font-size:11px;color:#9C9490;text-align:center;">{inicio_str}</td>
+                <td style="padding:11px 10px;font-size:11px;color:#9C9490;text-align:center;">{fim_str}</td>
+              </tr>"""
       st.markdown("<br>", unsafe_allow_html=True)
 
       if regs:
-        st.markdown("""
-        <style>
-        .btn-pdf > button { background:linear-gradient(135deg,#C8566A,#9E3F52) !important; color:#fff !important; border:none !important;
-            box-shadow:0 5px 0 rgba(100,20,35,0.40),0 8px 20px rgba(200,86,106,0.28) !important; font-weight:800 !important; height:54px !important; }
-        .btn-pdf > button:hover { transform:translateY(-2px) !important; }
-        .btn-xml > button { background:linear-gradient(135deg,#3B5EC6,#2a469e) !important; color:#fff !important; border:none !important;
-            box-shadow:0 5px 0 rgba(20,30,100,0.40),0 8px 20px rgba(59,94,198,0.28) !important; font-weight:800 !important; height:54px !important; }
-        .btn-xml > button:hover { transform:translateY(-2px) !important; }
-        </style>
-        """, unsafe_allow_html=True)
+          st.markdown("""
+          <style>
+          .btn-pdf > button { background:linear-gradient(135deg,#C8566A,#9E3F52) !important; color:#fff !important; border:none !important;
+              box-shadow:0 5px 0 rgba(100,20,35,0.40),0 8px 20px rgba(200,86,106,0.28) !important; font-weight:800 !important; height:54px !important; }
+          .btn-pdf > button:hover { transform:translateY(-2px) !important; }
+          .btn-xml > button { background:linear-gradient(135deg,#3B5EC6,#2a469e) !important; color:#fff !important; border:none !important;
+              box-shadow:0 5px 0 rgba(20,30,100,0.40),0 8px 20px rgba(59,94,198,0.28) !important; font-weight:800 !important; height:54px !important; }
+          .btn-xml > button:hover { transform:translateY(-2px) !important; }
+          </style>
+          """, unsafe_allow_html=True)
 
-        ts = now_br().strftime("%Y%m%d_%H%M")
+          ts = now_br().strftime("%Y%m%d_%H%M")
 
-        buf_csv = io.StringIO()
-        csv.writer(buf_csv).writerows(
-            [["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data Fim","Início","Qtd Peças"]] + list(regs))
+          buf_csv = io.StringIO()
+          csv.writer(buf_csv).writerows(
+              [["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data Fim","Início","Qtd Peças"]] + list(regs))
 
-        pdf_bytes = gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg)
+          pdf_bytes = gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg)
 
-        # ── Gerar XLS ──
-        df_xls = pd.DataFrame(list(regs), columns=["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data Fim","Início","Qtd Peças"])
-        buf_xls = io.BytesIO()
-        with pd.ExcelWriter(buf_xls, engine="openpyxl") as writer:
-            df_xls.to_excel(writer, index=False, sheet_name="Producao")
-        buf_xls.seek(0)
-        xls_bytes = buf_xls.read()
+          df_xls = pd.DataFrame(list(regs), columns=["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data Fim","Início","Qtd Peças"])
+          buf_xls = io.BytesIO()
+          with pd.ExcelWriter(buf_xls, engine="openpyxl") as writer:
+              df_xls.to_excel(writer, index=False, sheet_name="Producao")
+          buf_xls.seek(0)
+          xls_bytes = buf_xls.read()
 
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
-            st.download_button("⬇  Exportar CSV", data=buf_csv.getvalue().encode(),
-                file_name=f"vi_producao_{ts}.csv", mime="text/csv", use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-        with c2:
-            st.markdown('<div class="btn-xml">', unsafe_allow_html=True)
-            st.download_button("📊  Exportar XLS", data=xls_bytes,
-                file_name=f"vi_producao_{ts}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-        with c3:
-            st.markdown('<div class="btn-pdf">', unsafe_allow_html=True)
-            st.download_button("📄  Exportar PDF", data=pdf_bytes,
-                file_name=f"vi_relatorio_{ts}.pdf", mime="application/pdf", use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+          c1, c2, c3 = st.columns(3)
+          with c1:
+              st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+              st.download_button("⬇  Exportar CSV", data=buf_csv.getvalue().encode(),
+                  file_name=f"vi_producao_{ts}.csv", mime="text/csv", use_container_width=True)
+              st.markdown('</div>', unsafe_allow_html=True)
+          with c2:
+              st.markdown('<div class="btn-xml">', unsafe_allow_html=True)
+              st.download_button("📊  Exportar XLS", data=xls_bytes,
+                  file_name=f"vi_producao_{ts}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+              st.markdown('</div>', unsafe_allow_html=True)
+          with c3:
+              st.markdown('<div class="btn-pdf">', unsafe_allow_html=True)
+              st.download_button("📄  Exportar PDF", data=pdf_bytes,
+                  file_name=f"vi_relatorio_{ts}.pdf", mime="application/pdf", use_container_width=True)
+              st.markdown('</div>', unsafe_allow_html=True)
 
 
 
