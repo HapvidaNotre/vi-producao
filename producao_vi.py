@@ -135,22 +135,14 @@ def status_pedido(numero):
 
 def cadastrar_pedido_avulso(numero, cliente="", produto="", est_alocado=None, vr_alocado=None):
     now_str = now_br().strftime("%d/%m/%Y %H:%M")
-    try:
-        numero_int = int(str(numero).strip())
-    except (ValueError, TypeError):
-        st.session_state["_ultimo_erro_supabase"] = {"status": 0, "table": "pedidos_base", "detail": f"Número inválido: {numero!r}"}
-        return False
-    payload = {"numero": numero_int, "cliente": cliente, "produto": produto,
+    payload = {"numero": numero, "cliente": cliente, "produto": produto,
                "status": "aberto", "importado_em": now_str}
     if est_alocado is not None:
-        try: payload["est_alocado"] = int(est_alocado)
-        except: pass
+        payload["est_alocado"] = est_alocado
     if vr_alocado is not None:
-        try: payload["vr_alocado"] = round(float(vr_alocado), 2)
-        except: pass
+        payload["vr_alocado"] = vr_alocado
     ok = _upsert("pedidos_base", payload, "numero")
     buscar_pedidos_base.clear()
-    buscar_pedidos_por_etapa.clear()
     return ok
 
 def marcar_concluido(numero):
@@ -359,15 +351,15 @@ def limpar_sessoes_ativas():
     _delete("sessoes_ativas", "operador=neq.___x___")
 
 def buscar_pedidos_avulsos():
-    # Pedidos manuais = percentual IS NULL (pedidos da planilha sempre têm percentual)
     rows = _get(
         "pedidos_base",
-        "select=numero,cliente,status,importado_em"
+        "select=numero,status,importado_em"
+        "&cliente=eq."
         "&percentual=is.null"
         "&order=importado_em.desc"
     )
     if isinstance(rows, list):
-        return [(r["numero"], r.get("cliente",""), r.get("status","aberto"), r.get("importado_em",""))
+        return [(r["numero"], r.get("status","aberto"), r.get("importado_em",""))
                 for r in rows]
     return []
 
@@ -3016,6 +3008,7 @@ def tela_admin():
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════
+    #  BLOCO 1.5 — RASTREAR PEDIDO POR NÚMERO
 
     # ════════════════════════════════════════════════════════════════════
     #  ABAS PRINCIPAIS
@@ -3023,33 +3016,27 @@ def tela_admin():
     st.markdown("""<style>
     div[data-testid="stTabs"] button[role="tab"] {
         font-size:13px !important; font-weight:800 !important;
-        padding:10px 20px !important;
-        color:#5C5450 !important;
+        padding:10px 20px !important; color:#5C5450 !important;
         background:transparent !important;
     }
     div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
         color:#1A1714 !important;
     }
     div[data-testid="stTabs"] button[role="tab"]:hover {
-        color:#1A1714 !important;
-        background:rgba(0,0,0,0.04) !important;
+        color:#1A1714 !important; background:rgba(0,0,0,0.04) !important;
     }
     </style>""", unsafe_allow_html=True)
     _aba_prod, _aba_tools = st.tabs(["📊  Produtividade", "🔧  Ferramentas"])
 
-    # ══════════════════════════════════════════════════════════════════
-    #  ABA PRODUTIVIDADE — KPIs + Ranking + Histórico + Exportação
-    # ══════════════════════════════════════════════════════════════════
     with _aba_prod:
-
         regs     = buscar()
         ped_comp = list({r[1] for r in regs if r[4] == 2})
         ops_ativ = list({r[2] for r in regs})
         avg      = media([r[5] for r in regs]) // 60 if regs else 0
-        hoje_kpi = now_br().strftime("%d/%m/%Y")
-        ped_hoje = len({r[1] for r in regs if r[4] == 2 and str(r[6]).startswith(hoje_kpi)})
+        hoje_kpi    = now_br().strftime("%d/%m/%Y")
+        ped_hoje    = len({r[1] for r in regs if r[4] == 2 and str(r[6]).startswith(hoje_kpi)})
         total_pecas = sum(r[8] for r in regs if r[4] == 0 and r[8]) if regs else 0
-        n_agora = len(buscar_todas_sessoes_ativas())
+        n_agora     = len(buscar_todas_sessoes_ativas())
 
         kpi_html = f"""
         <!DOCTYPE html><html><head>
@@ -3061,43 +3048,25 @@ def tela_admin():
         .card{{background:#fff;border-radius:16px;padding:18px 16px 14px;
                border:1.5px solid #EDE9E4;box-shadow:0 2px 12px rgba(0,0,0,0.05);position:relative;overflow:hidden;}}
         .card-icon{{position:absolute;top:-4px;right:6px;font-size:42px;opacity:0.07;line-height:1;}}
-        .card-lbl{{font-size:9px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:#9C9490;margin-bottom:8px;}}
-        .card-num{{font-family:"DM Mono",monospace;font-size:30px;font-weight:500;letter-spacing:-1px;}}
         .card-sub{{font-size:10px;font-weight:700;color:#9C9490;margin-top:5px;}}
+        .card-lbl{{font-size:9px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:#9C9490;margin-bottom:8px;}}
+        .card-num{{font-family:"DM Mono",monospace;font-size:32px;font-weight:500;letter-spacing:-1px;}}
         .card-bar{{height:3px;border-radius:2px;margin-top:10px;opacity:0.3;}}
         </style></head><body>
         <div class="grid">
-          <div class="card"><div class="card-icon">📦</div>
-            <div class="card-lbl">Finalizados Hoje</div>
-            <div class="card-num" style="color:#C8566A;">{ped_hoje}</div>
-            <div class="card-sub">{len(ped_comp)} no período total</div>
-            <div class="card-bar" style="background:#C8566A;"></div></div>
-          <div class="card"><div class="card-icon">👥</div>
-            <div class="card-lbl">Operadores Ativos</div>
-            <div class="card-num" style="color:#4A7C59;">{len(ops_ativ)}</div>
-            <div class="card-sub">{n_agora} trabalhando agora</div>
-            <div class="card-bar" style="background:#4A7C59;"></div></div>
-          <div class="card"><div class="card-icon">⏱</div>
-            <div class="card-lbl">Tempo Médio</div>
-            <div class="card-num" style="color:#3B5EC6;">{avg}m</div>
-            <div class="card-sub">por pedido / etapa</div>
-            <div class="card-bar" style="background:#3B5EC6;"></div></div>
-          <div class="card"><div class="card-icon">👕</div>
-            <div class="card-lbl">Peças Separadas</div>
-            <div class="card-num" style="color:#C47B2A;">{total_pecas}</div>
-            <div class="card-sub">etapa de separação</div>
-            <div class="card-bar" style="background:#C47B2A;"></div></div>
+          <div class="card"><div class="card-icon">📦</div><div class="card-lbl">Finalizados Hoje</div><div class="card-num" style="color:#C8566A;">{ped_hoje}</div><div class="card-sub">{len(ped_comp)} no período total</div><div class="card-bar" style="background:#C8566A;"></div></div>
+          <div class="card"><div class="card-icon">👥</div><div class="card-lbl">Operadores Ativos</div><div class="card-num" style="color:#4A7C59;">{len(ops_ativ)}</div><div class="card-sub">{n_agora} trabalhando agora</div><div class="card-bar" style="background:#4A7C59;"></div></div>
+          <div class="card"><div class="card-icon">⏱</div><div class="card-lbl">Tempo Médio</div><div class="card-num" style="color:#3B5EC6;">{avg}m</div><div class="card-sub">por pedido / etapa</div><div class="card-bar" style="background:#3B5EC6;"></div></div>
+          <div class="card"><div class="card-icon">👕</div><div class="card-lbl">Peças Separadas</div><div class="card-num" style="color:#C47B2A;">{total_pecas}</div><div class="card-sub">etapa de separação</div><div class="card-bar" style="background:#C47B2A;"></div></div>
         </div>
         </body></html>"""
-        components.html(kpi_html, height=120, scrolling=False)
+        components.html(kpi_html, height=125, scrolling=False)
 
         op_map = {}
         for r in regs:
             op = r[2]
-            if op not in op_map: op_map[op] = {"p":set(),"sep":[],"conf":[],"emb":[],"tempo_total":0,"pecas":0}
+            if op not in op_map: op_map[op] = {"p":set(),"sep":[],"conf":[],"emb":[]}
             op_map[op]["p"].add(r[1])
-            if r[5]: op_map[op]["tempo_total"] += r[5]
-            if r[8]: op_map[op]["pecas"] += r[8]
             if r[4]==0: op_map[op]["sep"].append(r[5])
             if r[4]==1: op_map[op]["conf"].append(r[5])
             if r[4]==2: op_map[op]["emb"].append(r[5])
@@ -3105,65 +3074,62 @@ def tela_admin():
         st.markdown("<br style='line-height:0.3'>", unsafe_allow_html=True)
 
         todas_datas_regs = sorted({
-          r[6].split(" ")[0] for r in regs if r[6] and " " in str(r[6])
+            r[6].split(" ")[0] for r in regs if r[6] and " " in str(r[6])
         }, reverse=True) if regs else []
         todos_ops_regs = sorted({r[2] for r in regs if r[2]}) if regs else []
 
         fc1, fc2 = st.columns(2)
         with fc1:
-          opcoes_data = ["Todos os dias"] + todas_datas_regs
-          filtro_data = st.selectbox("📅 Filtrar por dia", opcoes_data, key="admin_filtro_data")
+            opcoes_data = ["Todos os dias"] + todas_datas_regs
+            filtro_data = st.selectbox("📅 Filtrar por dia", opcoes_data, key="admin_filtro_data")
         with fc2:
-          opcoes_op = ["Todos os operadores"] + todos_ops_regs
-          filtro_op = st.selectbox("👤 Filtrar por operador", opcoes_op, key="admin_filtro_op")
+            opcoes_op = ["Todos os operadores"] + todos_ops_regs
+            filtro_op = st.selectbox("👤 Filtrar por operador", opcoes_op, key="admin_filtro_op")
 
         regs_filtrados = regs
         if filtro_data != "Todos os dias":
-          regs_filtrados = [r for r in regs_filtrados if str(r[6]).startswith(filtro_data)]
+            regs_filtrados = [r for r in regs_filtrados if str(r[6]).startswith(filtro_data)]
         if filtro_op != "Todos os operadores":
-          regs_filtrados = [r for r in regs_filtrados if r[2] == filtro_op]
+            regs_filtrados = [r for r in regs_filtrados if r[2] == filtro_op]
 
         tem_filtro = filtro_data != "Todos os dias" or filtro_op != "Todos os operadores"
         if tem_filtro:
-          partes_filtro = []
-          if filtro_data != "Todos os dias": partes_filtro.append(f"📅 {filtro_data}")
-          if filtro_op   != "Todos os operadores": partes_filtro.append(f"👤 {filtro_op}")
-          ped_filt = len({r[1] for r in regs_filtrados})
-          st.markdown(
-              f'<div style="background:#F0F7F3;border:1.5px solid #4A7C59;border-radius:10px;'
-              f'padding:10px 16px;font-size:13px;font-weight:700;color:#2d5a3d;margin-bottom:4px;">'
-              f'Filtro ativo: {" · ".join(partes_filtro)} &nbsp;→&nbsp; '
-              f'<strong>{ped_filt} pedido(s)</strong> · {len(regs_filtrados)} registro(s)</div>',
-              unsafe_allow_html=True
-          )
+            partes_filtro = []
+            if filtro_data != "Todos os dias": partes_filtro.append(f"📅 {filtro_data}")
+            if filtro_op   != "Todos os operadores": partes_filtro.append(f"👤 {filtro_op}")
+            ped_filt = len({r[1] for r in regs_filtrados})
+            st.markdown(
+                f'<div style="background:#F0F7F3;border:1.5px solid #4A7C59;border-radius:10px;'
+                f'padding:10px 16px;font-size:13px;font-weight:700;color:#2d5a3d;margin-bottom:4px;">'
+                f'Filtro ativo: {" · ".join(partes_filtro)} &nbsp;→&nbsp; '
+                f'<strong>{ped_filt} pedido(s)</strong> · {len(regs_filtrados)} registro(s)</div>',
+                unsafe_allow_html=True
+            )
 
         regs_para_tabela = regs_filtrados
 
-        op_map_filt = {}
+        op_map = {}
         for r in regs_filtrados:
             op = r[2]
-            if op not in op_map_filt:
-                op_map_filt[op] = {"p":set(),"sep":[],"conf":[],"emb":[],"tempo_total":0,"pecas":0}
-            op_map_filt[op]["p"].add(r[1])
-            if r[5]: op_map_filt[op]["tempo_total"] += r[5]
-            if r[8]: op_map_filt[op]["pecas"] += r[8]
-            if r[4]==0: op_map_filt[op]["sep"].append(r[5])
-            if r[4]==1: op_map_filt[op]["conf"].append(r[5])
-            if r[4]==2: op_map_filt[op]["emb"].append(r[5])
+            if op not in op_map: op_map[op] = {"p":set(),"sep":[],"conf":[],"emb":[]}
+            op_map[op]["p"].add(r[1])
+            if r[4]==0: op_map[op]["sep"].append(r[5])
+            if r[4]==1: op_map[op]["conf"].append(r[5])
+            if r[4]==2: op_map[op]["emb"].append(r[5])
 
         st.markdown("<br style='line-height:0.4'>", unsafe_allow_html=True)
 
-        if op_map_filt:
-            medalhas = ["🥇","🥈","🥉"]
-            op_sorted = sorted(op_map_filt.items(), key=lambda x: len(x[1]["p"]), reverse=True)
+        if op_map:
             op_rows = ""
+            medalhas  = ["🥇","🥈","🥉"]
+            op_sorted = sorted(op_map.items(), key=lambda x: len(x[1]["p"]), reverse=True)
             for rank_i, (op, d) in enumerate(op_sorted):
                 ini    = op[0].upper()
                 medal  = medalhas[rank_i] if rank_i < 3 else f"<span style='color:#9C9490;font-size:11px;'>#{rank_i+1}</span>"
                 n_ped  = len(d["p"])
-                todos_tempos = d["sep"] + d["conf"] + d["emb"]
-                t_med  = fmt(media(todos_tempos)) if todos_tempos else "—"
-                t_tot_s = d["tempo_total"]
+                todos_t = d["sep"] + d["conf"] + d["emb"]
+                t_med  = fmt(media(todos_t)) if todos_t else "—"
+                t_tot_s = sum(todos_t)
                 if t_tot_s:
                     _th, _tr = divmod(t_tot_s, 3600); _tm, _ts = divmod(_tr, 60)
                     t_tot = f"{_th:02d}:{_tm:02d}:{_ts:02d}"
@@ -3187,7 +3153,7 @@ def tela_admin():
                   <td style="padding:12px 10px;text-align:center;font-family:monospace;font-size:12px;color:#1A1714;font-weight:700;vertical-align:middle;">{t_tot}</td>
                 </tr>"""
 
-            n_ops = len(op_map_filt)
+            n_ops = len(op_map)
             components.html(f"""
             <!DOCTYPE html><html><head>
             <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
@@ -3222,23 +3188,23 @@ def tela_admin():
         st.markdown("""
         <style>
         .btn-warn > button {
-          background:#FEF3C7 !important; color:#92400E !important;
-          border:1.5px solid #F59E0B !important; border-radius:10px !important;
-          font-size:13px !important; font-weight:800 !important; height:48px !important;
+            background:#FEF3C7 !important; color:#92400E !important;
+            border:1.5px solid #F59E0B !important; border-radius:10px !important;
+            font-size:13px !important; font-weight:800 !important; height:48px !important;
         }
         .btn-warn > button:hover { background:#F59E0B !important; color:#fff !important; }
         .btn-danger > button {
-          background:#FEF2F2 !important; color:#C8566A !important;
-          border:1.5px solid #FECACA !important; border-radius:10px !important;
-          font-size:13px !important; font-weight:800 !important; height:48px !important;
+            background:#FEF2F2 !important; color:#C8566A !important;
+            border:1.5px solid #FECACA !important; border-radius:10px !important;
+            font-size:13px !important; font-weight:800 !important; height:48px !important;
         }
         .btn-danger > button:hover { background:#C8566A !important; color:#fff !important; }
         .btn-reset-dia > button {
-          background: linear-gradient(135deg,#7C3AED,#5B21B6) !important;
-          color: #fff !important; border: none !important;
-          border-radius: 10px !important; height: 48px !important;
-          font-size: 13px !important; font-weight: 800 !important;
-          box-shadow: 0 4px 0 rgba(60,10,120,0.35) !important;
+            background: linear-gradient(135deg,#7C3AED,#5B21B6) !important;
+            color: #fff !important; border: none !important;
+            border-radius: 10px !important; height: 48px !important;
+            font-size: 13px !important; font-weight: 800 !important;
+            box-shadow: 0 4px 0 rgba(60,10,120,0.35) !important;
         }
         .btn-reset-dia > button:hover { transform: translateY(-1px) !important; }
         </style>""", unsafe_allow_html=True)
@@ -3298,6 +3264,7 @@ def tela_admin():
                 Ideal para reiniciar os testes. <strong>Não pode ser desfeita.</strong>
               </div>
             </div></body></html>""", height=130, scrolling=False)
+
             st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
             st.markdown("""
             <style>
@@ -3336,6 +3303,7 @@ def tela_admin():
         if regs_para_tabela:
             hist_rows = ""
             for r in regs_para_tabela[:80]:
+                # r: (id, pedido, operador, etapa, etapa_idx, tempo_s, data_fim, inicio, qtd_pecas)
                 fim_str    = r[6] if r[6] else "—"
                 inicio_str = r[7] if r[7] else "—"
                 qtd_str    = str(r[8]) if r[8] is not None else "—"
@@ -3348,6 +3316,33 @@ def tela_admin():
                   <td style="padding:11px 10px;font-size:11px;color:#9C9490;text-align:center;">{inicio_str}</td>
                   <td style="padding:11px 10px;font-size:11px;color:#9C9490;text-align:center;">{fim_str}</td>
                 </tr>"""
+
+            n_hist = min(len(regs_para_tabela), 80)
+            hist_height = 56 + (n_hist * 46) + 20
+
+            components.html(f"""
+            <!DOCTYPE html><html><head>
+            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+            <style>
+            *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
+            .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
+            .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
+            table{{width:100%;border-collapse:collapse;}} thead tr{{background:#1A1714;}}
+            th{{padding:12px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-align:center;}}
+            th:first-child{{text-align:left;padding-left:16px;}} th:nth-child(2){{text-align:left;}}
+            tbody tr{{border-bottom:1px solid #F2EEE9;}} tbody tr:last-child{{border-bottom:none;}}
+            tbody tr:hover{{background:#FDFAF9;}}
+            </style></head><body>
+            <div class="lbl">Histórico de Pedidos</div>
+            <div class="wrap"><table><thead><tr>
+              <th>Pedido</th><th>Operador</th><th>Etapa</th><th>Tempo</th>
+              <th style="color:#7B9FE0;">Qtd Peças</th>
+              <th style="color:#A0C8E0;">Início</th>
+              <th style="color:#A0C8E0;">Fim</th>
+            </tr></thead><tbody>{hist_rows}</tbody></table></div>
+            </body></html>
+            """, height=min(hist_height, 600), scrolling=hist_height > 600)
+
         st.markdown("<br>", unsafe_allow_html=True)
 
         if regs:
@@ -3370,6 +3365,7 @@ def tela_admin():
 
             pdf_bytes = gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg)
 
+            # ── Gerar XLS ──
             df_xls = pd.DataFrame(list(regs), columns=["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data Fim","Início","Qtd Peças"])
             buf_xls = io.BytesIO()
             with pd.ExcelWriter(buf_xls, engine="openpyxl") as writer:
@@ -3396,9 +3392,6 @@ def tela_admin():
 
 
 
-      # ════════════════════════════════════════════════════════════════════
-      #  ABA 2 — FERRAMENTAS
-      # ════════════════════════════════════════════════════════════════════
     with _aba_tools:
         st.markdown("""
         <div style="background:#F0F5FF;border:1.5px solid #3B7DD8;border-radius:12px;
@@ -3406,7 +3399,6 @@ def tela_admin():
             🔧 Ferramentas de gestão de pedidos — rastreie, ajuste etapas, adicione pedidos e gerencie cadastros.
         </div>""", unsafe_allow_html=True)
 
-        #  BLOCO 1.5 — RASTREAR PEDIDO POR NÚMERO
         # ══════════════════════════════════════════════════════════════════
         with st.expander("🔍 Rastrear Pedido por Número", expanded=True):
 
@@ -4084,34 +4076,24 @@ def tela_admin():
                             idx_obs  = _col(["Observação","Observacao"])
                             idx_prod = _col(["Perfil","Produto"])
 
-                            import re as _re
-                            def _limpar_nome_cliente(raw):
-                                """Remove prefixo numérico tipo '32273 - ' e retorna só o nome."""
-                                if not raw: return ""
-                                s = str(raw).strip()
-                                # Ignora só números ou datas
-                                if _re.match(r"^\d+$", s): return ""
-                                if "datetime" in s or _re.match(r"\d{4}-\d{2}", s): return ""
-                                # Remove qualquer prefixo "NUMERO - " ou "NUMERO  -  " (espaços variados)
-                                s = _re.sub(r"^\d+\s*-\s*", "", s).strip()
-                                # Se ficou vazio ou ainda é número puro, descarta
-                                if not s or _re.match(r"^\d+$", s): return ""
-                                return s
-
                             pedidos_xlsx = []
                             for row in ws.iter_rows(min_row=2, values_only=True):
                                 num = row[idx_num] if idx_num is not None else None
                                 if not num: continue
-                                num = str(int(num)) if isinstance(num, (int, float)) else str(num).strip()
-                                # Extrai nome do cliente: percorre TODAS as colunas "Cliente"
-                                # e usa a primeira que retornar nome válido após limpeza
+                                num = str(int(num)) if isinstance(num, float) else str(num).strip()
+                                # Extrai nome do cliente — percorre as colunas "Cliente" até achar uma string
+                                import re
                                 cli = ""
                                 for _ci in range(len(headers)):
                                     if headers[_ci].strip().lower() == "cliente" and row[_ci]:
-                                        _nome = _limpar_nome_cliente(row[_ci])
-                                        if _nome:
-                                            cli = _nome
-                                            break
+                                        _raw = str(row[_ci]).strip()
+                                        # Ignora colunas que são só números ou datas
+                                        if re.match(r'^\d+$', _raw): continue
+                                        if "datetime" in _raw or re.match(r'\d{4}-\d{2}', _raw): continue
+                                        # Remove prefixo "CODIGO - "
+                                        _match = re.findall(r'\d+ - (.+)', _raw)
+                                        cli = _match[-1].strip() if _match else _raw
+                                        if cli: break
                                 est  = row[idx_est]  if idx_est  is not None else None
                                 vr   = row[idx_vr]   if idx_vr   is not None else None
                                 obs  = str(row[idx_obs]).strip()  if idx_obs  is not None and row[idx_obs] and str(row[idx_obs]) != "None" else ""
@@ -4266,7 +4248,7 @@ def tela_admin():
         avulsos = buscar_pedidos_avulsos()
 
         with st.expander(
-            f"📋 Pedidos Adicionados Manualmente  {'— ' + str(len(avulsos)) + ' encontrado(s)' if avulsos else '— nenhum cadastrado'}",
+            f"🗑️ Gerenciar Pedidos Avulsos  {'— ' + str(len(avulsos)) + ' encontrado(s)' if avulsos else '— nenhum cadastrado'}",
             expanded=bool(avulsos)
         ):
             if not avulsos:
@@ -4276,26 +4258,24 @@ def tela_admin():
                             padding:18px 20px;text-align:center;">
                     <div style="font-size:22px;margin-bottom:6px;">✅</div>
                     <div style="font-size:13px;font-weight:700;color:#2d5a3d;">
-                        Nenhum pedido adicionado manualmente.</div>
+                        Nenhum pedido avulso cadastrado.</div>
                     <div style="font-size:11px;color:#4A7C59;margin-top:4px;font-weight:600;">
-                        Todos os pedidos vieram da planilha do Sistema A.</div>
+                        Todos os pedidos vieram da planilha do Programa A.</div>
                 </div></body></html>""", height=100, scrolling=False)
             else:
                 st.markdown("""
-                <div style="background:#F0F5FF;border:1.5px solid #3B7DD8;border-radius:10px;
-                            padding:12px 16px;font-size:12px;font-weight:700;color:#1e3a8a;margin-bottom:12px;">
-                    ℹ️ Pedidos adicionados manualmente (via XLSX ou formulário). Eles somem desta lista
-                    automaticamente após serem <strong>concluídos</strong> e <strong>excluídos</strong>,
-                    ou quando a planilha do Sistema A for reimportada com esses pedidos incluídos.<br>
-                    <span style="font-weight:600;color:#3B7DD8;margin-top:4px;display:block;">
-                    ⏱ Enquanto estiverem em aberto ou em produção, permanecem visíveis aqui.</span>
+                <div style="background:#FFFBEB;border:1.5px solid #F59E0B;border-radius:10px;
+                            padding:12px 16px;font-size:12px;font-weight:700;color:#92400E;margin-bottom:12px;">
+                    ⚠️ Pedidos avulsos são cadastros manuais feitos durante a operação que
+                    <strong>não existem na planilha</strong>. Exclua apenas os que foram
+                    digitados por engano.
                 </div>
                 """, unsafe_allow_html=True)
 
                 if "confirm_excluir" not in st.session_state:
                     st.session_state.confirm_excluir = {}
 
-                for numero, cliente, status, importado_em in avulsos:
+                for numero, status, importado_em in avulsos:
                     regs_vinculados = _get("registros", f"pedido=eq.{numero}&select=id")
                     tem_registros   = isinstance(regs_vinculados, list) and len(regs_vinculados) > 0
                     cor_status      = "#4A7C59" if status == "aberto" else "#C8566A"
@@ -4312,16 +4292,17 @@ def tela_admin():
                         <div style="background:#fff;border:1.5px solid #EDE9E4;border-radius:10px;
                                     padding:11px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                             <span style="font-family:monospace;font-size:14px;font-weight:800;
-                                         color:#1A1714;">#{numero}</span>
-                            {'<span style="font-size:12px;font-weight:700;color:#1A1714;">' + cliente + '</span>' if cliente else ''}
+                                         color:#1A1714;">{numero}</span>
                             <span style="background:{cor_status}22;color:{cor_status};font-size:10px;
                                          font-weight:800;padding:2px 10px;border-radius:20px;
                                          text-transform:uppercase;">{lbl_status}</span>
                             <span style="font-size:11px;color:#9C9490;">
-                                Adicionado em: {importado_em or "—"}</span>
+                                Cadastrado em: {importado_em or "—"}</span>
                             {aviso_reg}
                         </div>
                         """, unsafe_allow_html=True)
+
+                    with col_btn:
                         em_confirmacao = st.session_state.confirm_excluir.get(numero, False)
 
                         if not em_confirmacao:
@@ -4377,7 +4358,6 @@ def tela_admin():
                     st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
 
         st.markdown("<br style='line-height:0.3'>", unsafe_allow_html=True)
-
 
 
 # ─────────────────────────────────────
