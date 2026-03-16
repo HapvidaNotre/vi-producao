@@ -3041,36 +3041,41 @@ def tela_admin():
                     font-weight:700;">{tempo_str}</td>
                 </tr>"""
 
-            altura = 52 + n_and * 47
-            st.markdown(f"""<style>
-            *{{margin:0;padding:0;box-sizing:border-box;}}
-            body{{background:transparent;font-family:Nunito,sans-serif;}}
-            .wrap{{background:#fff;border-radius:14px;border:1.5px solid #EDE9E4;
+            altura = 54 + n_and * 48 + 16
+            components.html(f"""<!DOCTYPE html><html><head>
+            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+            <style>
+            *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
+            .wrap-and{{background:#fff;border-radius:14px;border:1.5px solid #EDE9E4;
                    overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-            table{{width:100%;border-collapse:collapse;}}
+            table{{width:100%;border-collapse:collapse;table-layout:fixed;}}
             thead tr{{background:#1A1714;}}
             th{{padding:11px 14px;font-size:9px;font-weight:800;letter-spacing:1.8px;
-               text-transform:uppercase;color:rgba(255,255,255,0.40);white-space:nowrap;}}
-            th.td-c{{text-align:center;}}
-            .td-ped{{padding:12px 14px;font-family:monospace;font-size:13px;
-                    font-weight:800;color:#1A1714;white-space:nowrap;}}
-            .td-op{{padding:12px 10px;font-size:13px;font-weight:700;color:#1A1714;}}
+               text-transform:uppercase;color:rgba(255,255,255,0.40);}}
+            th.c-ctr{{text-align:center;}}
+            .td-ped{{padding:12px 14px;font-family:"DM Mono",monospace;font-size:13px;
+                    font-weight:800;color:#1A1714;}}
+            .td-op{{padding:12px 10px;font-size:13px;font-weight:700;color:#1A1714;
+                   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}}
             .td-c{{padding:12px 10px;text-align:center;}}
             tbody tr{{border-bottom:1px solid #F2EEE9;}}
             tbody tr:last-child{{border-bottom:none;}}
             tbody tr:hover td{{background:#FDFAF9;}}
-            </style>
-            <div class="wrap">
+            </style></head><body>
+            <div class="wrap-and">
               <table>
+                <colgroup>
+                  <col style="width:20%"><col style="width:26%"><col style="width:34%"><col style="width:20%">
+                </colgroup>
                 <thead><tr>
-                  <th>Pedido</th>
-                  <th>Operador</th>
-                  <th class="td-c">Etapa</th>
-                  <th class="td-c">Tempo decorrido</th>
+                  <th>Pedido</th><th>Operador</th>
+                  <th class="c-ctr">Etapa</th>
+                  <th class="c-ctr">Tempo decorrido</th>
                 </tr></thead>
                 <tbody>{linhas_html}</tbody>
               </table>
-            </div>""", unsafe_allow_html=True)
+            </div>
+            </body></html>""", height=altura, scrolling=False)
 
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
