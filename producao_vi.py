@@ -2758,7 +2758,21 @@ def tela_admin_login():
         st.markdown('</div>', unsafe_allow_html=True)
 
 
-def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg):
+def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg,
+              sec_resumo=True, sec_desempenho=True, sec_ranking=True,
+              sec_historico=False, etapas_hist=None, pausas_pdf=None,
+              sec_pausas=False, filtro_label=""):
+    """
+    Gera o PDF com seções configuráveis.
+    sec_resumo      — KPIs do topo
+    sec_desempenho  — tabela de desempenho por operador
+    sec_ranking     — ranking por peças
+    sec_historico   — histórico de pedidos (sob demanda)
+    etapas_hist     — None = todas | lista de etapa_idx a incluir
+    pausas_pdf      — lista de registros de pausas para sec_pausas
+    sec_pausas      — inclui tabela de pausas no PDF
+    filtro_label    — texto descritivo do filtro ativo (dia/operador)
+    """
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
     from reportlab.lib.units import cm
@@ -2775,6 +2789,8 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg):
     CLARO  = colors.HexColor("#F7F5F2")
     CINZA  = colors.HexColor("#8C8480")
     VERDE  = colors.HexColor("#4A7C59")
+    LARANJA= colors.HexColor("#E07B3A")
+    AZUL   = colors.HexColor("#3B5EC6")
     BEGE   = colors.HexColor("#EDE9E4")
     BRANCO = colors.white
 
@@ -2792,6 +2808,7 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg):
     story = []
     now_str = now_br().strftime("%d/%m/%Y às %H:%M")
 
+    # ── Cabeçalho ────────────────────────────────────────────────────────────
     header_data = [[
         Paragraph("<b><font color='#C8566A' size='18'>Vi</font> LINGERIE</b>", styles["Normal"]),
         Paragraph(f"<font color='#8C8480' size='8'>Gerado em {now_str}</font>",
@@ -2805,53 +2822,67 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg):
     story.append(header_tbl)
     story.append(HRFlowable(width="100%", thickness=2, color=ROSA, spaceAfter=14))
     story.append(Paragraph("Relatório de Produção", S_TITLE))
-    story.append(Paragraph("Desempenho de operadores por etapa do processo produtivo", S_SUB))
+    sub_txt = f"Desempenho de operadores por etapa do processo produtivo"
+    if filtro_label:
+        sub_txt += f"  ·  Filtro: {filtro_label}"
+    story.append(Paragraph(sub_txt, S_SUB))
     story.append(Spacer(1, 18))
 
-    story.append(Paragraph("RESUMO GERAL", S_SECTION))
-    kpi_data = [[
-        Paragraph(f"<b><font size='22' color='#C8566A'>{len(ped_comp)}</font></b><br/><font size='8' color='#8C8480'>PEDIDOS CONCLUÍDOS</font>", styles["Normal"]),
-        Paragraph(f"<b><font size='22' color='#C8566A'>{len(ops_ativ)}</font></b><br/><font size='8' color='#8C8480'>OPERADORES ATIVOS</font>", styles["Normal"]),
-        Paragraph(f"<b><font size='22' color='#C8566A'>{avg}m</font></b><br/><font size='8' color='#8C8480'>TEMPO MÉDIO</font>", styles["Normal"]),
-        Paragraph(f"<b><font size='22' color='#C8566A'>{len(regs)}</font></b><br/><font size='8' color='#8C8480'>REGISTROS TOTAIS</font>", styles["Normal"]),
-    ]]
-    kpi_tbl = Table(kpi_data, colWidths=["25%","25%","25%","25%"])
-    kpi_tbl.setStyle(TableStyle([
-        ("BACKGROUND",    (0,0), (-1,-1), CLARO),
-        ("TOPPADDING",    (0,0), (-1,-1), 14), ("BOTTOMPADDING", (0,0), (-1,-1), 14),
-        ("LEFTPADDING",   (0,0), (-1,-1), 14), ("ALIGN",         (0,0), (-1,-1), "CENTER"),
-        ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
-    ]))
-    story.append(kpi_tbl)
-    story.append(Spacer(1, 20))
+    # ── KPI Resumo ───────────────────────────────────────────────────────────
+    if sec_resumo:
+        total_pecas_pdf = sum(r[8] for r in regs if r[8] is not None)
+        story.append(Paragraph("RESUMO GERAL", S_SECTION))
+        kpi_data = [[
+            Paragraph(f"<b><font size='22' color='#C8566A'>{len(ped_comp)}</font></b><br/><font size='8' color='#8C8480'>PEDIDOS CONCLUÍDOS</font>", styles["Normal"]),
+            Paragraph(f"<b><font size='22' color='#C8566A'>{len(ops_ativ)}</font></b><br/><font size='8' color='#8C8480'>OPERADORES ATIVOS</font>", styles["Normal"]),
+            Paragraph(f"<b><font size='22' color='#C8566A'>{avg}m</font></b><br/><font size='8' color='#8C8480'>TEMPO MÉDIO</font>", styles["Normal"]),
+            Paragraph(f"<b><font size='22' color='#C8566A'>{total_pecas_pdf}</font></b><br/><font size='8' color='#8C8480'>PEÇAS SEPARADAS</font>", styles["Normal"]),
+        ]]
+        kpi_tbl = Table(kpi_data, colWidths=["25%","25%","25%","25%"])
+        kpi_tbl.setStyle(TableStyle([
+            ("BACKGROUND",    (0,0), (-1,-1), CLARO),
+            ("TOPPADDING",    (0,0), (-1,-1), 14), ("BOTTOMPADDING", (0,0), (-1,-1), 14),
+            ("LEFTPADDING",   (0,0), (-1,-1), 14), ("ALIGN",         (0,0), (-1,-1), "CENTER"),
+            ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+        ]))
+        story.append(kpi_tbl)
+        story.append(Spacer(1, 20))
 
-    if op_map:
+    # ── Desempenho por Operador ──────────────────────────────────────────────
+    if sec_desempenho and op_map:
         story.append(Paragraph("DESEMPENHO POR OPERADOR", S_SECTION))
         op_header = [
-            Paragraph("<b>OPERADOR</b>",      ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO)),
-            Paragraph("<b>PEDIDOS</b>",        ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
-            Paragraph("<b>PEÇAS</b>",          ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
-            Paragraph("<b>TEMPO TOTAL</b>",    ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
-            Paragraph("<b>TEMPO MÉDIO</b>",    ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
-            Paragraph("<b>EFICIÊNCIA</b>",     ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>OPERADOR</b>",   ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO)),
+            Paragraph("<b>PEDIDOS</b>",    ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>PEÇAS</b>",      ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>T. TOTAL</b>",   ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>T. MÉDIO</b>",   ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>PAUSAS</b>",     ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>EFICIÊNCIA</b>", ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
         ]
         op_rows_pdf = [op_header]
-        for i, (op, d) in enumerate(sorted(op_map.items(), key=lambda x: x[1]["pecas"], reverse=True)):
+        pausas_por_op_pdf = {}
+        if pausas_pdf:
+            for p in pausas_pdf:
+                pausas_por_op_pdf[p[2]] = pausas_por_op_pdf.get(p[2], 0) + 1
+        for op, d in sorted(op_map.items(), key=lambda x: x[1]["pecas"], reverse=True):
             n_ped    = len(d["p"])
             t_total  = d["tempo_total"]
             t_medio  = media(d["tempos"])
             pcs      = d["pecas"]
             h_trab   = t_total / 3600 if t_total > 0 else 0
             efic_str = f"{round(pcs/h_trab,1)} pcs/h" if h_trab > 0 and pcs > 0 else "—"
+            n_paus   = pausas_por_op_pdf.get(op, 0)
             op_rows_pdf.append([
-                Paragraph(f"<b>{op}</b>", ParagraphStyle("o", fontName="Helvetica-Bold", fontSize=9, textColor=ESCURO)),
-                Paragraph(str(n_ped),     ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
-                Paragraph(str(pcs),       ParagraphStyle("c", fontSize=9, textColor=VERDE,  alignment=TA_CENTER, fontName="Helvetica-Bold")),
-                Paragraph(fmt(t_total),   ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
-                Paragraph(fmt(t_medio),   ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
-                Paragraph(efic_str,       ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
+                Paragraph(f"<b>{op}</b>",  ParagraphStyle("o", fontName="Helvetica-Bold", fontSize=9, textColor=ESCURO)),
+                Paragraph(str(n_ped),      ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
+                Paragraph(str(pcs),        ParagraphStyle("c", fontSize=9, textColor=VERDE,  alignment=TA_CENTER, fontName="Helvetica-Bold")),
+                Paragraph(fmt(t_total),    ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
+                Paragraph(fmt(t_medio),    ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
+                Paragraph(str(n_paus),     ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
+                Paragraph(efic_str,        ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
             ])
-        op_tbl = Table(op_rows_pdf, colWidths=["28%","12%","12%","16%","16%","16%"])
+        op_tbl = Table(op_rows_pdf, colWidths=["26%","10%","10%","14%","14%","10%","16%"])
         op_tbl.setStyle(TableStyle([
             ("BACKGROUND",    (0,0), (-1,0), ROSA),
             ("ROWBACKGROUNDS",(0,1), (-1,-1), [CLARO, BRANCO]),
@@ -2863,38 +2894,126 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg):
         story.append(op_tbl)
         story.append(Spacer(1, 20))
 
-    if regs:
-        story.append(Paragraph("HISTÓRICO DE PEDIDOS", S_SECTION))
-        ETAPA_NOMES = {"Separacao":"Separação","Conferencia":"Conferência","Embalagem":"Embalagem"}
-        hist_header = [
+    # ── Ranking do Dia ───────────────────────────────────────────────────────
+    if sec_ranking and op_map:
+        story.append(Paragraph("RANKING DO DIA — PEÇAS PRODUZIDAS", S_SECTION))
+        ranking_sorted = sorted(op_map.items(), key=lambda x: x[1]["pecas"], reverse=True)
+        medals = ["🥇", "🥈", "🥉"]
+        rank_header = [
+            Paragraph("<b>POS.</b>",     ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>OPERADOR</b>", ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO)),
+            Paragraph("<b>PEÇAS</b>",    ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>EFICIÊNCIA</b>", ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+        ]
+        rank_rows = [rank_header]
+        for i, (op, d) in enumerate(ranking_sorted):
+            pcs    = d["pecas"]
+            h_trab = d["tempo_total"] / 3600 if d["tempo_total"] > 0 else 0
+            efic   = f"{round(pcs/h_trab,1)} pcs/h" if h_trab > 0 and pcs > 0 else "—"
+            pos    = medals[i] if i < 3 else f"#{i+1}"
+            rank_rows.append([
+                Paragraph(pos,              ParagraphStyle("c", fontSize=11, alignment=TA_CENTER)),
+                Paragraph(f"<b>{op}</b>",   ParagraphStyle("o", fontName="Helvetica-Bold", fontSize=9, textColor=ESCURO)),
+                Paragraph(str(pcs),         ParagraphStyle("c", fontSize=10, textColor=AZUL, alignment=TA_CENTER, fontName="Helvetica-Bold")),
+                Paragraph(efic,             ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
+            ])
+        rank_tbl = Table(rank_rows, colWidths=["12%","42%","22%","24%"])
+        rank_tbl.setStyle(TableStyle([
+            ("BACKGROUND",    (0,0), (-1,0), ESCURO),
+            ("ROWBACKGROUNDS",(0,1), (-1,-1), [CLARO, BRANCO]),
+            ("GRID",          (0,0), (-1,-1), 0.4, BEGE),
+            ("TOPPADDING",    (0,0), (-1,-1), 9),  ("BOTTOMPADDING", (0,0), (-1,-1), 9),
+            ("LEFTPADDING",   (0,0), (-1,-1), 10), ("RIGHTPADDING",  (0,0), (-1,-1), 10),
+            ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+        ]))
+        story.append(rank_tbl)
+        story.append(Spacer(1, 20))
+
+    # ── Histórico de Pedidos (sob demanda) ───────────────────────────────────
+    if sec_historico and regs:
+        ETAPA_NOMES = {"Separacao":"Separação", "Conferencia":"Conferência",
+                       "Mesa_Embalagem":"Embalagem", "Embalagem":"Embalagem"}
+        ETAPA_IDX_NOME = {0:"Separação", 1:"Embalagem", 2:"Conferência"}
+        # Filtra etapas se solicitado
+        regs_hist_pdf = regs
+        if etapas_hist is not None:
+            regs_hist_pdf = [r for r in regs if r[4] in etapas_hist]
+        if regs_hist_pdf:
+            etapa_lbl = ""
+            if etapas_hist is not None:
+                nomes_sel = [ETAPA_IDX_NOME.get(e, str(e)) for e in sorted(etapas_hist)]
+                etapa_lbl = f" ({', '.join(nomes_sel)})"
+            story.append(Paragraph(f"HISTÓRICO DE PEDIDOS{etapa_lbl}", S_SECTION))
+            hist_header = [
+                Paragraph("<b>PEDIDO</b>",   ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO)),
+                Paragraph("<b>OPERADOR</b>", ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO)),
+                Paragraph("<b>ETAPA</b>",    ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+                Paragraph("<b>TEMPO</b>",    ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+                Paragraph("<b>PEÇAS</b>",    ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+                Paragraph("<b>INÍCIO</b>",   ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+                Paragraph("<b>FIM</b>",      ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            ]
+            hist_rows_pdf = [hist_header]
+            for r in regs_hist_pdf[:200]:
+                qtd_str   = str(r[8]) if r[8] is not None else "—"
+                inicio_str = r[7] if r[7] else "—"
+                fim_str   = r[6] if r[6] else "—"
+                hist_rows_pdf.append([
+                    Paragraph(f"<font name='Courier-Bold' size='8'>{r[1]}</font>", styles["Normal"]),
+                    Paragraph(f"<font size='8'>{r[2]}</font>", styles["Normal"]),
+                    Paragraph(ETAPA_NOMES.get(r[3], r[3]),    ParagraphStyle("c", fontSize=8, alignment=TA_CENTER)),
+                    Paragraph(f"<font name='Courier' size='8'>{fmt(r[5])}</font>", ParagraphStyle("c", fontSize=8, alignment=TA_CENTER)),
+                    Paragraph(f"<font name='Courier-Bold' size='8'>{qtd_str}</font>", ParagraphStyle("c", fontSize=8, alignment=TA_CENTER)),
+                    Paragraph(f"<font size='7' color='#8C8480'>{inicio_str}</font>", ParagraphStyle("c", fontSize=7, alignment=TA_CENTER)),
+                    Paragraph(f"<font size='7' color='#8C8480'>{fim_str}</font>",   ParagraphStyle("c", fontSize=7, alignment=TA_CENTER)),
+                ])
+            hist_tbl = Table(hist_rows_pdf, colWidths=["14%","18%","16%","12%","10%","15%","15%"])
+            hist_tbl.setStyle(TableStyle([
+                ("BACKGROUND",    (0,0), (-1,0), ESCURO),
+                ("ROWBACKGROUNDS",(0,1), (-1,-1), [CLARO, BRANCO]),
+                ("GRID",          (0,0), (-1,-1), 0.3, BEGE),
+                ("TOPPADDING",    (0,0), (-1,-1), 7), ("BOTTOMPADDING", (0,0), (-1,-1), 7),
+                ("LEFTPADDING",   (0,0), (-1,-1), 8), ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+            ]))
+            story.append(hist_tbl)
+            story.append(Spacer(1, 20))
+
+    # ── Pausas ───────────────────────────────────────────────────────────────
+    if sec_pausas and pausas_pdf:
+        ETAPA_IDX_NOME2 = {0:"Separação", 1:"Embalagem", 2:"Conferência"}
+        story.append(Paragraph("HISTÓRICO DE PAUSAS", S_SECTION))
+        pausa_header = [
             Paragraph("<b>PEDIDO</b>",    ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO)),
             Paragraph("<b>OPERADOR</b>",  ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO)),
             Paragraph("<b>ETAPA</b>",     ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>PAUSADO EM</b>",ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
             Paragraph("<b>TEMPO</b>",     ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
-            Paragraph("<b>QTD PÇS</b>",   ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
-            Paragraph("<b>DATA</b>",      ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>MOTIVO</b>",    ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO)),
         ]
-        hist_rows = [hist_header]
-        for r in regs[:80]:
-            qtd_str = str(r[8]) if r[8] is not None else "—"
-            hist_rows.append([
-                Paragraph(f"<font name='Courier-Bold' size='8'>{r[1]}</font>", styles["Normal"]),
-                Paragraph(f"<font size='8'>{r[2]}</font>", styles["Normal"]),
-                Paragraph(ETAPA_NOMES.get(r[3], r[3]), styles["Normal"]),
-                Paragraph(f"<font name='Courier' size='8'>{fmt(r[5])}</font>", ParagraphStyle("c", fontSize=8, alignment=TA_CENTER)),
-                Paragraph(f"<font name='Courier-Bold' size='8'>{qtd_str}</font>", ParagraphStyle("c", fontSize=8, alignment=TA_CENTER)),
-                Paragraph(f"<font size='7' color='#8C8480'>{r[6]}</font>", ParagraphStyle("c", fontSize=7, alignment=TA_CENTER)),
+        pausa_rows_pdf = [pausa_header]
+        for p in pausas_pdf[:100]:
+            # p: (id, pedido, operador, etapa_idx, pausado_em, tempo_pausado_s, motivo)
+            etapa_nm = ETAPA_IDX_NOME2.get(p[3], str(p[3]))
+            pausa_rows_pdf.append([
+                Paragraph(f"<font name='Courier-Bold' size='8'>{p[1]}</font>", styles["Normal"]),
+                Paragraph(f"<font size='8'>{p[2]}</font>", styles["Normal"]),
+                Paragraph(etapa_nm, ParagraphStyle("c", fontSize=8, alignment=TA_CENTER)),
+                Paragraph(f"<font size='7' color='#8C8480'>{p[4] or '—'}</font>", ParagraphStyle("c", fontSize=7, alignment=TA_CENTER)),
+                Paragraph(fmt(p[5]) if p[5] else "—", ParagraphStyle("c", fontSize=8, textColor=ESCURO, alignment=TA_CENTER)),
+                Paragraph(f"<font size='8' color='#5C5450'>{p[6] or '—'}</font>", styles["Normal"]),
             ])
-        hist_tbl = Table(hist_rows, colWidths=["16%","20%","20%","14%","12%","18%"])
-        hist_tbl.setStyle(TableStyle([
-            ("BACKGROUND",    (0,0), (-1,0), ESCURO),
+        pausa_tbl = Table(pausa_rows_pdf, colWidths=["14%","18%","14%","18%","12%","24%"])
+        pausa_tbl.setStyle(TableStyle([
+            ("BACKGROUND",    (0,0), (-1,0), LARANJA),
             ("ROWBACKGROUNDS",(0,1), (-1,-1), [CLARO, BRANCO]),
             ("GRID",          (0,0), (-1,-1), 0.3, BEGE),
             ("TOPPADDING",    (0,0), (-1,-1), 7), ("BOTTOMPADDING", (0,0), (-1,-1), 7),
             ("LEFTPADDING",   (0,0), (-1,-1), 8), ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
         ]))
-        story.append(hist_tbl)
+        story.append(pausa_tbl)
+        story.append(Spacer(1, 20))
 
+    # ── Rodapé ───────────────────────────────────────────────────────────────
     story.append(Spacer(1, 24))
     story.append(HRFlowable(width="100%", thickness=0.5, color=BEGE, spaceAfter=8))
     story.append(Paragraph(f"Vi Lingerie · Relatório gerado automaticamente em {now_str} · Sistema de Produção", S_FOOTER))
@@ -4758,13 +4877,126 @@ def tela_admin():
 
         ts = now_br().strftime("%Y%m%d_%H%M")
 
+        # ── Configurador do PDF ──────────────────────────────────────────────
+        # Estado para "Marcar tudo" / "Limpar tudo"
+        for _ck, _cv in {
+            "pdf_sec_resumo":   True,
+            "pdf_sec_desemp":   True,
+            "pdf_sec_ranking":  True,
+            "pdf_etapa_sep":    True,
+            "pdf_etapa_emb":    True,
+            "pdf_etapa_conf":   True,
+            "pdf_sec_hist_dia": False,
+            "pdf_sec_pausas":   False,
+        }.items():
+            if _ck not in st.session_state:
+                st.session_state[_ck] = _cv
+
+        with st.expander("⚙️  Configurar Relatório PDF", expanded=False):
+            st.markdown("""
+            <style>
+            .btn-mark-all > button {
+                background:#F0F7F3 !important; color:#2d5a3d !important;
+                border:1.5px solid #4A7C59 !important; border-radius:8px !important;
+                font-size:12px !important; font-weight:800 !important; height:36px !important;
+            }
+            .btn-mark-all > button:hover { background:#4A7C59 !important; color:#fff !important; }
+            .btn-clear-all > button {
+                background:#FEF2F2 !important; color:#C8566A !important;
+                border:1.5px solid #FECACA !important; border-radius:8px !important;
+                font-size:12px !important; font-weight:800 !important; height:36px !important;
+            }
+            .btn-clear-all > button:hover { background:#C8566A !important; color:#fff !important; }
+            </style>""", unsafe_allow_html=True)
+
+            # ── Atalhos no topo ──────────────────────────────────────────────
+            _sa, _sb, _sc = st.columns([1, 1, 2])
+            with _sa:
+                st.markdown('<div class="btn-mark-all">', unsafe_allow_html=True)
+                if st.button("✔  Marcar tudo", use_container_width=True, key="pdf_mark_all"):
+                    for _k in ["pdf_sec_resumo","pdf_sec_desemp","pdf_sec_ranking",
+                               "pdf_etapa_sep","pdf_etapa_emb","pdf_etapa_conf",
+                               "pdf_sec_hist_dia","pdf_sec_pausas"]:
+                        st.session_state[_k] = True
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            with _sb:
+                st.markdown('<div class="btn-clear-all">', unsafe_allow_html=True)
+                if st.button("✕  Limpar tudo", use_container_width=True, key="pdf_clear_all"):
+                    for _k in ["pdf_sec_resumo","pdf_sec_desemp","pdf_sec_ranking",
+                               "pdf_etapa_sep","pdf_etapa_emb","pdf_etapa_conf",
+                               "pdf_sec_hist_dia","pdf_sec_pausas"]:
+                        st.session_state[_k] = False
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+            # ── 4 Colunas de checkboxes ──────────────────────────────────────
+            cg, ce, ch, cp = st.columns(4)
+
+            with cg:
+                st.markdown("**📊 Geral**")
+                pdf_resumo     = st.checkbox("Resumo geral (KPIs)",       key="pdf_sec_resumo")
+                pdf_desempenho = st.checkbox("Desempenho por operador",   key="pdf_sec_desemp")
+                pdf_ranking    = st.checkbox("Ranking de produção",       key="pdf_sec_ranking")
+
+            with ce:
+                st.markdown("**📦 Histórico por Etapa**")
+                etapa_sep  = st.checkbox("Separação de Pedidos", key="pdf_etapa_sep")
+                etapa_emb  = st.checkbox("Mesa de Embalagem",    key="pdf_etapa_emb")
+                etapa_conf = st.checkbox("Conferência",          key="pdf_etapa_conf")
+
+            with ch:
+                st.markdown("**📅 Histórico completo**")
+                pdf_hist_dia = st.checkbox(
+                    "Histórico do dia",
+                    key="pdf_sec_hist_dia",
+                    help="Inclui o histórico completo de pedidos. Desmarcado por padrão para manter o PDF enxuto."
+                )
+
+            with cp:
+                st.markdown("**⚡ Extras**")
+                pdf_pausas = st.checkbox("Pausas", key="pdf_sec_pausas")
+
+            # Monta parâmetros de etapas
+            etapas_por_hist = {0: etapa_sep, 1: etapa_emb, 2: etapa_conf}
+            etapas_selecionadas = [k for k, v in etapas_por_hist.items() if v]
+            # Se todas marcadas ou nenhuma com hist_dia: usa None (= todas)
+            alguma_etapa_hist = any([etapa_sep, etapa_emb, etapa_conf])
+            pdf_historico  = pdf_hist_dia or alguma_etapa_hist
+            pdf_etapas_sel = etapas_selecionadas if (alguma_etapa_hist and len(etapas_selecionadas) < 3) else None
+
+        # ── Montar filtro label ──────────────────────────────────────────────
+        partes_fl = []
+        if filtro_data != "Todos os dias":     partes_fl.append(f"Dia: {filtro_data}")
+        if filtro_op != "Todos os operadores": partes_fl.append(f"Operador: {filtro_op}")
+        filtro_label_pdf = " · ".join(partes_fl)
+
+        # ── Pausas para o PDF ────────────────────────────────────────────────
+        pausas_para_pdf = buscar_pausas_log() if pdf_pausas else None
+        if pausas_para_pdf and filtro_data != "Todos os dias":
+            pausas_para_pdf = [p for p in pausas_para_pdf if str(p[4] or "").startswith(filtro_data)]
+        if pausas_para_pdf and filtro_op != "Todos os operadores":
+            pausas_para_pdf = [p for p in pausas_para_pdf if p[2] == filtro_op]
+
+        # ── Gerar dados ──────────────────────────────────────────────────────
         buf_csv = io.StringIO()
         csv.writer(buf_csv).writerows(
             [["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data Fim","Início","Qtd Peças"]] + list(regs))
 
-        pdf_bytes = gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg)
+        pdf_bytes = gerar_pdf(
+            regs, op_map, ped_comp, ops_ativ, avg,
+            sec_resumo     = pdf_resumo,
+            sec_desempenho = pdf_desempenho,
+            sec_ranking    = pdf_ranking,
+            sec_historico  = pdf_historico,
+            etapas_hist    = pdf_etapas_sel,
+            pausas_pdf     = pausas_para_pdf,
+            sec_pausas     = pdf_pausas,
+            filtro_label   = filtro_label_pdf,
+        )
 
-        # ── Gerar XLS ──
         df_xls = pd.DataFrame(list(regs), columns=["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data Fim","Início","Qtd Peças"])
         buf_xls = io.BytesIO()
         with pd.ExcelWriter(buf_xls, engine="openpyxl") as writer:
