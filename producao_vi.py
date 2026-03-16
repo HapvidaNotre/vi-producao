@@ -614,16 +614,18 @@ label {{
     color: #9C9490 !important; letter-spacing: 1.5px !important;
     text-transform: uppercase !important;
 }}
-/* ── Expander do configurador de PDF: desfaz uppercase nos checkboxes ── */
-[data-testid="stExpander"] [data-testid="stCheckbox"] label,
-[data-testid="stExpander"] [data-testid="stCheckbox"] label p,
-[data-testid="stExpander"] [data-testid="stCheckbox"] span {{
+/* ── Fix global: todos os checkboxes e seus labels ficam legíveis ── */
+[data-testid="stCheckbox"] label,
+[data-testid="stCheckbox"] label p,
+[data-testid="stCheckbox"] label span,
+[data-testid="stCheckbox"] > label {{
     color: #1A1714 !important;
     text-transform: none !important;
     letter-spacing: 0 !important;
     font-size: 13px !important;
     font-weight: 700 !important;
 }}
+/* ── Títulos dentro de expanders também ── */
 [data-testid="stExpander"] [data-testid="stMarkdownContainer"] p,
 [data-testid="stExpander"] [data-testid="stMarkdownContainer"] strong {{
     color: #1A1714 !important;
@@ -4688,14 +4690,6 @@ def tela_admin():
                 etapas_presentes = sorted({r[4] for r in regs_filtrados if r[4] in ETAPA_NOMES_H})
 
                 # ── Filtro de etapa para o gráfico ─────────────────────────
-                st.markdown("""
-                <style>
-                [data-testid="stExpander"] ~ div [data-testid="stCheckbox"] label,
-                [data-testid="stCheckbox"] label {
-                    font-size:12px !important; text-transform:none !important;
-                    letter-spacing:0 !important; color:#1A1714 !important; font-weight:700 !important;
-                }
-                </style>""", unsafe_allow_html=True)
 
                 _fe1, _fe2, _fe3, _fe4 = st.columns([2, 1, 1, 1])
                 with _fe1:
