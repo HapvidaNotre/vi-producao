@@ -10,43 +10,11 @@ import re
 import requests
 import json
 
-# ── Correção permanente: desativa o cache de ForwardMsg do Streamlit ──────────
-# Evita o erro "Cached ForwardMsg MISS" no WebSocket.
-try:
-    from streamlit.runtime import Runtime
-    from streamlit.runtime.forward_msg_cache import ForwardMsgCache
-    # Sobrescreve o método de cache para nunca armazenar mensagens
-    ForwardMsgCache.add_message    = lambda self, msg, session_id, ref_age: None
-    ForwardMsgCache.get_message    = lambda self, hash: None
-    ForwardMsgCache.has_refs_since = lambda self, hash, age: False
-except Exception:
-    pass
-try:
-    import streamlit.runtime.forward_msg_cache as _fmc
-    _fmc.populate_hash_if_needed = lambda msg: None
-except Exception:
-    pass
-
 # Fuso horário de Brasília (UTC-3)
 _TZ_BR = timezone(timedelta(hours=-3))
 def now_br():
     """Retorna datetime atual no fuso de Brasília."""
     return datetime.now(_TZ_BR)
-
-
-# ── Grava .streamlit/config.toml desativando cache de mensagens ──────────────
-try:
-    import os as _os
-    _cfg_dir  = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), ".streamlit")
-    _cfg_file = _os.path.join(_cfg_dir, "config.toml")
-    _os.makedirs(_cfg_dir, exist_ok=True)
-    if not _os.path.exists(_cfg_file):
-        with open(_cfg_file, "w") as _f:
-            _f.write("[global]\ndisableWatchdogWarning = true\n\n")
-            _f.write("[server]\nenableWebsocketCompression = false\n\n")
-            _f.write("[runner]\nmagicEnabled = false\n\n")
-except Exception:
-    pass
 
 st.set_page_config(
     page_title="Vi Lingerie - Producao",
