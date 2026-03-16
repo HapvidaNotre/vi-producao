@@ -19,7 +19,7 @@ def now_br():
 st.set_page_config(
     page_title="Vi Lingerie - Producao",
     page_icon="👗",
-    layout="centered",
+    layout="wide",
     initial_sidebar_state="collapsed",
 )
 
@@ -555,7 +555,7 @@ html, body, [data-testid="stAppViewContainer"] {{
     font-family: 'Nunito', sans-serif !important;
 }}
 [data-testid="stHeader"], [data-testid="stSidebar"], footer, #MainMenu {{ display:none !important; }}
-.block-container {{ padding-top:1.8rem !important; padding-bottom:2rem !important; max-width:600px !important; margin: 0 auto !important; }}
+.block-container {{ padding-top:1.8rem !important; padding-bottom:2rem !important; max-width:1400px !important; margin: 0 auto !important; padding-left:2rem !important; padding-right:2rem !important; }}
 
 .logo-box {{ text-align:center; margin-bottom:1.6rem; }}
 .logo-box img {{ height:56px; object-fit:contain; }}
@@ -3143,7 +3143,7 @@ def tela_admin():
             .wrap-paus tbody tr:hover td{{background:#FFF8F2;}}
             </style>
             <div class="wrap-paus"><div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-              <table style="min-width:560px;">
+              <table style="min-width:720px;">
                 <thead><tr>
                   <th class="th-l">Pedido</th>
                   <th class="th-l">Operador</th>
@@ -4267,7 +4267,7 @@ def tela_admin():
         .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
         .outer{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
         .scroll{{overflow-x:auto;-webkit-overflow-scrolling:touch;}}
-        table{{width:100%;min-width:560px;border-collapse:collapse;table-layout:fixed;}}
+        table{{width:100%;min-width:720px;border-collapse:collapse;table-layout:fixed;}}
         col.c-op{{width:28%;}} col.c-ped{{width:9%;}} col.c-pcs{{width:9%;}}
         col.c-tt{{width:12%;}} col.c-tm{{width:12%;}} col.c-pau{{width:9%;}}
         col.c-efi{{width:12%;}} col.c-prod{{width:13%;}}
@@ -4447,7 +4447,7 @@ def tela_admin():
             *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
             .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
             .scroll{{overflow-x:auto;-webkit-overflow-scrolling:touch;}}
-            table{{width:100%;min-width:520px;border-collapse:collapse;}}
+            table{{width:100%;min-width:700px;border-collapse:collapse;}}
             thead tr{{background:#1A1714;}}
             th{{padding:11px 8px;font-size:8px;font-weight:800;letter-spacing:1.3px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-align:center;white-space:nowrap;}}
             th:first-child{{text-align:left;padding-left:14px;}} th:nth-child(2){{text-align:left;}} th:last-child{{text-align:left;}}
@@ -4697,7 +4697,7 @@ def tela_admin():
         .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
         .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
         .scroll{{overflow-x:auto;-webkit-overflow-scrolling:touch;}}
-        table{{width:100%;min-width:620px;border-collapse:collapse;}}
+        table{{width:100%;min-width:800px;border-collapse:collapse;}}
         thead tr{{background:#1A1714;}}
         th{{padding:12px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-align:center;white-space:nowrap;}}
         th:first-child{{text-align:left;padding-left:16px;}} th:nth-child(2){{text-align:left;}}
