@@ -4998,11 +4998,13 @@ def tela_admin():
         r[6].split(" ")[0] for r in regs_para_tabela if r[6] and " " in str(r[6])
     }, reverse=True) if regs_para_tabela else []
 
+    ops_hist_disp = sorted({r[2] for r in regs_para_tabela if r[2]})
+
     _dia_hist_padrao = datas_hist[0] if datas_hist else "Todos os dias"
     opcoes_hist_data = ["Todos os dias"] + datas_hist
     _idx_hist_padrao = opcoes_hist_data.index(_dia_hist_padrao) if _dia_hist_padrao in opcoes_hist_data else 0
 
-    fh1, fh2 = st.columns([2, 1])
+    fh1, fh2, fh3 = st.columns([2, 2, 1])
     with fh1:
         filtro_hist_data = st.selectbox(
             "📋 Histórico — filtrar por dia",
@@ -5011,21 +5013,30 @@ def tela_admin():
             key="admin_hist_filtro_data"
         )
     with fh2:
+        filtro_hist_op = st.selectbox(
+            "👤 Histórico — filtrar por operador",
+            ["Todos os operadores"] + ops_hist_disp,
+            key="admin_hist_filtro_op"
+        )
+    with fh3:
         st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-        n_dia_hist = len([r for r in regs_para_tabela
-                          if filtro_hist_data == "Todos os dias"
-                          or str(r[6]).startswith(filtro_hist_data)])
+        _n_pre = regs_para_tabela
+        if filtro_hist_data != "Todos os dias":
+            _n_pre = [r for r in _n_pre if str(r[6]).startswith(filtro_hist_data)]
+        if filtro_hist_op != "Todos os operadores":
+            _n_pre = [r for r in _n_pre if r[2] == filtro_hist_op]
         st.markdown(
             f'''<div style="background:#F0F5FF;border:1.5px solid #3B5EC6;border-radius:10px;
             padding:8px 14px;font-size:12px;font-weight:700;color:#3B5EC6;text-align:center;">
-            {n_dia_hist} registro(s)</div>''',
+            {len(_n_pre)} reg.</div>''',
             unsafe_allow_html=True
         )
 
+    regs_hist_filtrados = regs_para_tabela
     if filtro_hist_data != "Todos os dias":
-        regs_hist_filtrados = [r for r in regs_para_tabela if str(r[6]).startswith(filtro_hist_data)]
-    else:
-        regs_hist_filtrados = regs_para_tabela
+        regs_hist_filtrados = [r for r in regs_hist_filtrados if str(r[6]).startswith(filtro_hist_data)]
+    if filtro_hist_op != "Todos os operadores":
+        regs_hist_filtrados = [r for r in regs_hist_filtrados if r[2] == filtro_hist_op]
 
     if regs_hist_filtrados:
         # ── Estado de expansão do histórico ────────────────────────────────
@@ -5135,7 +5146,9 @@ def tela_admin():
             pedidos_com_pausa = set()
             pausas_hist = buscar_pausas_log()
             for p in pausas_hist:
-                if filtro_hist_data == "Todos os dias" or str(p[4] or "").startswith(filtro_hist_data):
+                dia_ok = filtro_hist_data == "Todos os dias" or str(p[4] or "").startswith(filtro_hist_data)
+                op_ok  = filtro_hist_op == "Todos os operadores" or p[2] == filtro_hist_op
+                if dia_ok and op_ok:
                     pedidos_com_pausa.add((str(p[1]), str(p[2])))
 
             hist_rows = ""
