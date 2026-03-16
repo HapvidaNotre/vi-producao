@@ -2903,6 +2903,37 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg):
 
 
 def tela_admin():
+    # Reset CSS que pode ter vazado da tela de login
+    st.markdown("""
+    <style>
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
+        background: #F7F5F2 !important;
+    }
+    .stButton > button {
+        background: #FFFFFF !important;
+        color: #1A1714 !important;
+        border: 2px solid #DDD8D2 !important;
+        border-radius: 12px !important;
+        font-family: 'Nunito', sans-serif !important;
+        font-weight: 800 !important;
+        height: 54px !important;
+        font-size: 15px !important;
+        letter-spacing: .5px !important;
+        box-shadow: 0 3px 0 rgba(0,0,0,0.10) !important;
+    }
+    div[data-testid="stTextInput"] input {
+        background: #FFFFFF !important;
+        border: 2px solid #E0DBD4 !important;
+        border-radius: 12px !important;
+        color: #1A1714 !important;
+        font-size: 16px !important;
+        letter-spacing: normal !important;
+        height: 56px !important;
+        padding: 16px 18px !important;
+    }
+    div[data-testid="stTextInput"] label { display: block !important; }
+    </style>
+    """, unsafe_allow_html=True)
     render_logo()
 
     c1, c2 = st.columns([3, 1])
