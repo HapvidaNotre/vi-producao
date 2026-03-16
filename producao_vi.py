@@ -192,19 +192,24 @@ def remover_sessao_ativa(pedido, etapa_idx):
     _delete("sessoes_ativas", f"pedido=eq.{pedido}&etapa_idx=eq.{etapa_idx}")
     buscar_todas_sessoes_ativas.clear()
 
-def pausar_para_amanha(pedido, etapa_idx, operador, tempo_acumulado):
+def pausar_indefinidamente(pedido, etapa_idx, operador, tempo_acumulado):
     """
     Salva o tempo acumulado na sessão ativa (campo tempo_pausado).
-    O cronômetro fica 'congelado' — o operador retoma no dia seguinte.
+    O cronômetro fica 'congelado' por tempo indeterminado — iniciado_em=0
+    sinaliza que está pausado. A sessão NÃO expira automaticamente.
     """
     _upsert("sessoes_ativas", {
         "pedido":        pedido,
         "etapa_idx":     etapa_idx,
         "operador":      operador,
-        "iniciado_em":   int(time.time()),   # atualiza para manter sessão válida
-        "tempo_pausado": tempo_acumulado,    # segundos já trabalhados
+        "iniciado_em":   0,               # 0 = pausado por tempo indeterminado
+        "tempo_pausado": tempo_acumulado, # segundos já trabalhados
     }, "pedido,etapa_idx")
     buscar_todas_sessoes_ativas.clear()
+
+# Mantém alias antigo para compatibilidade
+def pausar_para_amanha(pedido, etapa_idx, operador, tempo_acumulado):
+    pausar_indefinidamente(pedido, etapa_idx, operador, tempo_acumulado)
 
 def registrar_pausa_log(pedido, etapa_idx, operador, tempo_pausado_s, motivo=""):
     """Salva um registro permanente da pausa na tabela pausas_log."""
@@ -227,6 +232,49 @@ def buscar_pausas_log():
                  r.get("tempo_pausado_s"), r.get("motivo", ""))
                 for r in rows]
     return []
+
+@st.cache_data(ttl=8, show_spinner=False)
+def buscar_pedidos_pausados():
+    """
+    Retorna as sessões atualmente em pausa (iniciado_em == 0).
+    Para cada uma, busca a data/hora da última entrada no pausas_log.
+    Retorna lista de dicts: pedido, operador, etapa_idx, pausado_em, tempo_pausado_s, motivo.
+    """
+    rows = _get("sessoes_ativas",
+                "select=pedido,operador,etapa_idx,tempo_pausado&iniciado_em=eq.0")
+    if not isinstance(rows, list):
+        return []
+
+    # Busca logs de pausa para obter data/hora de cada pausa ativa
+    pausas_log_rows = _get("pausas_log",
+                           "select=pedido,etapa_idx,pausado_em,motivo&order=id.desc",
+                           paginar=True)
+    # Monta índice: (pedido, etapa_idx) -> último registro de pausa
+    pausa_ts_map = {}
+    if isinstance(pausas_log_rows, list):
+        for p in pausas_log_rows:
+            chave = (str(p.get("pedido","")), int(p.get("etapa_idx", 0)))
+            if chave not in pausa_ts_map:   # order desc — pega o mais recente
+                pausa_ts_map[chave] = {
+                    "pausado_em": p.get("pausado_em", "—"),
+                    "motivo":     p.get("motivo", ""),
+                }
+
+    resultado = []
+    for r in rows:
+        ped = str(r.get("pedido", ""))
+        eta = int(r.get("etapa_idx", 0))
+        chave = (ped, eta)
+        info_log = pausa_ts_map.get(chave, {})
+        resultado.append({
+            "pedido":        ped,
+            "operador":      r.get("operador", ""),
+            "etapa_idx":     eta,
+            "tempo_pausado": int(r.get("tempo_pausado") or 0),
+            "pausado_em":    info_log.get("pausado_em", "—"),
+            "motivo":        info_log.get("motivo", ""),
+        })
+    return resultado
 
 def buscar_tempo_pausado(pedido, etapa_idx):
     """Retorna os segundos pausados salvos na sessão ativa, ou 0."""
@@ -394,13 +442,17 @@ init_db()
 
 # ── Limpeza automática de sessões expiradas (>12h) ──
 def _limpar_sessoes_expiradas():
-    """Remove sessões com mais de 12h buscando e deletando individualmente."""
+    """Remove sessões com mais de 12h buscando e deletando individualmente.
+    Sessões pausadas (iniciado_em == 0) NÃO são removidas — ficam indefinidamente."""
     limite = int(time.time()) - 43200
     rows = _get("sessoes_ativas", "select=pedido,etapa_idx,iniciado_em")
     if isinstance(rows, list):
         for r in rows:
             try:
-                if int(r.get("iniciado_em", 0)) < limite:
+                ini = int(r.get("iniciado_em", 0))
+                if ini == 0:
+                    continue  # Pausado — não expira automaticamente
+                if ini < limite:
                     ped = r.get("pedido", "")
                     eta = r.get("etapa_idx", 0)
                     if ped:
@@ -2943,14 +2995,16 @@ def tela_admin():
     #  BLOCO 1 — PEDIDOS EM ANDAMENTO
     # ══════════════════════════════════════════════════════════════════
     sessoes_agora = buscar_todas_sessoes_ativas()
-    n_and = len(sessoes_agora)
+    # Exclui sessões pausadas (iniciado_em == 0) — elas aparecem no bloco de Pausas
+    sessoes_ativas = [s for s in sessoes_agora if int(s.get("iniciado_em", 0)) != 0]
+    n_and = len(sessoes_ativas)
 
     with st.expander(
         f"⏱️ Pedidos em Andamento — {n_and} ativo(s)" if n_and > 0
         else "⏱️ Pedidos em Andamento — nenhum no momento",
         expanded=n_and > 0
     ):
-        if not sessoes_agora:
+        if not sessoes_ativas:
             st.markdown("""<div style="background:#F0F7F3;border:1.5px solid #4A7C59;border-radius:12px;
                         padding:20px;text-align:center;">
                 <div style="font-size:26px;margin-bottom:6px;">✅</div>
@@ -2963,7 +3017,7 @@ def tela_admin():
             ETAPA_ICON = ["📦",       "🗃️",        "✅"]
 
             linhas_html = ""
-            for s in sessoes_agora:
+            for s in sessoes_ativas:
                 ped      = str(s.get("pedido",""))
                 op       = str(s.get("operador",""))
                 eta_idx  = int(s.get("etapa_idx", 0))
@@ -3016,6 +3070,102 @@ def tela_admin():
                 </tr></thead>
                 <tbody>{linhas_html}</tbody>
               </table>
+            </div>""", unsafe_allow_html=True)
+
+    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+
+    # ══════════════════════════════════════════════════════════════════
+    #  BLOCO 1.2 — PEDIDOS EM PAUSA (tempo indeterminado)
+    # ══════════════════════════════════════════════════════════════════
+    pedidos_pausados = buscar_pedidos_pausados()
+    n_paus = len(pedidos_pausados)
+
+    with st.expander(
+        f"⏸ Pedidos em Pausa — {n_paus} pedido(s) pausado(s)" if n_paus > 0
+        else "⏸ Pedidos em Pausa — nenhum pausado no momento",
+        expanded=n_paus > 0
+    ):
+        if not pedidos_pausados:
+            st.markdown("""<div style="background:#FFF8F0;border:1.5px solid #E07B3A33;
+                        border-radius:12px;padding:20px;text-align:center;">
+                <div style="font-size:26px;margin-bottom:6px;">▶️</div>
+                <div style="font-size:13px;font-weight:700;color:#B85C20;">
+                    Nenhum pedido pausado no momento.</div>
+            </div>""", unsafe_allow_html=True)
+        else:
+            ETAPA_TAG_P = {
+                0: '<span style="background:#EBF0FB;color:#3B5EC6;padding:2px 9px;border-radius:100px;font-size:10px;font-weight:800;">📦 Separação</span>',
+                1: '<span style="background:#E8F2EC;color:#4A7C59;padding:2px 9px;border-radius:100px;font-size:10px;font-weight:800;">🗃️ Embalagem</span>',
+                2: '<span style="background:#FBF2E6;color:#C47B2A;padding:2px 9px;border-radius:100px;font-size:10px;font-weight:800;">✅ Conferência</span>',
+            }
+            linhas_paus = ""
+            for p in pedidos_pausados:
+                eta_tag   = ETAPA_TAG_P.get(p["etapa_idx"], str(p["etapa_idx"]))
+                tempo_str = fmt(p["tempo_pausado"]) if p["tempo_pausado"] else "—"
+                # Separa data e hora do campo pausado_em (formato "DD/MM/YYYY HH:MM")
+                pem = str(p["pausado_em"] or "—")
+                if " " in pem:
+                    data_paus, hora_paus = pem.split(" ", 1)
+                else:
+                    data_paus, hora_paus = pem, "—"
+                motivo_str = p["motivo"] if p["motivo"] else '<span style="color:#C0BAB4;font-style:italic;">—</span>'
+                linhas_paus += f"""<tr>
+                  <td class="td-ped">{p['pedido']}</td>
+                  <td class="td-op">{p['operador']}</td>
+                  <td class="td-c">{eta_tag}</td>
+                  <td class="td-c" style="color:#E07B3A;font-family:monospace;font-size:12px;font-weight:700;">{tempo_str}</td>
+                  <td class="td-c" style="font-size:12px;font-weight:800;color:#1A1714;">{data_paus}</td>
+                  <td class="td-c" style="font-size:13px;font-weight:900;color:#C8566A;font-family:monospace;">{hora_paus}</td>
+                  <td class="td-mot">{motivo_str}</td>
+                </tr>"""
+
+            altura_p = 54 + n_paus * 48 + 16
+            st.markdown(f"""<style>
+            .wrap-paus{{background:#fff;border-radius:14px;border:1.5px solid #F5DECB;
+                       overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
+            .wrap-paus table{{width:100%;border-collapse:collapse;}}
+            .wrap-paus thead tr{{background:#1A1714;}}
+            .wrap-paus th{{padding:11px 10px;font-size:9px;font-weight:800;letter-spacing:1.6px;
+               text-transform:uppercase;color:rgba(255,255,255,0.40);white-space:nowrap;text-align:center;}}
+            .wrap-paus th.th-l{{text-align:left;padding-left:14px;}}
+            .wrap-paus .td-ped{{padding:12px 14px;font-family:monospace;font-size:13px;
+                    font-weight:800;color:#1A1714;white-space:nowrap;}}
+            .wrap-paus .td-op{{padding:12px 10px;font-size:13px;font-weight:700;color:#1A1714;}}
+            .wrap-paus .td-c{{padding:12px 10px;text-align:center;}}
+            .wrap-paus .td-mot{{padding:12px 10px;font-size:12px;color:#5C5450;font-weight:600;}}
+            .wrap-paus tbody tr{{border-bottom:1px solid #FDF0E8;}}
+            .wrap-paus tbody tr:last-child{{border-bottom:none;}}
+            .wrap-paus tbody tr:hover td{{background:#FFF8F2;}}
+            </style>
+            <div class="wrap-paus">
+              <table>
+                <thead><tr>
+                  <th class="th-l">Pedido</th>
+                  <th class="th-l">Operador</th>
+                  <th>Etapa</th>
+                  <th>Tempo acum.</th>
+                  <th style="color:#D4A45A;">Data da pausa</th>
+                  <th style="color:#F4965A;">Hora da pausa</th>
+                  <th class="th-l" style="color:rgba(255,255,255,0.30);">Motivo</th>
+                </tr></thead>
+                <tbody>{linhas_paus}</tbody>
+              </table>
+            </div>""", unsafe_allow_html=True)
+
+            # Badge de contagem
+            st.markdown(f"""
+            <div style="margin-top:10px;display:flex;align-items:center;gap:10px;
+                        background:#FFF8F0;border:1.5px solid #E07B3A44;border-radius:10px;
+                        padding:10px 16px;">
+              <span style="font-size:22px;">⏸</span>
+              <div>
+                <span style="font-size:13px;font-weight:900;color:#B85C20;">
+                  {n_paus} pedido(s) aguardando retomada pelo operador
+                </span>
+                <span style="font-size:11px;font-weight:600;color:#9C9490;margin-left:8px;">
+                  · O operador retoma clicando em ▶ Retomar no painel de operações
+                </span>
+              </div>
             </div>""", unsafe_allow_html=True)
 
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
