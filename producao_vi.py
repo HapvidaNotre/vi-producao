@@ -4646,26 +4646,25 @@ def tela_admin():
                           if filtro_hist_data == "Todos os dias"
                           or str(r[6]).startswith(filtro_hist_data)])
         st.markdown(
-            f'''<div style="background:#F0F5FF;border:1.5px solid #3B5EC6;border-radius:10px;
-            padding:8px 14px;font-size:12px;font-weight:700;color:#3B5EC6;text-align:center;">
-            {n_dia_hist} registro(s)</div>''',
+            f'<div style="background:#F0F5FF;border:1.5px solid #3B5EC6;border-radius:10px;'
+            f'padding:8px 14px;font-size:12px;font-weight:700;color:#3B5EC6;text-align:center;">'
+            f'{n_dia_hist} registro(s)</div>',
             unsafe_allow_html=True
         )
     with fh3:
         st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-        lbl_exp = "⊞  Expandir" if not st.session_state.hist_expandido else "⊟  Recolher"
         st.markdown("""<style>
         .btn-expandir > button {
-            background:#F0F5FF !important; color:#3B5EC6 !important;
-            border:1.5px solid #3B5EC6 !important; border-radius:10px !important;
-            font-size:12px !important; font-weight:800 !important; height:40px !important;
+            background: linear-gradient(135deg,#3B5EC6,#2a469e) !important;
+            color:#fff !important; border:none !important;
+            border-radius:10px !important; height:40px !important;
+            font-size:12px !important; font-weight:800 !important;
+            box-shadow: 0 3px 0 rgba(20,30,100,0.35) !important;
         }
-        .btn-expandir > button:hover { background:#3B5EC6 !important; color:#fff !important; }
+        .btn-expandir > button:hover { filter:brightness(1.1) !important; }
         </style>""", unsafe_allow_html=True)
         st.markdown('<div class="btn-expandir">', unsafe_allow_html=True)
-        if st.button(lbl_exp, use_container_width=True, key="btn_hist_expandir"):
-            st.session_state.hist_expandido = not st.session_state.hist_expandido
-            st.rerun()
+        abrir_nova_aba = st.button("⊞  Expandir", use_container_width=True, key="btn_hist_expandir")
         st.markdown('</div>', unsafe_allow_html=True)
 
     if filtro_hist_data != "Todos os dias":
@@ -4680,78 +4679,126 @@ def tela_admin():
             if filtro_hist_data == "Todos os dias" or str(p[4] or "").startswith(filtro_hist_data):
                 pedidos_com_pausa.add((str(p[1]), str(p[2])))
 
+        # ── Monta linhas HTML ──────────────────────────────────────────────────
         hist_rows = ""
-        for r in regs_hist_filtrados[:200]:
+        for r in regs_hist_filtrados[:500]:
             fim_str    = r[6] if r[6] else "—"
             inicio_str = r[7] if r[7] else "—"
             qtd_str    = str(r[8]) if r[8] is not None else "—"
             teve_pausa = (str(r[1]), str(r[2])) in pedidos_com_pausa
-            pausa_tag  = (
-                '<span style="background:#FFF0E6;color:#E07B3A;font-size:10px;font-weight:800;'
-                'padding:2px 8px;border-radius:100px;">Sim</span>'
+            etapa_label = {0:"Separação", 1:"Embalagem", 2:"Conferência"}.get(r[4], str(r[3]))
+            ETAPA_CORES = {
+                "Separação":  ("background:#EBF0FB;color:#3B5EC6",),
+                "Embalagem":  ("background:#E8F2EC;color:#4A7C59",),
+                "Conferência":("background:#FBF2E6;color:#C47B2A",),
+            }
+            ec = ETAPA_CORES.get(etapa_label, ("background:#F5F5F5;color:#555",))[0]
+            etapa_tag = f'<span style="{ec};padding:2px 10px;border-radius:100px;font-size:11px;font-weight:800;">{etapa_label}</span>'
+            pausa_tag = (
+                '<span style="background:#FFF0E6;color:#E07B3A;font-size:11px;font-weight:800;padding:2px 8px;border-radius:100px;">Sim</span>'
                 if teve_pausa else
-                '<span style="color:#C0BAB4;font-size:10px;font-weight:700;">Não</span>'
+                '<span style="color:#C0BAB4;font-size:11px;font-weight:700;">Não</span>'
             )
             hist_rows += f"""<tr>
-              <td style="padding:11px 16px;font-family:monospace;font-size:12px;font-weight:700;color:#1A1714;">{r[1]}</td>
-              <td style="padding:11px 10px;font-size:13px;font-weight:700;color:#1A1714;">{r[2]}</td>
-              <td style="padding:11px 10px;">{tag_html.get(r[4], r[3])}</td>
-              <td style="padding:11px 10px;font-family:monospace;font-size:12px;font-weight:700;color:#4A7C59;text-align:center;">{fmt(r[5])}</td>
-              <td style="padding:11px 10px;font-size:11px;font-weight:700;color:#3B5EC6;text-align:center;">{qtd_str}</td>
-              <td style="padding:11px 10px;text-align:center;">{pausa_tag}</td>
-              <td style="padding:11px 10px;font-size:11px;color:#9C9490;text-align:center;">{inicio_str}</td>
-              <td style="padding:11px 10px;font-size:11px;color:#9C9490;text-align:center;">{fim_str}</td>
+              <td class="mono">{r[1]}</td>
+              <td class="op">{r[2]}</td>
+              <td class="ctr">{etapa_tag}</td>
+              <td class="mono ctr" style="color:#4A7C59;">{fmt(r[5])}</td>
+              <td class="mono ctr" style="color:#3B5EC6;">{qtd_str}</td>
+              <td class="ctr">{pausa_tag}</td>
+              <td class="dt">{inicio_str}</td>
+              <td class="dt">{fim_str}</td>
             </tr>"""
 
-        n_hist      = min(len(regs_hist_filtrados), 200)
-        hist_height = 56 + (n_hist * 46) + 20
+        n_hist      = min(len(regs_hist_filtrados), 500)
+        hist_height = 56 + (min(n_hist, 200) * 46) + 20
         lbl_hist    = f"Histórico de Pedidos · {filtro_hist_data}" if filtro_hist_data != "Todos os dias" else "Histórico de Pedidos"
 
-        if st.session_state.hist_expandido:
-            # ── Modo expandido: st.dataframe nativo, ocupa largura total ──────
-            import pandas as _pd
-            _rows_df = []
-            for r in regs_hist_filtrados[:200]:
-                _pausa = "Sim" if (str(r[1]), str(r[2])) in pedidos_com_pausa else "Não"
-                _etapa = {0:"Separação", 1:"Embalagem", 2:"Conferência"}.get(r[4], r[3])
-                _rows_df.append({
-                    "Pedido":    str(r[1]),
-                    "Operador":  r[2],
-                    "Etapa":     _etapa,
-                    "Tempo":     fmt(r[5]),
-                    "Qtd Peças": str(r[8]) if r[8] is not None else "—",
-                    "Pausa":     _pausa,
-                    "Início":    r[7] if r[7] else "—",
-                    "Fim":       r[6] if r[6] else "—",
-                })
-            _df = _pd.DataFrame(_rows_df)
-            st.dataframe(_df, use_container_width=True, hide_index=True,
-                         height=min(n_hist * 38 + 60, 700))
-        else:
-            # ── Modo normal: iframe com scroll horizontal ──────────────────────
-            components.html(f"""<!DOCTYPE html><html><head>
-            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-            <style>
-            *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
-            .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
-            .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-            .scroll{{overflow-x:auto;-webkit-overflow-scrolling:touch;}}
-            table{{width:100%;min-width:620px;border-collapse:collapse;}}
-            thead tr{{background:#1A1714;}}
-            th{{padding:12px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-align:center;white-space:nowrap;}}
-            th:first-child{{text-align:left;padding-left:16px;}} th:nth-child(2){{text-align:left;}}
-            tbody tr{{border-bottom:1px solid #F2EEE9;}} tbody tr:last-child{{border-bottom:none;}}
-            tbody tr:hover{{background:#FDFAF9;}}
-            </style></head><body>
-            <div class="lbl">{lbl_hist}</div>
-            <div class="wrap"><div class="scroll"><table><thead><tr>
-              <th>Pedido</th><th>Operador</th><th>Etapa</th><th>Tempo</th>
-              <th style="color:#7B9FE0;">Qtd Peças</th>
-              <th style="color:#E07B3A;">Pausa</th>
-              <th style="color:#A0C8E0;">Início</th>
-              <th style="color:#A0C8E0;">Fim</th>
-            </tr></thead><tbody>{hist_rows}</tbody></table></div></div>
-            </body></html>""", height=hist_height, scrolling=False)
+        # ── HTML completo para nova aba ────────────────────────────────────────
+        full_page_html = f"""<!DOCTYPE html>
+<html lang="pt-BR"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Histórico · Vi Lingerie</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{{margin:0;padding:0;box-sizing:border-box;}}
+body{{background:#F7F5F2;font-family:Nunito,sans-serif;padding:24px;}}
+h1{{font-size:22px;font-weight:900;color:#1A1714;margin-bottom:4px;}}
+.sub{{font-size:12px;color:#9C9490;font-weight:700;margin-bottom:20px;letter-spacing:.5px;}}
+.badge{{display:inline-block;background:#F0F5FF;color:#3B5EC6;border:1.5px solid #3B5EC6;
+        border-radius:100px;padding:3px 14px;font-size:12px;font-weight:800;margin-left:10px;}}
+.wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;
+       box-shadow:0 4px 20px rgba(0,0,0,0.07);}}
+table{{width:100%;border-collapse:collapse;}}
+thead tr{{background:#1A1714;position:sticky;top:0;z-index:10;}}
+th{{padding:13px 12px;font-size:9px;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;
+    color:rgba(255,255,255,0.45);text-align:center;white-space:nowrap;}}
+th:first-child{{text-align:left;padding-left:20px;}} th:nth-child(2){{text-align:left;}}
+tbody tr{{border-bottom:1px solid #F2EEE9;}} tbody tr:last-child{{border-bottom:none;}}
+tbody tr:hover{{background:#FDFAF9;}}
+.mono{{padding:12px 20px;font-family:"DM Mono",monospace;font-size:13px;font-weight:700;color:#1A1714;}}
+.op{{padding:12px 12px;font-size:13px;font-weight:700;color:#1A1714;}}
+.ctr{{padding:12px 12px;text-align:center;}}
+.dt{{padding:12px 12px;font-size:12px;color:#9C9490;font-weight:600;text-align:center;white-space:nowrap;}}
+.footer{{margin-top:16px;font-size:11px;color:#C0BAB4;text-align:center;font-weight:600;}}
+</style></head><body>
+<h1>📋 Histórico de Pedidos <span class="badge">{n_hist} registros</span></h1>
+<div class="sub">Vi Lingerie · Sistema de Produção · {filtro_hist_data}</div>
+<div class="wrap"><table>
+<thead><tr>
+  <th style="text-align:left;">Pedido</th>
+  <th style="text-align:left;">Operador</th>
+  <th>Etapa</th>
+  <th>Tempo</th>
+  <th style="color:#7B9FE0;">Qtd Peças</th>
+  <th style="color:#E07B3A;">Pausa</th>
+  <th style="color:#A0C8E0;">Início</th>
+  <th style="color:#A0C8E0;">Fim</th>
+</tr></thead>
+<tbody>{hist_rows}</tbody>
+</table></div>
+<div class="footer">Vi Lingerie · Gerado automaticamente · {now_br().strftime("%d/%m/%Y %H:%M")}</div>
+</body></html>"""
+
+        # ── Botão abre nova aba via JS com data URI ────────────────────────────
+        if abrir_nova_aba:
+            import base64 as _b64
+            _encoded = _b64.b64encode(full_page_html.encode("utf-8")).decode()
+            components.html(f"""<!DOCTYPE html><html><body>
+            <script>
+              var html = atob("{_encoded}");
+              var blob = new Blob([html], {{type: "text/html;charset=utf-8"}});
+              var url  = URL.createObjectURL(blob);
+              window.open(url, "_blank");
+            </script>
+            </body></html>""", height=0)
+            st.toast("✅ Tabela aberta em nova aba!", icon="⊞")
+
+        # ── Modo normal: iframe com scroll horizontal ──────────────────────────
+        components.html(f"""<!DOCTYPE html><html><head>
+        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+        <style>
+        *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
+        .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
+        .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
+        .scroll{{overflow-x:auto;-webkit-overflow-scrolling:touch;}}
+        table{{width:100%;min-width:620px;border-collapse:collapse;}}
+        thead tr{{background:#1A1714;}}
+        th{{padding:12px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-align:center;white-space:nowrap;}}
+        th:first-child{{text-align:left;padding-left:16px;}} th:nth-child(2){{text-align:left;}}
+        tbody tr{{border-bottom:1px solid #F2EEE9;}} tbody tr:last-child{{border-bottom:none;}}
+        tbody tr:hover{{background:#FDFAF9;}}
+        </style></head><body>
+        <div class="lbl">{lbl_hist}</div>
+        <div class="wrap"><div class="scroll"><table><thead><tr>
+          <th>Pedido</th><th>Operador</th><th>Etapa</th><th>Tempo</th>
+          <th style="color:#7B9FE0;">Qtd Peças</th>
+          <th style="color:#E07B3A;">Pausa</th>
+          <th style="color:#A0C8E0;">Início</th>
+          <th style="color:#A0C8E0;">Fim</th>
+        </tr></thead><tbody>{hist_rows}</tbody></table></div></div>
+        </body></html>""", height=hist_height, scrolling=False)
 
 
     st.markdown("<br>", unsafe_allow_html=True)
