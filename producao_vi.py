@@ -2734,17 +2734,12 @@ def tela_admin_login():
             <!-- Separador -->
             <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(200,86,106,0.25),transparent);margin-bottom:24px;"></div>
             {erro_html}
-            <!-- Label senha -->
-            <div style="font-size:9px;font-weight:800;letter-spacing:3px;text-transform:uppercase;
-                 color:rgba(255,255,255,0.30);text-align:left;margin-bottom:8px;">
-              🔑 &nbsp;Senha
-            </div>
           </div>
         </div>
         """, unsafe_allow_html=True)
 
-        # Input nativo do Streamlit (precisa estar fora do markdown)
-        st.markdown("<div style='margin-top:-16px;padding:0 0 0 0;'>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size:9px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.30);margin-bottom:6px;margin-top:10px;'>🔑 &nbsp;SENHA</div>", unsafe_allow_html=True)
+        st.markdown("<div>", unsafe_allow_html=True)
         senha_input = st.text_input(
             "_senha_admin", placeholder="• • • • • • • •",
             type="password", label_visibility="collapsed",
