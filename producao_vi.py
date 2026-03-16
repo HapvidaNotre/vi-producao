@@ -4476,15 +4476,85 @@ def tela_admin():
 
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
+        # ── Toggle de visualização: Operador vs Etapa ──────────────────────
+        if "vis_modo" not in st.session_state:
+            st.session_state["vis_modo"] = "operador"
+
+        st.markdown("""
+        <style>
+        .btn-vis-op > button {
+            border-radius:8px 0 0 8px !important; height:38px !important;
+            font-size:12px !important; font-weight:800 !important;
+        }
+        .btn-vis-eta > button {
+            border-radius:0 8px 8px 0 !important; height:38px !important;
+            font-size:12px !important; font-weight:800 !important;
+        }
+        .btn-vis-ativo > button {
+            background:#1A1714 !important; color:#fff !important;
+            border:1.5px solid #1A1714 !important;
+        }
+        .btn-vis-inativo > button {
+            background:#fff !important; color:#5C5450 !important;
+            border:1.5px solid #DDD8D2 !important;
+        }
+        </style>""", unsafe_allow_html=True)
+
+        _vm = st.session_state["vis_modo"]
+        _tv1, _tv2, _tv3 = st.columns([1, 1, 2])
+        with _tv1:
+            _cls1 = "btn-vis-op btn-vis-ativo" if _vm == "operador" else "btn-vis-op btn-vis-inativo"
+            st.markdown(f'<div class="{_cls1}">', unsafe_allow_html=True)
+            if st.button("👤  Por Operador", use_container_width=True, key="vis_btn_op"):
+                st.session_state["vis_modo"] = "operador"; st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        with _tv2:
+            _cls2 = "btn-vis-eta btn-vis-ativo" if _vm == "etapa" else "btn-vis-eta btn-vis-inativo"
+            st.markdown(f'<div class="{_cls2}">', unsafe_allow_html=True)
+            if st.button("📦  Por Etapa", use_container_width=True, key="vis_btn_eta"):
+                st.session_state["vis_modo"] = "etapa"; st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
         # ── Ranking do Dia ─────────────────────────────────────────────────
+        if _vm == "operador":
+            # Por operador (comportamento original)
+            ranking_items = [(op, d["pecas"]) for op, d in op_sorted[:5]]
+            ranking_lbl   = "🏆 Ranking do Dia — Por Operador"
+            bar_color     = "linear-gradient(90deg,#C8566A,#9E3F52)"
+        else:
+            # Por etapa — agrupa peças por etapa_idx
+            from collections import defaultdict as _dd
+            etapa_pecas = _dd(int)
+            ETAPA_NOMES_R = {0: "Separação", 1: "Embalagem", 2: "Conferência"}
+            ETAPA_CORES_R = {0: "#3B5EC6", 1: "#4A7C59", 2: "#C47B2A"}
+            for r in regs_filtrados:
+                etapa_pecas[r[4]] += int(r[8] or 0)
+            ranking_items = sorted(
+                [(ETAPA_NOMES_R.get(k, str(k)), v) for k, v in etapa_pecas.items()],
+                key=lambda x: x[1], reverse=True
+            )
+            ranking_lbl = "🏆 Ranking do Dia — Por Etapa"
+            bar_color   = "linear-gradient(90deg,#3B5EC6,#2a469e)"
+
+        max_pcs_rank  = ranking_items[0][1] if ranking_items else 1
+        medals        = ["🥇","🥈","🥉"]
+        etapa_cores_map = {"Separação":"#3B5EC6","Embalagem":"#4A7C59","Conferência":"#C47B2A"}
+
         ranking_html = ""
-        max_pcs_rank = op_sorted[0][1]["pecas"] if op_sorted else 1
-        for rank, (op, d) in enumerate(op_sorted[:5]):
-            pcs     = d["pecas"]
+        for rank, (nome, pcs) in enumerate(ranking_items):
             bar_pct = int(pcs / max_pcs_rank * 100) if max_pcs_rank > 0 else 0
-            medal_bg  = ["#FFD700","#C0C0C0","#CD7F32"]
-            m_color   = medal_bg[rank] if rank < 3 else "#EDE9E4"
-            m_txt     = ["🥇","🥈","🥉"][rank] if rank < 3 else f"#{rank+1}"
+            medal_bg = ["#FFD700","#C0C0C0","#CD7F32"]
+            m_color  = medal_bg[rank] if rank < 3 else "#EDE9E4"
+            m_txt    = medals[rank] if rank < 3 else f"#{rank+1}"
+            # Cor da barra: por etapa usa cor da etapa, por operador usa rosa
+            if _vm == "etapa":
+                b_color = f"background:{etapa_cores_map.get(nome,'#3B5EC6')}"
+                pcs_color = etapa_cores_map.get(nome,'#3B5EC6')
+            else:
+                b_color = f"background:{bar_color}"
+                pcs_color = "#3B5EC6"
             ranking_html += f"""
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
               <div style="width:32px;height:32px;border-radius:50%;background:{m_color};
@@ -4492,16 +4562,16 @@ def tela_admin():
                    font-size:16px;flex-shrink:0;">{m_txt}</div>
               <div style="flex:1;">
                 <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-                  <span style="font-size:13px;font-weight:800;color:#1A1714;">{op}</span>
-                  <span style="font-family:monospace;font-size:13px;font-weight:700;color:#3B5EC6;">{pcs} peças</span>
+                  <span style="font-size:13px;font-weight:800;color:#1A1714;">{nome}</span>
+                  <span style="font-family:monospace;font-size:13px;font-weight:700;color:{pcs_color};">{pcs} peças</span>
                 </div>
                 <div style="background:#F2EEE9;border-radius:4px;height:6px;overflow:hidden;">
-                  <div style="width:{bar_pct}%;height:100%;background:linear-gradient(90deg,#C8566A,#9E3F52);border-radius:4px;"></div>
+                  <div style="width:{bar_pct}%;height:100%;{b_color};border-radius:4px;"></div>
                 </div>
               </div>
             </div>"""
 
-        ranking_height = 24 + min(len(op_sorted), 5) * 58 + 32
+        ranking_height = 24 + min(len(ranking_items), 5) * 58 + 32
         components.html(f"""<!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
         <style>*{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
@@ -4509,7 +4579,7 @@ def tela_admin():
         .card{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;padding:18px 20px;
                box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
         </style></head><body>
-        <div class="lbl">🏆 Ranking do Dia — Peças Produzidas</div>
+        <div class="lbl">{ranking_lbl}</div>
         <div class="card">{ranking_html}</div>
         </body></html>""", height=ranking_height, scrolling=False)
 
@@ -4517,44 +4587,115 @@ def tela_admin():
 
         # ── Produção por Hora ──────────────────────────────────────────────
         from collections import defaultdict
-        pecas_por_hora = defaultdict(int)
-        for r in regs_filtrados:
-            hora_str = str(r[6] or "")
-            if " " in hora_str:
-                try:
-                    hora = int(hora_str.split(" ")[1].split(":")[0])
-                    pecas_por_hora[hora] += int(r[8] or 0)
-                except Exception:
-                    pass
+        ETAPA_NOMES_H = {0: "Separação", 1: "Embalagem", 2: "Conferência"}
+        ETAPA_CORES_H = {0: "#3B5EC6",   1: "#4A7C59",   2: "#C47B2A"}
 
-        if pecas_por_hora:
-            horas_existentes = sorted(pecas_por_hora.keys())
-            h_min = max(min(horas_existentes) - 1, 0)
-            h_max = min(max(horas_existentes) + 1, 23)
-            horas_range = list(range(h_min, h_max + 1))
-            max_pcs_hora = max(pecas_por_hora.values()) if pecas_por_hora else 1
-            bars_html = ""
-            for h in horas_range:
-                pcs_h   = pecas_por_hora.get(h, 0)
-                bar_h   = int(pcs_h / max_pcs_hora * 110) if max_pcs_hora > 0 else 0
-                cor_bar = "#C8566A" if pcs_h == max_pcs_hora else "#3B5EC6"
-                bars_html += f"""
-                <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;min-width:28px;">
-                  <div style="font-family:monospace;font-size:10px;font-weight:700;color:#3B5EC6;min-height:16px;">{pcs_h if pcs_h > 0 else ""}</div>
-                  <div style="width:100%;max-width:36px;height:{bar_h}px;background:{cor_bar};border-radius:4px 4px 0 0;"></div>
-                  <div style="font-size:9px;font-weight:800;color:#9C9490;">{h:02d}h</div>
-                </div>"""
-            components.html(f"""<!DOCTYPE html><html><head>
-            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-            <style>*{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
-            .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:12px;}}
-            .card{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;padding:16px 20px 12px;
-                   box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-            .bars{{display:flex;align-items:flex-end;gap:6px;height:130px;padding-top:20px;}}
-            </style></head><body>
-            <div class="lbl">📈 Produção por Hora</div>
-            <div class="card"><div class="bars">{bars_html}</div></div>
-            </body></html>""", height=180, scrolling=False)
+        if _vm == "operador":
+            # Totais por hora (igual ao original)
+            pecas_por_hora = defaultdict(int)
+            for r in regs_filtrados:
+                hora_str = str(r[6] or "")
+                if " " in hora_str:
+                    try:
+                        hora = int(hora_str.split(" ")[1].split(":")[0])
+                        pecas_por_hora[hora] += int(r[8] or 0)
+                    except Exception:
+                        pass
+
+            if pecas_por_hora:
+                horas_existentes = sorted(pecas_por_hora.keys())
+                h_min = max(min(horas_existentes) - 1, 0)
+                h_max = min(max(horas_existentes) + 1, 23)
+                horas_range   = list(range(h_min, h_max + 1))
+                max_pcs_hora  = max(pecas_por_hora.values()) if pecas_por_hora else 1
+                bars_html = ""
+                for h in horas_range:
+                    pcs_h   = pecas_por_hora.get(h, 0)
+                    bar_h   = int(pcs_h / max_pcs_hora * 110) if max_pcs_hora > 0 else 0
+                    cor_bar = "#C8566A" if pcs_h == max_pcs_hora else "#3B5EC6"
+                    bars_html += f"""
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;min-width:28px;">
+                      <div style="font-family:monospace;font-size:10px;font-weight:700;color:#3B5EC6;min-height:16px;">{pcs_h if pcs_h > 0 else ""}</div>
+                      <div style="width:100%;max-width:36px;height:{bar_h}px;background:{cor_bar};border-radius:4px 4px 0 0;"></div>
+                      <div style="font-size:9px;font-weight:800;color:#9C9490;">{h:02d}h</div>
+                    </div>"""
+                components.html(f"""<!DOCTYPE html><html><head>
+                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+                <style>*{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
+                .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:12px;}}
+                .card{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;padding:16px 20px 12px;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
+                .bars{{display:flex;align-items:flex-end;gap:6px;height:130px;padding-top:20px;}}
+                </style></head><body>
+                <div class="lbl">📈 Produção por Hora — Por Operador</div>
+                <div class="card"><div class="bars">{bars_html}</div></div>
+                </body></html>""", height=180, scrolling=False)
+
+        else:
+            # Por etapa: barras agrupadas por hora, uma cor por etapa
+            pecas_hora_etapa = defaultdict(lambda: defaultdict(int))
+            for r in regs_filtrados:
+                hora_str = str(r[6] or "")
+                if " " in hora_str:
+                    try:
+                        hora = int(hora_str.split(" ")[1].split(":")[0])
+                        pecas_hora_etapa[hora][r[4]] += int(r[8] or 0)
+                    except Exception:
+                        pass
+
+            if pecas_hora_etapa:
+                horas_e = sorted(pecas_hora_etapa.keys())
+                h_min_e = max(min(horas_e) - 1, 0)
+                h_max_e = min(max(horas_e) + 1, 23)
+                horas_range_e = list(range(h_min_e, h_max_e + 1))
+                # Máximo global para escala
+                max_h_e = max(
+                    sum(pecas_hora_etapa[h].values()) for h in horas_e
+                ) if horas_e else 1
+
+                bars_html_e = ""
+                etapas_presentes = sorted({r[4] for r in regs_filtrados if r[4] in ETAPA_NOMES_H})
+
+                for h in horas_range_e:
+                    total_h = sum(pecas_hora_etapa[h].values())
+                    total_h_px = int(total_h / max_h_e * 110) if max_h_e > 0 else 0
+                    # Empilha por etapa dentro da barra
+                    segs = ""
+                    for eta in etapas_presentes:
+                        pcs_seg = pecas_hora_etapa[h].get(eta, 0)
+                        seg_px  = int(pcs_seg / max_h_e * 110) if max_h_e > 0 else 0
+                        if seg_px > 0:
+                            segs += f'<div style="width:100%;height:{seg_px}px;background:{ETAPA_CORES_H[eta]};"></div>'
+                    bars_html_e += f"""
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;min-width:28px;">
+                      <div style="font-family:monospace;font-size:10px;font-weight:700;color:#5C5450;min-height:16px;">{total_h if total_h > 0 else ""}</div>
+                      <div style="width:100%;max-width:36px;display:flex;flex-direction:column;justify-content:flex-end;height:110px;">
+                        {segs}
+                      </div>
+                      <div style="font-size:9px;font-weight:800;color:#9C9490;">{h:02d}h</div>
+                    </div>"""
+
+                # Legenda das etapas
+                legenda = "".join([
+                    f'<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px;">'
+                    f'<span style="width:10px;height:10px;border-radius:2px;background:{ETAPA_CORES_H[e]};display:inline-block;"></span>'
+                    f'<span style="font-size:10px;font-weight:700;color:#5C5450;">{ETAPA_NOMES_H[e]}</span></span>'
+                    for e in etapas_presentes
+                ])
+
+                components.html(f"""<!DOCTYPE html><html><head>
+                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+                <style>*{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
+                .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:8px;}}
+                .card{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;padding:16px 20px 12px;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
+                .bars{{display:flex;align-items:flex-end;gap:6px;height:130px;padding-top:20px;}}
+                .leg{{margin-top:10px;}}
+                </style></head><body>
+                <div class="lbl">📈 Produção por Hora — Por Etapa</div>
+                <div class="card">
+                  <div class="bars">{bars_html_e}</div>
+                  <div class="leg">{legenda}</div>
+                </div>
+                </body></html>""", height=210, scrolling=False)
 
     else:
         st.markdown("""<div style="background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;
@@ -4834,12 +4975,15 @@ def tela_admin():
             st.session_state[_k_hist_exp] = False
 
         # ── Card resumo (sempre visível) ────────────────────────────────────
-        total_pcs_hist  = sum(r[8] for r in regs_hist_filtrados if r[8] is not None)
-        ops_hist        = sorted({r[2] for r in regs_hist_filtrados if r[2]})
-        etapas_cnt      = {0: 0, 1: 0, 2: 0}
+        ops_hist   = sorted({r[2] for r in regs_hist_filtrados if r[2]})
+        # Peças e pedidos por etapa
+        pcs_por_etapa = {0: 0, 1: 0, 2: 0}
+        ped_por_etapa = {0: set(), 1: set(), 2: set()}
         for r in regs_hist_filtrados:
-            if r[4] in etapas_cnt:
-                etapas_cnt[r[4]] += 1
+            eta = r[4]
+            if eta in pcs_por_etapa:
+                pcs_por_etapa[eta] += int(r[8] or 0)
+                ped_por_etapa[eta].add(r[1])
 
         lbl_hist = f"Histórico de Pedidos · {filtro_hist_data}" if filtro_hist_data != "Todos os dias" else "Histórico de Pedidos"
 
@@ -4849,7 +4993,29 @@ def tela_admin():
             for op in ops_hist
         ])
 
-        resumo_height = 110 + (len(ops_hist) // 4 + 1) * 0
+        # Blocos de etapa com peças + pedidos
+        etapa_blocos = ""
+        ETAPA_CFG = [
+            (0, "Separação",  "#EBF0FB", "#3B5EC6"),
+            (1, "Embalagem",  "#E8F2EC", "#4A7C59"),
+            (2, "Conferência","#FBF2E6", "#C47B2A"),
+        ]
+        for idx, nome_eta, bg_eta, cor_eta in ETAPA_CFG:
+            n_ped_eta = len(ped_por_etapa[idx])
+            n_pcs_eta = pcs_por_etapa[idx]
+            etapa_blocos += f"""
+            <div style="background:{bg_eta};border-radius:10px;padding:10px 14px;min-width:100px;">
+              <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;
+                   color:{cor_eta};margin-bottom:4px;">{nome_eta}</div>
+              <div style="display:flex;align-items:baseline;gap:6px;">
+                <span style="font-family:'DM Mono',monospace;font-size:20px;font-weight:600;color:{cor_eta};">{n_pcs_eta}</span>
+                <span style="font-size:10px;font-weight:700;color:{cor_eta}99;">pçs</span>
+              </div>
+              <div style="font-size:10px;color:{cor_eta}99;font-weight:700;margin-top:2px;">
+                {n_ped_eta} pedido{'s' if n_ped_eta != 1 else ''}
+              </div>
+            </div>"""
+
         components.html(f"""<!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
         <style>
@@ -4857,37 +5023,30 @@ def tela_admin():
         .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
         .card{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;padding:16px 20px;
                box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-        .row{{display:flex;align-items:center;gap:24px;flex-wrap:wrap;}}
+        .row{{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;}}
         .kpi{{display:flex;flex-direction:column;gap:2px;}}
         .kpi-n{{font-family:"DM Mono",monospace;font-size:26px;font-weight:500;color:#1A1714;letter-spacing:-1px;}}
         .kpi-l{{font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#9C9490;}}
-        .sep{{width:1px;height:40px;background:#EDE9E4;flex-shrink:0;}}
+        .sep{{width:1px;min-height:60px;background:#EDE9E4;flex-shrink:0;align-self:stretch;}}
         .ops{{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}}
-        .etag{{font-size:10px;font-weight:800;padding:2px 9px;border-radius:100px;}}
         </style></head><body>
         <div class="lbl">{lbl_hist}</div>
         <div class="card">
           <div class="row">
-            <div class="kpi"><div class="kpi-n" style="color:#C8566A;">{len(regs_hist_filtrados)}</div><div class="kpi-l">Registros</div></div>
-            <div class="sep"></div>
-            <div class="kpi"><div class="kpi-n" style="color:#3B5EC6;">{total_pcs_hist}</div><div class="kpi-l">Peças</div></div>
-            <div class="sep"></div>
-            <div class="kpi">
-              <div style="display:flex;gap:6px;margin-bottom:4px;">
-                <span class="etag" style="background:#EBF0FB;color:#3B5EC6;">Sep {etapas_cnt[0]}</span>
-                <span class="etag" style="background:#E8F2EC;color:#4A7C59;">Emb {etapas_cnt[1]}</span>
-                <span class="etag" style="background:#FBF2E6;color:#C47B2A;">Conf {etapas_cnt[2]}</span>
-              </div>
-              <div class="kpi-l">Por etapa</div>
+            <div class="kpi" style="padding-top:4px;">
+              <div class="kpi-n" style="color:#C8566A;">{len(regs_hist_filtrados)}</div>
+              <div class="kpi-l">Registros</div>
             </div>
             <div class="sep"></div>
-            <div class="kpi" style="flex:1;min-width:0;">
+            {etapa_blocos}
+            <div class="sep"></div>
+            <div class="kpi" style="flex:1;min-width:120px;padding-top:4px;">
               <div class="ops">{ops_chips}</div>
-              <div class="kpi-l" style="margin-top:4px;">Operadores</div>
+              <div class="kpi-l" style="margin-top:6px;">Operadores</div>
             </div>
           </div>
         </div>
-        </body></html>""", height=130, scrolling=False)
+        </body></html>""", height=150, scrolling=False)
 
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
