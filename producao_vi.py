@@ -3378,12 +3378,17 @@ def tela_admin():
             cli_r  = info_r.get("cliente", "")
 
             if base_r == "nao_encontrado":
-                st.markdown(f"""<div style="background:#FFFBEB;border:2px solid #F59E0B;border-radius:12px;
+                components.html(f"""<!DOCTYPE html><html><head>
+                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+                <style>*{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}</style>
+                </head><body>
+                <div style="background:#FFFBEB;border:2px solid #F59E0B;border-radius:12px;
                             padding:14px 20px;text-align:center;margin-top:8px;">
                   <div style="font-size:20px;margin-bottom:4px;">❓</div>
                   <div style="font-size:13px;font-weight:800;color:#92400E;">
                     Pedido <span style="font-family:monospace;">#{num_r}</span> não encontrado.</div>
-                </div>""", unsafe_allow_html=True)
+                </div>
+                </body></html>""", height=90, scrolling=False)
             else:
                 # Monta linha do stepper para cada etapa
                 ETAPA_ICON  = ["📦", "🗃️", "✅"]
@@ -3525,8 +3530,14 @@ def tela_admin():
                     </div>"""
 
                 h_card = 80 + 90 + len(etapas_r) * 62 + (40 if sess_ativa else 0)
-                st.markdown(f"""<div style="background:#fff;border:1.5px solid #EDE9E4;border-radius:16px;
-                            padding:16px 18px;box-shadow:0 2px 12px rgba(0,0,0,0.05);margin-top:8px;">
+                components.html(f"""<!DOCTYPE html><html><head>
+                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+                <style>
+                *{{margin:0;padding:0;box-sizing:border-box;}}
+                body{{background:transparent;font-family:Nunito,sans-serif;}}
+                </style></head><body>
+                <div style="background:#fff;border:1.5px solid #EDE9E4;border-radius:16px;
+                            padding:16px 18px;box-shadow:0 2px 12px rgba(0,0,0,0.05);">
                   <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
                     <span style="font-family:'DM Mono',monospace;font-size:18px;font-weight:800;
                       color:#1A1714;">#{num_r}</span>
@@ -3539,7 +3550,8 @@ def tela_admin():
                   {dados_ped_html}
                   {andamento_html}
                   {etapas_html}
-                </div>""", unsafe_allow_html=True)
+                </div>
+                </body></html>""", height=h_card, scrolling=False)
 
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
