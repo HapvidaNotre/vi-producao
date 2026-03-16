@@ -3529,7 +3529,8 @@ def tela_admin():
                       há <strong style="font-family:monospace;">{hh_a:02d}:{mm_a:02d}:{ss_a:02d}</strong>
                     </div>"""
 
-                h_card = 80 + 90 + len(etapas_r) * 62 + (40 if sess_ativa else 0)
+                # header(60) + resumo(52) + dados_ped(110) + etapas + andamento + padding
+                h_card = 60 + 52 + 110 + len(etapas_r) * 76 + (50 if sess_ativa else 0) + 40
                 components.html(f"""<!DOCTYPE html><html><head>
                 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
                 <style>
