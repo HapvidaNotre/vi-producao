@@ -116,6 +116,22 @@ def _upsert(table, data, on_conflict):
 # ─────────────────────────────────────
 #  DATABASE — Supabase REST API
 # ─────────────────────────────────────
+# ─────────────────────────────────────
+#  HELPER — renderiza HTML customizado sem ForwardMsg MISS
+# ─────────────────────────────────────
+def _html_block(html_content: str, height: int = 300, scrolling: bool = False):
+    """
+    Substituto robusto para components.html().
+    Usa st.html() (Streamlit >= 1.36) para evitar o bug
+    "Cached ForwardMsg MISS" do WebSocket. Fallback para
+    components.html caso a versão seja mais antiga.
+    """
+    try:
+        st.html(html_content)          # sem cache de hash — nunca gera MISS
+    except AttributeError:
+        # Streamlit < 1.36: usa components.html com altura fixa
+        components.html(html_content, height=height, scrolling=scrolling)
+
 def init_db():
     pass  # Tables created via supabase_setup.sql
 
@@ -968,7 +984,7 @@ def render_pip():
 
         cards_js += f"startTimer('{uid}', {ini});\n"
 
-    components.html(f"""
+    _html_block(f"""
     <script>
     (function() {{
         var pd = window.parent.document;
@@ -1976,7 +1992,7 @@ def tela_producao():
         pedido_val = st.session_state.pedido or ""
         initial    = op[0].upper()
 
-        components.html(f"""
+        _html_block(f"""
         <!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&display=swap" rel="stylesheet">
         <style>* {{margin:0;padding:0;box-sizing:border-box;}}</style>
@@ -2013,7 +2029,7 @@ def tela_producao():
         tempo_pausado_prev = buscar_tempo_pausado(pedido_val, etapa_idx)
         if tempo_pausado_prev > 0:
             h_pv, r_pv = divmod(tempo_pausado_prev, 3600); m_pv, s_pv = divmod(r_pv, 60)
-            components.html(f"""<!DOCTYPE html><html><head>
+            _html_block(f"""<!DOCTYPE html><html><head>
             <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
             </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
             <div style="background:#FFF7ED;border:2px solid #E07B3A;border-radius:14px;
@@ -2039,7 +2055,7 @@ def tela_producao():
                 _vr_fmt = f"R$ {float(_vr_alocado_banco):,.2f}".replace(",","X").replace(".",",").replace("X",".") if _vr_alocado_banco else "—"
                 _qtd_exibir = st.session_state.ped_qtd_valor
 
-                components.html(f"""<!DOCTYPE html><html><head>
+                _html_block(f"""<!DOCTYPE html><html><head>
                 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
                 </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
                 <div style="background:#fff;border:2px solid #3B7DD8;border-radius:16px;
@@ -2136,7 +2152,7 @@ def tela_producao():
             else:
                 # Badge resumido após confirmação
                 _vr_fmt2 = f"R$ {float(_vr_alocado_banco):,.2f}".replace(",","X").replace(".",",").replace("X",".") if _vr_alocado_banco else "—"
-                components.html(f"""<!DOCTYPE html><html><head>
+                _html_block(f"""<!DOCTYPE html><html><head>
                 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
                 </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
                 <div style="background:#EBF5FF;border:1.5px solid #3B7DD8;border-radius:10px;
@@ -2192,7 +2208,7 @@ def tela_producao():
         pedido_val = st.session_state.pedido
         initial = op[0].upper()
         timer_str = f"{h:02d}:{m:02d}:{s:02d}"
-        components.html(f"""
+        _html_block(f"""
         <!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
         <style>* {{margin:0;padding:0;box-sizing:border-box;}}</style>
@@ -2354,7 +2370,7 @@ def tela_producao():
                 h_p, r_p   = divmod(tempo_atual, 3600); m_p, s_p = divmod(r_p, 60)
                 tempo_str_p = f"{h_p:02d}:{m_p:02d}:{s_p:02d}"
 
-                components.html(f"""<!DOCTYPE html><html><head>
+                _html_block(f"""<!DOCTYPE html><html><head>
                 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
                 </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
                 <div style="background:#fff;border:2px solid #E07B3A;border-radius:16px;
@@ -2455,7 +2471,7 @@ def tela_producao():
     # ── Modal: pausado para amanhã ──
     elif st.session_state.modal == "pausado":
         pedido_val = st.session_state.pedido or ""
-        components.html(f"""<!DOCTYPE html><html><head>
+        _html_block(f"""<!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
         <style>*{{margin:0;padding:0;box-sizing:border-box;}}</style>
         </head><body style="background:transparent;font-family:Nunito,sans-serif;">
@@ -2501,7 +2517,7 @@ def tela_producao():
         next_lbl   = ETAPAS_LBL[etapa_idx + 1]
         tempo_fmt  = fmt(st.session_state.acum)
         pedido_val = st.session_state.pedido
-        components.html(f"""
+        _html_block(f"""
         <!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
         <style>* {{margin:0;padding:0;box-sizing:border-box;}}</style>
@@ -2540,7 +2556,7 @@ def tela_producao():
     elif st.session_state.modal == "concluido":
         pedido_val = st.session_state.pedido
         tempo_fmt = fmt(st.session_state.acum)
-        components.html(f"""
+        _html_block(f"""
         <!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
         <style>* {{margin:0;padding:0;box-sizing:border-box;}}</style>
@@ -3042,7 +3058,7 @@ def tela_admin():
                 </tr>"""
 
             altura = 54 + n_and * 48 + 16
-            components.html(f"""<!DOCTYPE html><html><head>
+            _html_block(f"""<!DOCTYPE html><html><head>
             <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
             <style>
             *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
@@ -4259,7 +4275,7 @@ def tela_admin():
         n_ops = len(op_map)
         op_table_height = 24 + 52 + n_ops * 52 + 16
         lbl_op = f"Desempenho por Operador · {filtro_data}" if filtro_data != "Todos os dias" else "Desempenho por Operador"
-        components.html(f"""<!DOCTYPE html><html><head>
+        _html_block(f"""<!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
         <style>
         *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
@@ -4312,7 +4328,7 @@ def tela_admin():
             </div>"""
 
         ranking_height = 24 + min(len(op_sorted), 5) * 58 + 32
-        components.html(f"""<!DOCTYPE html><html><head>
+        _html_block(f"""<!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
         <style>*{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
         .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:12px;}}
@@ -4354,7 +4370,7 @@ def tela_admin():
                   <div style="width:100%;max-width:36px;height:{bar_h}px;background:{cor_bar};border-radius:4px 4px 0 0;"></div>
                   <div style="font-size:9px;font-weight:800;color:#9C9490;">{h:02d}h</div>
                 </div>"""
-            components.html(f"""<!DOCTYPE html><html><head>
+            _html_block(f"""<!DOCTYPE html><html><head>
             <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
             <style>*{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
             .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:12px;}}
@@ -4392,7 +4408,7 @@ def tela_admin():
         expanded=n_pausas > 0
     ):
         if not pausas_filtradas:
-            components.html("""<!DOCTYPE html><html><body style="background:transparent;
+            _html_block("""<!DOCTYPE html><html><body style="background:transparent;
             font-family:Nunito,sans-serif;margin:0;padding:0;">
             <div style="background:#FFF8F0;border:1.5px solid #E07B3A33;border-radius:12px;
                         padding:20px;text-align:center;">
@@ -4426,7 +4442,7 @@ def tela_admin():
 
             n_p = min(len(pausas_filtradas), 100)
             pausa_height = 52 + n_p * 44 + 20
-            components.html(f"""<!DOCTYPE html><html><head>
+            _html_block(f"""<!DOCTYPE html><html><head>
             <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
             <style>
             *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
@@ -4470,7 +4486,7 @@ def tela_admin():
                 </div>"""
 
             resumo_h = len(pausa_por_op) * 40 + 24
-            components.html(f"""<!DOCTYPE html><html><head>
+            _html_block(f"""<!DOCTYPE html><html><head>
             <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
             <style>*{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
             .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:8px;}}
@@ -4673,7 +4689,7 @@ def tela_admin():
 
         lbl_hist = f"Histórico de Pedidos · {filtro_hist_data}" if filtro_hist_data != "Todos os dias" else "Histórico de Pedidos"
 
-        components.html(f"""<!DOCTYPE html><html><head>
+        _html_block(f"""<!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
         <style>
         *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
@@ -4827,7 +4843,7 @@ def tela_operacoes():
     # ── Sem sessões ──────────────────────────────────────────────────────────
     if not sessoes:
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-        components.html("""<!DOCTYPE html><html><body style="background:transparent;
+        _html_block("""<!DOCTYPE html><html><body style="background:transparent;
         font-family:sans-serif;padding:0;margin:0;">
         <div style="background:#F0F7F3;border:1.5px solid #4A7C59;border-radius:16px;
                     padding:48px 24px;text-align:center;">
@@ -4920,7 +4936,7 @@ def tela_operacoes():
         }})();
         """
 
-        components.html(f"""<!DOCTYPE html><html><head>
+        _html_block(f"""<!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
         <style>
         *{{margin:0;padding:0;box-sizing:border-box;}}
@@ -5053,7 +5069,7 @@ def tela_operacoes():
             cor_modo = "#E07B3A"
             bg_modo  = "#FFF8F0"
 
-            components.html(f"""<!DOCTYPE html><html><head>
+            _html_block(f"""<!DOCTYPE html><html><head>
             <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
             </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
             <div style="background:{bg_modo};border:2px solid {cor_modo};border-radius:12px;padding:12px 16px;">
