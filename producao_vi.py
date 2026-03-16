@@ -4522,66 +4522,104 @@ def tela_admin():
             # Por operador (comportamento original)
             ranking_items = [(op, d["pecas"]) for op, d in op_sorted[:5]]
             ranking_lbl   = "🏆 Ranking do Dia — Por Operador"
-            bar_color     = "linear-gradient(90deg,#C8566A,#9E3F52)"
+
+            max_pcs_rank = ranking_items[0][1] if ranking_items else 1
+            medals       = ["🥇","🥈","🥉"]
+            ranking_html = ""
+            for rank, (nome, pcs) in enumerate(ranking_items):
+                bar_pct = int(pcs / max_pcs_rank * 100) if max_pcs_rank > 0 else 0
+                medal_bg = ["#FFD700","#C0C0C0","#CD7F32"]
+                m_color  = medal_bg[rank] if rank < 3 else "#EDE9E4"
+                m_txt    = medals[rank] if rank < 3 else f"#{rank+1}"
+                ranking_html += f"""
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+                  <div style="width:32px;height:32px;border-radius:50%;background:{m_color};
+                       display:flex;align-items:center;justify-content:center;
+                       font-size:16px;flex-shrink:0;">{m_txt}</div>
+                  <div style="flex:1;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                      <span style="font-size:13px;font-weight:800;color:#1A1714;">{nome}</span>
+                      <span style="font-family:monospace;font-size:13px;font-weight:700;color:#3B5EC6;">{pcs} peças</span>
+                    </div>
+                    <div style="background:#F2EEE9;border-radius:4px;height:6px;overflow:hidden;">
+                      <div style="width:{bar_pct}%;height:100%;background:linear-gradient(90deg,#C8566A,#9E3F52);border-radius:4px;"></div>
+                    </div>
+                  </div>
+                </div>"""
+
+            ranking_height = 24 + min(len(ranking_items), 5) * 58 + 32
+            components.html(f"""<!DOCTYPE html><html><head>
+            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+            <style>*{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
+            .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:12px;}}
+            .card{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;padding:18px 20px;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
+            </style></head><body>
+            <div class="lbl">{ranking_lbl}</div>
+            <div class="card">{ranking_html}</div>
+            </body></html>""", height=ranking_height, scrolling=False)
+
         else:
-            # Por etapa — agrupa peças por etapa_idx
+            # Por etapa — um ranking de operadores por cada etapa
             from collections import defaultdict as _dd
-            etapa_pecas = _dd(int)
-            ETAPA_NOMES_R = {0: "Separação", 1: "Embalagem", 2: "Conferência"}
-            ETAPA_CORES_R = {0: "#3B5EC6", 1: "#4A7C59", 2: "#C47B2A"}
-            for r in regs_filtrados:
-                etapa_pecas[r[4]] += int(r[8] or 0)
-            ranking_items = sorted(
-                [(ETAPA_NOMES_R.get(k, str(k)), v) for k, v in etapa_pecas.items()],
-                key=lambda x: x[1], reverse=True
-            )
-            ranking_lbl = "🏆 Ranking do Dia — Por Etapa"
-            bar_color   = "linear-gradient(90deg,#3B5EC6,#2a469e)"
+            ETAPA_CFG_R = [
+                (0, "Separação",   "#3B5EC6", "#EBF0FB"),
+                (1, "Embalagem",   "#4A7C59", "#E8F2EC"),
+                (2, "Conferência", "#C47B2A", "#FBF2E6"),
+            ]
+            medals = ["🥇","🥈","🥉"]
 
-        max_pcs_rank  = ranking_items[0][1] if ranking_items else 1
-        medals        = ["🥇","🥈","🥉"]
-        etapa_cores_map = {"Separação":"#3B5EC6","Embalagem":"#4A7C59","Conferência":"#C47B2A"}
+            for eta_idx, eta_nome, eta_cor, eta_bg in ETAPA_CFG_R:
+                # Agrupa peças por operador nesta etapa
+                op_pcs_eta = _dd(int)
+                for r in regs_filtrados:
+                    if r[4] == eta_idx:
+                        op_pcs_eta[r[2]] += int(r[8] or 0)
 
-        ranking_html = ""
-        for rank, (nome, pcs) in enumerate(ranking_items):
-            bar_pct = int(pcs / max_pcs_rank * 100) if max_pcs_rank > 0 else 0
-            medal_bg = ["#FFD700","#C0C0C0","#CD7F32"]
-            m_color  = medal_bg[rank] if rank < 3 else "#EDE9E4"
-            m_txt    = medals[rank] if rank < 3 else f"#{rank+1}"
-            # Cor da barra: por etapa usa cor da etapa, por operador usa rosa
-            if _vm == "etapa":
-                b_color = f"background:{etapa_cores_map.get(nome,'#3B5EC6')}"
-                pcs_color = etapa_cores_map.get(nome,'#3B5EC6')
-            else:
-                b_color = f"background:{bar_color}"
-                pcs_color = "#3B5EC6"
-            ranking_html += f"""
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
-              <div style="width:32px;height:32px;border-radius:50%;background:{m_color};
-                   display:flex;align-items:center;justify-content:center;
-                   font-size:16px;flex-shrink:0;">{m_txt}</div>
-              <div style="flex:1;">
-                <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-                  <span style="font-size:13px;font-weight:800;color:#1A1714;">{nome}</span>
-                  <span style="font-family:monospace;font-size:13px;font-weight:700;color:{pcs_color};">{pcs} peças</span>
+                if not op_pcs_eta:
+                    continue
+
+                op_sorted_eta = sorted(op_pcs_eta.items(), key=lambda x: x[1], reverse=True)
+                max_pcs_eta   = op_sorted_eta[0][1] if op_sorted_eta else 1
+
+                eta_rows = ""
+                for rank, (op_e, pcs_e) in enumerate(op_sorted_eta[:5]):
+                    bar_pct_e = int(pcs_e / max_pcs_eta * 100) if max_pcs_eta > 0 else 0
+                    medal_bg  = ["#FFD700","#C0C0C0","#CD7F32"]
+                    m_color_e = medal_bg[rank] if rank < 3 else "#EDE9E4"
+                    m_txt_e   = medals[rank] if rank < 3 else f"#{rank+1}"
+                    eta_rows += f"""
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+                      <div style="width:28px;height:28px;border-radius:50%;background:{m_color_e};
+                           display:flex;align-items:center;justify-content:center;
+                           font-size:14px;flex-shrink:0;">{m_txt_e}</div>
+                      <div style="flex:1;">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+                          <span style="font-size:13px;font-weight:800;color:#1A1714;">{op_e}</span>
+                          <span style="font-family:monospace;font-size:12px;font-weight:700;color:{eta_cor};">{pcs_e} pçs</span>
+                        </div>
+                        <div style="background:#F2EEE9;border-radius:4px;height:5px;overflow:hidden;">
+                          <div style="width:{bar_pct_e}%;height:100%;background:{eta_cor};border-radius:4px;"></div>
+                        </div>
+                      </div>
+                    </div>"""
+
+                card_h = 28 + 52 + len(op_sorted_eta[:5]) * 50 + 20
+                components.html(f"""<!DOCTYPE html><html><head>
+                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+                <style>*{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
+                .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
+                .card{{background:#fff;border-radius:16px;border:1.5px solid {eta_cor}33;
+                       border-left:4px solid {eta_cor};padding:16px 20px;box-shadow:0 2px 12px rgba(0,0,0,0.04);}}
+                .badge{{display:inline-block;background:{eta_bg};color:{eta_cor};font-size:11px;font-weight:800;
+                        padding:3px 12px;border-radius:100px;margin-bottom:12px;}}
+                </style></head><body>
+                <div class="lbl">🏆 Ranking por Etapa</div>
+                <div class="card">
+                  <div class="badge">{eta_nome}</div>
+                  {eta_rows}
                 </div>
-                <div style="background:#F2EEE9;border-radius:4px;height:6px;overflow:hidden;">
-                  <div style="width:{bar_pct}%;height:100%;{b_color};border-radius:4px;"></div>
-                </div>
-              </div>
-            </div>"""
-
-        ranking_height = 24 + min(len(ranking_items), 5) * 58 + 32
-        components.html(f"""<!DOCTYPE html><html><head>
-        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-        <style>*{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
-        .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:12px;}}
-        .card{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;padding:18px 20px;
-               box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-        </style></head><body>
-        <div class="lbl">{ranking_lbl}</div>
-        <div class="card">{ranking_html}</div>
-        </body></html>""", height=ranking_height, scrolling=False)
+                </body></html>""", height=card_h, scrolling=False)
+                st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
 
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
@@ -4647,20 +4685,49 @@ def tela_admin():
                 h_min_e = max(min(horas_e) - 1, 0)
                 h_max_e = min(max(horas_e) + 1, 23)
                 horas_range_e = list(range(h_min_e, h_max_e + 1))
-                # Máximo global para escala
-                max_h_e = max(
-                    sum(pecas_hora_etapa[h].values()) for h in horas_e
-                ) if horas_e else 1
-
-                bars_html_e = ""
                 etapas_presentes = sorted({r[4] for r in regs_filtrados if r[4] in ETAPA_NOMES_H})
 
+                # ── Filtro de etapa para o gráfico ─────────────────────────
+                st.markdown("""
+                <style>
+                [data-testid="stExpander"] ~ div [data-testid="stCheckbox"] label,
+                [data-testid="stCheckbox"] label {
+                    font-size:12px !important; text-transform:none !important;
+                    letter-spacing:0 !important; color:#1A1714 !important; font-weight:700 !important;
+                }
+                </style>""", unsafe_allow_html=True)
+
+                _fe1, _fe2, _fe3, _fe4 = st.columns([2, 1, 1, 1])
+                with _fe1:
+                    st.markdown(
+                        '<div style="font-size:9px;font-weight:800;letter-spacing:2px;'
+                        'text-transform:uppercase;color:#9C9490;padding-top:8px;">'
+                        '📈 Produção por hora — exibir etapas:</div>',
+                        unsafe_allow_html=True
+                    )
+                with _fe2:
+                    _show_sep  = st.checkbox("Separação",   value=0 in etapas_presentes, key="graf_eta_sep",  disabled=0 not in etapas_presentes)
+                with _fe3:
+                    _show_emb  = st.checkbox("Embalagem",   value=1 in etapas_presentes, key="graf_eta_emb",  disabled=1 not in etapas_presentes)
+                with _fe4:
+                    _show_conf = st.checkbox("Conferência", value=2 in etapas_presentes, key="graf_eta_conf", disabled=2 not in etapas_presentes)
+
+                etapas_visiveis = [
+                    e for e, show in [(0, _show_sep), (1, _show_emb), (2, _show_conf)]
+                    if show and e in etapas_presentes
+                ]
+
+                # Recalcula máximo com base só nas etapas visíveis
+                max_h_e = max(
+                    sum(pecas_hora_etapa[h].get(e, 0) for e in etapas_visiveis)
+                    for h in horas_e
+                ) if horas_e and etapas_visiveis else 1
+
+                bars_html_e = ""
                 for h in horas_range_e:
-                    total_h = sum(pecas_hora_etapa[h].values())
-                    total_h_px = int(total_h / max_h_e * 110) if max_h_e > 0 else 0
-                    # Empilha por etapa dentro da barra
+                    total_h = sum(pecas_hora_etapa[h].get(e, 0) for e in etapas_visiveis)
                     segs = ""
-                    for eta in etapas_presentes:
+                    for eta in etapas_visiveis:
                         pcs_seg = pecas_hora_etapa[h].get(eta, 0)
                         seg_px  = int(pcs_seg / max_h_e * 110) if max_h_e > 0 else 0
                         if seg_px > 0:
@@ -4674,25 +4741,23 @@ def tela_admin():
                       <div style="font-size:9px;font-weight:800;color:#9C9490;">{h:02d}h</div>
                     </div>"""
 
-                # Legenda das etapas
+                # Legenda das etapas visíveis
                 legenda = "".join([
                     f'<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px;">'
                     f'<span style="width:10px;height:10px;border-radius:2px;background:{ETAPA_CORES_H[e]};display:inline-block;"></span>'
                     f'<span style="font-size:10px;font-weight:700;color:#5C5450;">{ETAPA_NOMES_H[e]}</span></span>'
-                    for e in etapas_presentes
+                    for e in etapas_visiveis
                 ])
 
                 components.html(f"""<!DOCTYPE html><html><head>
                 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
                 <style>*{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
-                .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:8px;}}
                 .card{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;padding:16px 20px 12px;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
                 .bars{{display:flex;align-items:flex-end;gap:6px;height:130px;padding-top:20px;}}
                 .leg{{margin-top:10px;}}
                 </style></head><body>
-                <div class="lbl">📈 Produção por Hora — Por Etapa</div>
                 <div class="card">
-                  <div class="bars">{bars_html_e}</div>
+                  <div class="bars">{bars_html_e if etapas_visiveis else '<div style="color:#9C9490;font-size:12px;font-weight:700;padding:20px;">Selecione ao menos uma etapa acima.</div>'}</div>
                   <div class="leg">{legenda}</div>
                 </div>
                 </body></html>""", height=210, scrolling=False)
