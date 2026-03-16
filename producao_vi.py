@@ -4789,7 +4789,6 @@ def tela_admin():
     opcoes_hist_data = ["Todos os dias"] + datas_hist
     _idx_hist_padrao = opcoes_hist_data.index(_dia_hist_padrao) if _dia_hist_padrao in opcoes_hist_data else 0
 
-    # ── Inicializa estado expandir histórico ───────────────────────────────────
     fh1, fh2 = st.columns([2, 1])
     with fh1:
         filtro_hist_data = st.selectbox(
@@ -4800,7 +4799,6 @@ def tela_admin():
         )
     with fh2:
         st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-        n_total_hist = len(regs_para_tabela)
         n_dia_hist = len([r for r in regs_para_tabela
                           if filtro_hist_data == "Todos os dias"
                           or str(r[6]).startswith(filtro_hist_data)])
@@ -4817,64 +4815,145 @@ def tela_admin():
         regs_hist_filtrados = regs_para_tabela
 
     if regs_hist_filtrados:
-        # Monta set de (pedido, operador) que tiveram pausa no mesmo dia
-        pedidos_com_pausa = set()
-        pausas_hist = buscar_pausas_log()
-        for p in pausas_hist:
-            if filtro_hist_data == "Todos os dias" or str(p[4] or "").startswith(filtro_hist_data):
-                pedidos_com_pausa.add((str(p[1]), str(p[2])))
+        # ── Estado de expansão do histórico ────────────────────────────────
+        _k_hist_exp = "hist_expandido"
+        if _k_hist_exp not in st.session_state:
+            st.session_state[_k_hist_exp] = False
 
-        hist_rows = ""
-        for r in regs_hist_filtrados[:200]:
-            fim_str    = r[6] if r[6] else "—"
-            inicio_str = r[7] if r[7] else "—"
-            qtd_str    = str(r[8]) if r[8] is not None else "—"
-            teve_pausa = (str(r[1]), str(r[2])) in pedidos_com_pausa
-            pausa_tag  = (
-                '<span style="background:#FFF0E6;color:#E07B3A;font-size:10px;font-weight:800;'
-                'padding:2px 8px;border-radius:100px;">Sim</span>'
-                if teve_pausa else
-                '<span style="color:#C0BAB4;font-size:10px;font-weight:700;">Não</span>'
-            )
-            hist_rows += f"""<tr>
-              <td style="padding:11px 16px;font-family:monospace;font-size:12px;font-weight:700;color:#1A1714;">{r[1]}</td>
-              <td style="padding:11px 10px;font-size:13px;font-weight:700;color:#1A1714;">{r[2]}</td>
-              <td style="padding:11px 10px;">{tag_html.get(r[4], r[3])}</td>
-              <td style="padding:11px 10px;font-family:monospace;font-size:12px;font-weight:700;color:#4A7C59;text-align:center;">{fmt(r[5])}</td>
-              <td style="padding:11px 10px;font-size:11px;font-weight:700;color:#3B5EC6;text-align:center;">{qtd_str}</td>
-              <td style="padding:11px 10px;text-align:center;">{pausa_tag}</td>
-              <td style="padding:11px 10px;font-size:11px;color:#9C9490;text-align:center;">{inicio_str}</td>
-              <td style="padding:11px 10px;font-size:11px;color:#9C9490;text-align:center;">{fim_str}</td>
-            </tr>"""
-
-        n_hist = min(len(regs_hist_filtrados), 200)
-        hist_height = 56 + (n_hist * 46) + 20
+        # ── Card resumo (sempre visível) ────────────────────────────────────
+        total_pcs_hist  = sum(r[8] for r in regs_hist_filtrados if r[8] is not None)
+        ops_hist        = sorted({r[2] for r in regs_hist_filtrados if r[2]})
+        etapas_cnt      = {0: 0, 1: 0, 2: 0}
+        for r in regs_hist_filtrados:
+            if r[4] in etapas_cnt:
+                etapas_cnt[r[4]] += 1
 
         lbl_hist = f"Histórico de Pedidos · {filtro_hist_data}" if filtro_hist_data != "Todos os dias" else "Histórico de Pedidos"
 
+        ops_chips = "".join([
+            f'<span style="background:#F5E8EB;color:#C8566A;font-size:11px;font-weight:800;'
+            f'padding:2px 10px;border-radius:100px;margin-right:4px;">{op}</span>'
+            for op in ops_hist
+        ])
+
+        resumo_height = 110 + (len(ops_hist) // 4 + 1) * 0
         components.html(f"""<!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
         <style>
         *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
         .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
-        .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-        .scroll{{overflow-x:auto;-webkit-overflow-scrolling:touch;}}
-        table{{width:100%;min-width:620px;border-collapse:collapse;}}
-        thead tr{{background:#1A1714;}}
-        th{{padding:12px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-align:center;white-space:nowrap;}}
-        th:first-child{{text-align:left;padding-left:16px;}} th:nth-child(2){{text-align:left;}}
-        tbody tr{{border-bottom:1px solid #F2EEE9;}} tbody tr:last-child{{border-bottom:none;}}
-        tbody tr:hover{{background:#FDFAF9;}}
+        .card{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;padding:16px 20px;
+               box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
+        .row{{display:flex;align-items:center;gap:24px;flex-wrap:wrap;}}
+        .kpi{{display:flex;flex-direction:column;gap:2px;}}
+        .kpi-n{{font-family:"DM Mono",monospace;font-size:26px;font-weight:500;color:#1A1714;letter-spacing:-1px;}}
+        .kpi-l{{font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#9C9490;}}
+        .sep{{width:1px;height:40px;background:#EDE9E4;flex-shrink:0;}}
+        .ops{{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}}
+        .etag{{font-size:10px;font-weight:800;padding:2px 9px;border-radius:100px;}}
         </style></head><body>
         <div class="lbl">{lbl_hist}</div>
-        <div class="wrap"><div class="scroll"><table><thead><tr>
-          <th>Pedido</th><th>Operador</th><th>Etapa</th><th>Tempo</th>
-          <th style="color:#7B9FE0;">Qtd Peças</th>
-          <th style="color:#E07B3A;">Pausa</th>
-          <th style="color:#A0C8E0;">Início</th>
-          <th style="color:#A0C8E0;">Fim</th>
-        </tr></thead><tbody>{hist_rows}</tbody></table></div></div>
-        </body></html>""", height=hist_height, scrolling=False)
+        <div class="card">
+          <div class="row">
+            <div class="kpi"><div class="kpi-n" style="color:#C8566A;">{len(regs_hist_filtrados)}</div><div class="kpi-l">Registros</div></div>
+            <div class="sep"></div>
+            <div class="kpi"><div class="kpi-n" style="color:#3B5EC6;">{total_pcs_hist}</div><div class="kpi-l">Peças</div></div>
+            <div class="sep"></div>
+            <div class="kpi">
+              <div style="display:flex;gap:6px;margin-bottom:4px;">
+                <span class="etag" style="background:#EBF0FB;color:#3B5EC6;">Sep {etapas_cnt[0]}</span>
+                <span class="etag" style="background:#E8F2EC;color:#4A7C59;">Emb {etapas_cnt[1]}</span>
+                <span class="etag" style="background:#FBF2E6;color:#C47B2A;">Conf {etapas_cnt[2]}</span>
+              </div>
+              <div class="kpi-l">Por etapa</div>
+            </div>
+            <div class="sep"></div>
+            <div class="kpi" style="flex:1;min-width:0;">
+              <div class="ops">{ops_chips}</div>
+              <div class="kpi-l" style="margin-top:4px;">Operadores</div>
+            </div>
+          </div>
+        </div>
+        </body></html>""", height=130, scrolling=False)
+
+        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+
+        # ── Botão expandir / recolher ───────────────────────────────────────
+        st.markdown("""
+        <style>
+        .btn-hist-exp > button {
+            background:#fff !important; color:#3B5EC6 !important;
+            border:1.5px solid #3B5EC6 !important; border-radius:10px !important;
+            font-size:13px !important; font-weight:800 !important; height:42px !important;
+        }
+        .btn-hist-exp > button:hover {
+            background:#3B5EC6 !important; color:#fff !important;
+        }
+        </style>""", unsafe_allow_html=True)
+
+        _label_btn = "▲  Recolher histórico" if st.session_state[_k_hist_exp] else f"▼  Ver histórico completo ({len(regs_hist_filtrados)} registros)"
+        st.markdown('<div class="btn-hist-exp">', unsafe_allow_html=True)
+        if st.button(_label_btn, use_container_width=True, key="btn_hist_expandir"):
+            st.session_state[_k_hist_exp] = not st.session_state[_k_hist_exp]
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # ── Tabela completa (só quando expandida) ───────────────────────────
+        if st.session_state[_k_hist_exp]:
+            # Monta set de (pedido, operador) que tiveram pausa no mesmo dia
+            pedidos_com_pausa = set()
+            pausas_hist = buscar_pausas_log()
+            for p in pausas_hist:
+                if filtro_hist_data == "Todos os dias" or str(p[4] or "").startswith(filtro_hist_data):
+                    pedidos_com_pausa.add((str(p[1]), str(p[2])))
+
+            hist_rows = ""
+            for r in regs_hist_filtrados[:200]:
+                fim_str    = r[6] if r[6] else "—"
+                inicio_str = r[7] if r[7] else "—"
+                qtd_str    = str(r[8]) if r[8] is not None else "—"
+                teve_pausa = (str(r[1]), str(r[2])) in pedidos_com_pausa
+                pausa_tag  = (
+                    '<span style="background:#FFF0E6;color:#E07B3A;font-size:10px;font-weight:800;'
+                    'padding:2px 8px;border-radius:100px;">Sim</span>'
+                    if teve_pausa else
+                    '<span style="color:#C0BAB4;font-size:10px;font-weight:700;">Não</span>'
+                )
+                hist_rows += f"""<tr>
+                  <td style="padding:11px 16px;font-family:monospace;font-size:12px;font-weight:700;color:#1A1714;">{r[1]}</td>
+                  <td style="padding:11px 10px;font-size:13px;font-weight:700;color:#1A1714;">{r[2]}</td>
+                  <td style="padding:11px 10px;">{tag_html.get(r[4], r[3])}</td>
+                  <td style="padding:11px 10px;font-family:monospace;font-size:12px;font-weight:700;color:#4A7C59;text-align:center;">{fmt(r[5])}</td>
+                  <td style="padding:11px 10px;font-size:11px;font-weight:700;color:#3B5EC6;text-align:center;">{qtd_str}</td>
+                  <td style="padding:11px 10px;text-align:center;">{pausa_tag}</td>
+                  <td style="padding:11px 10px;font-size:11px;color:#9C9490;text-align:center;">{inicio_str}</td>
+                  <td style="padding:11px 10px;font-size:11px;color:#9C9490;text-align:center;">{fim_str}</td>
+                </tr>"""
+
+            n_hist = min(len(regs_hist_filtrados), 200)
+            hist_height = 56 + (n_hist * 46) + 20
+
+            components.html(f"""<!DOCTYPE html><html><head>
+            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+            <style>
+            *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
+            .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
+            .scroll{{overflow-x:auto;-webkit-overflow-scrolling:touch;}}
+            table{{width:100%;min-width:620px;border-collapse:collapse;}}
+            thead tr{{background:#1A1714;}}
+            th{{padding:12px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-align:center;white-space:nowrap;}}
+            th:first-child{{text-align:left;padding-left:16px;}} th:nth-child(2){{text-align:left;}}
+            tbody tr{{border-bottom:1px solid #F2EEE9;}} tbody tr:last-child{{border-bottom:none;}}
+            tbody tr:hover{{background:#FDFAF9;}}
+            </style></head><body>
+            <div class="wrap"><div class="scroll"><table><thead><tr>
+              <th>Pedido</th><th>Operador</th><th>Etapa</th><th>Tempo</th>
+              <th style="color:#7B9FE0;">Qtd Peças</th>
+              <th style="color:#E07B3A;">Pausa</th>
+              <th style="color:#A0C8E0;">Início</th>
+              <th style="color:#A0C8E0;">Fim</th>
+            </tr></thead><tbody>{hist_rows}</tbody></table></div></div>
+            </body></html>""", height=hist_height, scrolling=False)
 
 
 
