@@ -4627,7 +4627,11 @@ def tela_admin():
     opcoes_hist_data = ["Todos os dias"] + datas_hist
     _idx_hist_padrao = opcoes_hist_data.index(_dia_hist_padrao) if _dia_hist_padrao in opcoes_hist_data else 0
 
-    fh1, fh2 = st.columns([2, 1])
+    # ── Inicializa estado expandir histórico ───────────────────────────────────
+    if "hist_expandido" not in st.session_state:
+        st.session_state.hist_expandido = False
+
+    fh1, fh2, fh3 = st.columns([2, 1, 1])
     with fh1:
         filtro_hist_data = st.selectbox(
             "📋 Histórico — filtrar por dia",
@@ -4642,11 +4646,27 @@ def tela_admin():
                           if filtro_hist_data == "Todos os dias"
                           or str(r[6]).startswith(filtro_hist_data)])
         st.markdown(
-            f'<div style="background:#F0F5FF;border:1.5px solid #3B5EC6;border-radius:10px;'
-            f'padding:8px 14px;font-size:12px;font-weight:700;color:#3B5EC6;text-align:center;">'
-            f'{n_dia_hist} registro(s)</div>',
+            f'''<div style="background:#F0F5FF;border:1.5px solid #3B5EC6;border-radius:10px;
+            padding:8px 14px;font-size:12px;font-weight:700;color:#3B5EC6;text-align:center;">
+            {n_dia_hist} registro(s)</div>''',
             unsafe_allow_html=True
         )
+    with fh3:
+        st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+        lbl_exp = "⊞  Expandir" if not st.session_state.hist_expandido else "⊟  Recolher"
+        st.markdown("""<style>
+        .btn-expandir > button {
+            background:#F0F5FF !important; color:#3B5EC6 !important;
+            border:1.5px solid #3B5EC6 !important; border-radius:10px !important;
+            font-size:12px !important; font-weight:800 !important; height:40px !important;
+        }
+        .btn-expandir > button:hover { background:#3B5EC6 !important; color:#fff !important; }
+        </style>""", unsafe_allow_html=True)
+        st.markdown('<div class="btn-expandir">', unsafe_allow_html=True)
+        if st.button(lbl_exp, use_container_width=True, key="btn_hist_expandir"):
+            st.session_state.hist_expandido = not st.session_state.hist_expandido
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
     if filtro_hist_data != "Todos os dias":
         regs_hist_filtrados = [r for r in regs_para_tabela if str(r[6]).startswith(filtro_hist_data)]
@@ -4654,7 +4674,6 @@ def tela_admin():
         regs_hist_filtrados = regs_para_tabela
 
     if regs_hist_filtrados:
-        # Monta set de (pedido, operador) que tiveram pausa no mesmo dia
         pedidos_com_pausa = set()
         pausas_hist = buscar_pausas_log()
         for p in pausas_hist:
@@ -4663,7 +4682,6 @@ def tela_admin():
 
         hist_rows = ""
         for r in regs_hist_filtrados[:200]:
-            # r: (id, pedido, operador, etapa, etapa_idx, tempo_s, data_fim, inicio, qtd_pecas)
             fim_str    = r[6] if r[6] else "—"
             inicio_str = r[7] if r[7] else "—"
             qtd_str    = str(r[8]) if r[8] is not None else "—"
@@ -4685,34 +4703,56 @@ def tela_admin():
               <td style="padding:11px 10px;font-size:11px;color:#9C9490;text-align:center;">{fim_str}</td>
             </tr>"""
 
-        n_hist = min(len(regs_hist_filtrados), 200)
+        n_hist      = min(len(regs_hist_filtrados), 200)
         hist_height = 56 + (n_hist * 46) + 20
+        lbl_hist    = f"Histórico de Pedidos · {filtro_hist_data}" if filtro_hist_data != "Todos os dias" else "Histórico de Pedidos"
 
-        lbl_hist = f"Histórico de Pedidos · {filtro_hist_data}" if filtro_hist_data != "Todos os dias" else "Histórico de Pedidos"
+        if st.session_state.hist_expandido:
+            # ── Modo expandido: st.dataframe nativo, ocupa largura total ──────
+            import pandas as _pd
+            _rows_df = []
+            for r in regs_hist_filtrados[:200]:
+                _pausa = "Sim" if (str(r[1]), str(r[2])) in pedidos_com_pausa else "Não"
+                _etapa = {0:"Separação", 1:"Embalagem", 2:"Conferência"}.get(r[4], r[3])
+                _rows_df.append({
+                    "Pedido":    str(r[1]),
+                    "Operador":  r[2],
+                    "Etapa":     _etapa,
+                    "Tempo":     fmt(r[5]),
+                    "Qtd Peças": str(r[8]) if r[8] is not None else "—",
+                    "Pausa":     _pausa,
+                    "Início":    r[7] if r[7] else "—",
+                    "Fim":       r[6] if r[6] else "—",
+                })
+            _df = _pd.DataFrame(_rows_df)
+            st.dataframe(_df, use_container_width=True, hide_index=True,
+                         height=min(n_hist * 38 + 60, 700))
+        else:
+            # ── Modo normal: iframe com scroll horizontal ──────────────────────
+            components.html(f"""<!DOCTYPE html><html><head>
+            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+            <style>
+            *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
+            .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
+            .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
+            .scroll{{overflow-x:auto;-webkit-overflow-scrolling:touch;}}
+            table{{width:100%;min-width:620px;border-collapse:collapse;}}
+            thead tr{{background:#1A1714;}}
+            th{{padding:12px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-align:center;white-space:nowrap;}}
+            th:first-child{{text-align:left;padding-left:16px;}} th:nth-child(2){{text-align:left;}}
+            tbody tr{{border-bottom:1px solid #F2EEE9;}} tbody tr:last-child{{border-bottom:none;}}
+            tbody tr:hover{{background:#FDFAF9;}}
+            </style></head><body>
+            <div class="lbl">{lbl_hist}</div>
+            <div class="wrap"><div class="scroll"><table><thead><tr>
+              <th>Pedido</th><th>Operador</th><th>Etapa</th><th>Tempo</th>
+              <th style="color:#7B9FE0;">Qtd Peças</th>
+              <th style="color:#E07B3A;">Pausa</th>
+              <th style="color:#A0C8E0;">Início</th>
+              <th style="color:#A0C8E0;">Fim</th>
+            </tr></thead><tbody>{hist_rows}</tbody></table></div></div>
+            </body></html>""", height=hist_height, scrolling=False)
 
-        components.html(f"""<!DOCTYPE html><html><head>
-        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-        <style>
-        *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
-        .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
-        .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-        .scroll{{overflow-x:auto;-webkit-overflow-scrolling:touch;}}
-        table{{width:100%;min-width:620px;border-collapse:collapse;}}
-        thead tr{{background:#1A1714;}}
-        th{{padding:12px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-align:center;white-space:nowrap;}}
-        th:first-child{{text-align:left;padding-left:16px;}} th:nth-child(2){{text-align:left;}}
-        tbody tr{{border-bottom:1px solid #F2EEE9;}} tbody tr:last-child{{border-bottom:none;}}
-        tbody tr:hover{{background:#FDFAF9;}}
-        </style></head><body>
-        <div class="lbl">{lbl_hist}</div>
-        <div class="wrap"><div class="scroll"><table><thead><tr>
-          <th>Pedido</th><th>Operador</th><th>Etapa</th><th>Tempo</th>
-          <th style="color:#7B9FE0;">Qtd Peças</th>
-          <th style="color:#E07B3A;">Pausa</th>
-          <th style="color:#A0C8E0;">Início</th>
-          <th style="color:#A0C8E0;">Fim</th>
-        </tr></thead><tbody>{hist_rows}</tbody></table></div></div>
-        </body></html>""", height=hist_height, scrolling=False)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
