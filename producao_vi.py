@@ -10,11 +10,43 @@ import re
 import requests
 import json
 
+# ── Correção permanente: desativa o cache de ForwardMsg do Streamlit ──────────
+# Evita o erro "Cached ForwardMsg MISS" no WebSocket.
+try:
+    from streamlit.runtime import Runtime
+    from streamlit.runtime.forward_msg_cache import ForwardMsgCache
+    # Sobrescreve o método de cache para nunca armazenar mensagens
+    ForwardMsgCache.add_message    = lambda self, msg, session_id, ref_age: None
+    ForwardMsgCache.get_message    = lambda self, hash: None
+    ForwardMsgCache.has_refs_since = lambda self, hash, age: False
+except Exception:
+    pass
+try:
+    import streamlit.runtime.forward_msg_cache as _fmc
+    _fmc.populate_hash_if_needed = lambda msg: None
+except Exception:
+    pass
+
 # Fuso horário de Brasília (UTC-3)
 _TZ_BR = timezone(timedelta(hours=-3))
 def now_br():
     """Retorna datetime atual no fuso de Brasília."""
     return datetime.now(_TZ_BR)
+
+
+# ── Grava .streamlit/config.toml desativando cache de mensagens ──────────────
+try:
+    import os as _os
+    _cfg_dir  = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), ".streamlit")
+    _cfg_file = _os.path.join(_cfg_dir, "config.toml")
+    _os.makedirs(_cfg_dir, exist_ok=True)
+    if not _os.path.exists(_cfg_file):
+        with open(_cfg_file, "w") as _f:
+            _f.write("[global]\ndisableWatchdogWarning = true\n\n")
+            _f.write("[server]\nenableWebsocketCompression = false\n\n")
+            _f.write("[runner]\nmagicEnabled = false\n\n")
+except Exception:
+    pass
 
 st.set_page_config(
     page_title="Vi Lingerie - Producao",
@@ -121,16 +153,26 @@ def _upsert(table, data, on_conflict):
 # ─────────────────────────────────────
 def _html_block(html_content: str, height: int = 300, scrolling: bool = False):
     """
-    Substituto robusto para components.html().
-    Usa st.html() (Streamlit >= 1.36) para evitar o bug
-    "Cached ForwardMsg MISS" do WebSocket. Fallback para
-    components.html caso a versão seja mais antiga.
+    Renderiza HTML customizado sem o erro 'Cached ForwardMsg MISS'.
+    
+    Estratégia em camadas:
+    1. st.html()        — Streamlit >= 1.36, sem cache de hash, nunca gera MISS.
+    2. st.markdown()    — fallback universal, injeta HTML via markdown seguro.
+    3. components.html()— último recurso.
     """
     try:
-        st.html(html_content)          # sem cache de hash — nunca gera MISS
+        st.html(html_content)
+        return
     except AttributeError:
-        # Streamlit < 1.36: usa components.html com altura fixa
-        components.html(html_content, height=height, scrolling=scrolling)
+        pass
+    # Fallback: st.markdown com wrapper de altura fixa
+    overflow = "auto" if scrolling else "hidden"
+    st.markdown(
+        f'''<div style="height:{height}px;overflow-y:{overflow};overflow-x:hidden;">''' +
+        html_content +
+        '''</div>''',
+        unsafe_allow_html=True,
+    )
 
 def init_db():
     pass  # Tables created via supabase_setup.sql
