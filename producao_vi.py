@@ -2635,17 +2635,6 @@ def tela_admin_login():
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600&family=Nunito:wght@700;800;900&display=swap');
 
-    html, body,
-    [data-testid="stAppViewContainer"],
-    [data-testid="stMain"],
-    section.main { background: #0D0608 !important; }
-    [data-testid="stHeader"] { background: transparent !important; }
-    .block-container {
-        padding-top: 0 !important; padding-bottom: 0 !important;
-        max-width: 100% !important;
-        padding-left: 0 !important; padding-right: 0 !important;
-    }
-
     /* Input senha */
     div[data-testid="stTextInput"] input {
         background: rgba(255,255,255,0.05) !important;
