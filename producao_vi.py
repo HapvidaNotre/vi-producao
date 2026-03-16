@@ -116,32 +116,6 @@ def _upsert(table, data, on_conflict):
 # ─────────────────────────────────────
 #  DATABASE — Supabase REST API
 # ─────────────────────────────────────
-# ─────────────────────────────────────
-#  HELPER — renderiza HTML customizado sem ForwardMsg MISS
-# ─────────────────────────────────────
-def _html_block(html_content: str, height: int = 300, scrolling: bool = False):
-    """
-    Renderiza HTML customizado sem o erro 'Cached ForwardMsg MISS'.
-    
-    Estratégia em camadas:
-    1. st.html()        — Streamlit >= 1.36, sem cache de hash, nunca gera MISS.
-    2. st.markdown()    — fallback universal, injeta HTML via markdown seguro.
-    3. components.html()— último recurso.
-    """
-    try:
-        st.html(html_content)
-        return
-    except AttributeError:
-        pass
-    # Fallback: st.markdown com wrapper de altura fixa
-    overflow = "auto" if scrolling else "hidden"
-    st.markdown(
-        f'''<div style="height:{height}px;overflow-y:{overflow};overflow-x:hidden;">''' +
-        html_content +
-        '''</div>''',
-        unsafe_allow_html=True,
-    )
-
 def init_db():
     pass  # Tables created via supabase_setup.sql
 
@@ -994,7 +968,7 @@ def render_pip():
 
         cards_js += f"startTimer('{uid}', {ini});\n"
 
-    _html_block(f"""
+    components.html(f"""
     <script>
     (function() {{
         var pd = window.parent.document;
@@ -2002,7 +1976,7 @@ def tela_producao():
         pedido_val = st.session_state.pedido or ""
         initial    = op[0].upper()
 
-        _html_block(f"""
+        components.html(f"""
         <!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&display=swap" rel="stylesheet">
         <style>* {{margin:0;padding:0;box-sizing:border-box;}}</style>
@@ -2039,7 +2013,7 @@ def tela_producao():
         tempo_pausado_prev = buscar_tempo_pausado(pedido_val, etapa_idx)
         if tempo_pausado_prev > 0:
             h_pv, r_pv = divmod(tempo_pausado_prev, 3600); m_pv, s_pv = divmod(r_pv, 60)
-            _html_block(f"""<!DOCTYPE html><html><head>
+            components.html(f"""<!DOCTYPE html><html><head>
             <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
             </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
             <div style="background:#FFF7ED;border:2px solid #E07B3A;border-radius:14px;
@@ -2065,7 +2039,7 @@ def tela_producao():
                 _vr_fmt = f"R$ {float(_vr_alocado_banco):,.2f}".replace(",","X").replace(".",",").replace("X",".") if _vr_alocado_banco else "—"
                 _qtd_exibir = st.session_state.ped_qtd_valor
 
-                _html_block(f"""<!DOCTYPE html><html><head>
+                components.html(f"""<!DOCTYPE html><html><head>
                 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
                 </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
                 <div style="background:#fff;border:2px solid #3B7DD8;border-radius:16px;
@@ -2162,7 +2136,7 @@ def tela_producao():
             else:
                 # Badge resumido após confirmação
                 _vr_fmt2 = f"R$ {float(_vr_alocado_banco):,.2f}".replace(",","X").replace(".",",").replace("X",".") if _vr_alocado_banco else "—"
-                _html_block(f"""<!DOCTYPE html><html><head>
+                components.html(f"""<!DOCTYPE html><html><head>
                 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
                 </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
                 <div style="background:#EBF5FF;border:1.5px solid #3B7DD8;border-radius:10px;
@@ -2218,7 +2192,7 @@ def tela_producao():
         pedido_val = st.session_state.pedido
         initial = op[0].upper()
         timer_str = f"{h:02d}:{m:02d}:{s:02d}"
-        _html_block(f"""
+        components.html(f"""
         <!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
         <style>* {{margin:0;padding:0;box-sizing:border-box;}}</style>
@@ -2380,7 +2354,7 @@ def tela_producao():
                 h_p, r_p   = divmod(tempo_atual, 3600); m_p, s_p = divmod(r_p, 60)
                 tempo_str_p = f"{h_p:02d}:{m_p:02d}:{s_p:02d}"
 
-                _html_block(f"""<!DOCTYPE html><html><head>
+                components.html(f"""<!DOCTYPE html><html><head>
                 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
                 </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
                 <div style="background:#fff;border:2px solid #E07B3A;border-radius:16px;
@@ -2481,7 +2455,7 @@ def tela_producao():
     # ── Modal: pausado para amanhã ──
     elif st.session_state.modal == "pausado":
         pedido_val = st.session_state.pedido or ""
-        _html_block(f"""<!DOCTYPE html><html><head>
+        components.html(f"""<!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
         <style>*{{margin:0;padding:0;box-sizing:border-box;}}</style>
         </head><body style="background:transparent;font-family:Nunito,sans-serif;">
@@ -2527,7 +2501,7 @@ def tela_producao():
         next_lbl   = ETAPAS_LBL[etapa_idx + 1]
         tempo_fmt  = fmt(st.session_state.acum)
         pedido_val = st.session_state.pedido
-        _html_block(f"""
+        components.html(f"""
         <!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
         <style>* {{margin:0;padding:0;box-sizing:border-box;}}</style>
@@ -2566,7 +2540,7 @@ def tela_producao():
     elif st.session_state.modal == "concluido":
         pedido_val = st.session_state.pedido
         tempo_fmt = fmt(st.session_state.acum)
-        _html_block(f"""
+        components.html(f"""
         <!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
         <style>* {{margin:0;padding:0;box-sizing:border-box;}}</style>
@@ -3068,7 +3042,7 @@ def tela_admin():
                 </tr>"""
 
             altura = 54 + n_and * 48 + 16
-            _html_block(f"""<!DOCTYPE html><html><head>
+            components.html(f"""<!DOCTYPE html><html><head>
             <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
             <style>
             *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
@@ -4261,14 +4235,15 @@ def tela_admin():
             ini         = op[0].upper()
             medal       = medals[rank] if rank < 3 else ""
             op_rows += f"""<tr>
-              <td style="padding:12px 16px;vertical-align:middle;">
-                <div style="display:flex;align-items:center;gap:10px;">
-                  <div style="width:34px;height:34px;border-radius:50%;flex-shrink:0;
+              <td style="padding:10px 12px;vertical-align:middle;">
+                <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+                  <div style="width:32px;height:32px;border-radius:50%;flex-shrink:0;
                        background:linear-gradient(135deg,#D9617A,#9E3F52);
                        display:flex;align-items:center;justify-content:center;
-                       font-size:14px;font-weight:900;color:#fff;">{ini}</div>
-                  <span style="font-weight:800;font-size:13px;color:#1A1714;">{op}</span>
-                  {f'<span style="font-size:14px;margin-left:2px;">{medal}</span>' if medal else ""}
+                       font-size:13px;font-weight:900;color:#fff;">{ini}</div>
+                  <span style="font-weight:800;font-size:13px;color:#1A1714;
+                        overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{op}</span>
+                  {f'<span style="font-size:13px;flex-shrink:0;">{medal}</span>' if medal else ""}
                 </div>
               </td>
               <td style="padding:12px 8px;text-align:center;vertical-align:middle;">
@@ -4285,29 +4260,43 @@ def tela_admin():
         n_ops = len(op_map)
         op_table_height = 24 + 52 + n_ops * 52 + 16
         lbl_op = f"Desempenho por Operador · {filtro_data}" if filtro_data != "Todos os dias" else "Desempenho por Operador"
-        _html_block(f"""<!DOCTYPE html><html><head>
+        components.html(f"""<!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
         <style>
         *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
         .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
-        .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-        table{{width:100%;border-collapse:collapse;}} thead tr{{background:#1A1714;}}
-        th{{padding:11px 8px;font-size:8px;font-weight:800;letter-spacing:1.3px;text-transform:uppercase;text-align:center;}}
-        th:first-child{{text-align:left;padding-left:16px;}}
-        tbody tr{{border-bottom:1px solid #F2EEE9;transition:background .15s;}}
-        tbody tr:last-child{{border-bottom:none;}} tbody tr:hover{{background:#FDFAF9;}}
+        .outer{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
+        .scroll{{overflow-x:auto;-webkit-overflow-scrolling:touch;}}
+        table{{width:100%;min-width:560px;border-collapse:collapse;table-layout:fixed;}}
+        col.c-op{{width:28%;}} col.c-ped{{width:9%;}} col.c-pcs{{width:9%;}}
+        col.c-tt{{width:12%;}} col.c-tm{{width:12%;}} col.c-pau{{width:9%;}}
+        col.c-efi{{width:12%;}} col.c-prod{{width:13%;}}
+        thead tr{{background:#1A1714;}}
+        th{{padding:10px 6px;font-size:8px;font-weight:800;letter-spacing:1.2px;
+            text-transform:uppercase;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}}
+        th:first-child{{text-align:left;padding-left:14px;}}
+        tbody tr{{border-bottom:1px solid #F2EEE9;}} tbody tr:last-child{{border-bottom:none;}}
+        tbody tr:hover{{background:#FDFAF9;}}
         </style></head><body>
         <div class="lbl">{lbl_op}</div>
-        <div class="wrap"><table><thead><tr>
-          <th style="color:rgba(255,255,255,0.45);">Operador</th>
-          <th style="color:rgba(255,255,255,0.45);">Pedidos</th>
-          <th style="color:#7B9FE0;">Peças</th>
-          <th style="color:#7AB895;">Tempo Total</th>
-          <th style="color:rgba(255,255,255,0.35);">Tempo Médio</th>
-          <th style="color:#E07B3A;">Pausas</th>
-          <th style="color:#E5A96A;">Eficiência</th>
-          <th style="color:#C4A4F0;">Produtividade</th>
-        </tr></thead><tbody>{op_rows}</tbody></table></div>
+        <div class="outer"><div class="scroll"><table>
+          <colgroup>
+            <col class="c-op"><col class="c-ped"><col class="c-pcs">
+            <col class="c-tt"><col class="c-tm"><col class="c-pau">
+            <col class="c-efi"><col class="c-prod">
+          </colgroup>
+          <thead><tr>
+            <th style="color:rgba(255,255,255,0.45);">Operador</th>
+            <th style="color:rgba(255,255,255,0.45);">Ped.</th>
+            <th style="color:#7B9FE0;">Peças</th>
+            <th style="color:#7AB895;">T. Total</th>
+            <th style="color:rgba(255,255,255,0.35);">T. Médio</th>
+            <th style="color:#E07B3A;">Pausas</th>
+            <th style="color:#E5A96A;">Eficiência</th>
+            <th style="color:#C4A4F0;">Produtiv.</th>
+          </tr></thead>
+          <tbody>{op_rows}</tbody>
+        </table></div></div>
         </body></html>""", height=op_table_height, scrolling=False)
 
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
@@ -4338,7 +4327,7 @@ def tela_admin():
             </div>"""
 
         ranking_height = 24 + min(len(op_sorted), 5) * 58 + 32
-        _html_block(f"""<!DOCTYPE html><html><head>
+        components.html(f"""<!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
         <style>*{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
         .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:12px;}}
@@ -4380,7 +4369,7 @@ def tela_admin():
                   <div style="width:100%;max-width:36px;height:{bar_h}px;background:{cor_bar};border-radius:4px 4px 0 0;"></div>
                   <div style="font-size:9px;font-weight:800;color:#9C9490;">{h:02d}h</div>
                 </div>"""
-            _html_block(f"""<!DOCTYPE html><html><head>
+            components.html(f"""<!DOCTYPE html><html><head>
             <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
             <style>*{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
             .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:12px;}}
@@ -4418,7 +4407,7 @@ def tela_admin():
         expanded=n_pausas > 0
     ):
         if not pausas_filtradas:
-            _html_block("""<!DOCTYPE html><html><body style="background:transparent;
+            components.html("""<!DOCTYPE html><html><body style="background:transparent;
             font-family:Nunito,sans-serif;margin:0;padding:0;">
             <div style="background:#FFF8F0;border:1.5px solid #E07B3A33;border-radius:12px;
                         padding:20px;text-align:center;">
@@ -4452,7 +4441,7 @@ def tela_admin():
 
             n_p = min(len(pausas_filtradas), 100)
             pausa_height = 52 + n_p * 44 + 20
-            _html_block(f"""<!DOCTYPE html><html><head>
+            components.html(f"""<!DOCTYPE html><html><head>
             <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
             <style>
             *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
@@ -4496,7 +4485,7 @@ def tela_admin():
                 </div>"""
 
             resumo_h = len(pausa_por_op) * 40 + 24
-            _html_block(f"""<!DOCTYPE html><html><head>
+            components.html(f"""<!DOCTYPE html><html><head>
             <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
             <style>*{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
             .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:8px;}}
@@ -4699,7 +4688,7 @@ def tela_admin():
 
         lbl_hist = f"Histórico de Pedidos · {filtro_hist_data}" if filtro_hist_data != "Todos os dias" else "Histórico de Pedidos"
 
-        _html_block(f"""<!DOCTYPE html><html><head>
+        components.html(f"""<!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
         <style>
         *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
@@ -4853,7 +4842,7 @@ def tela_operacoes():
     # ── Sem sessões ──────────────────────────────────────────────────────────
     if not sessoes:
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-        _html_block("""<!DOCTYPE html><html><body style="background:transparent;
+        components.html("""<!DOCTYPE html><html><body style="background:transparent;
         font-family:sans-serif;padding:0;margin:0;">
         <div style="background:#F0F7F3;border:1.5px solid #4A7C59;border-radius:16px;
                     padding:48px 24px;text-align:center;">
@@ -4946,7 +4935,7 @@ def tela_operacoes():
         }})();
         """
 
-        _html_block(f"""<!DOCTYPE html><html><head>
+        components.html(f"""<!DOCTYPE html><html><head>
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
         <style>
         *{{margin:0;padding:0;box-sizing:border-box;}}
@@ -5079,7 +5068,7 @@ def tela_operacoes():
             cor_modo = "#E07B3A"
             bg_modo  = "#FFF8F0"
 
-            _html_block(f"""<!DOCTYPE html><html><head>
+            components.html(f"""<!DOCTYPE html><html><head>
             <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
             </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
             <div style="background:{bg_modo};border:2px solid {cor_modo};border-radius:12px;padding:12px 16px;">
