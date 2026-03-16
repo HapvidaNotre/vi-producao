@@ -2630,158 +2630,129 @@ def _auto_refresh_watcher():
 def tela_admin_login():
     erro = st.session_state.erro_senha
 
-    # ── Fundo escuro cobrindo toda a página ──────────────────────────────────
+    # ── CSS global da tela ───────────────────────────────────────────────────
     st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600&family=Nunito:wght@700;800;900&display=swap');
 
-    html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
-        background: #0D0608 !important;
-    }
+    html, body,
+    [data-testid="stAppViewContainer"],
+    [data-testid="stMain"],
+    section.main { background: #0D0608 !important; }
     [data-testid="stHeader"] { background: transparent !important; }
-    .block-container { padding-top: 0 !important; max-width:100% !important; padding-left:0 !important; padding-right:0 !important; }
-
-    /* ── Tela cheia centralizada ── */
-    .login-outer {
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        background: radial-gradient(ellipse at 60% 20%, rgba(140,20,40,0.25) 0%, transparent 60%),
-                    radial-gradient(ellipse at 20% 80%, rgba(100,10,20,0.18) 0%, transparent 55%),
-                    #0D0608;
-        padding: 40px 20px;
-    }
-
-    /* ── Card ── */
-    .login-card {
-        width: 100%;
-        max-width: 460px;
-        background: linear-gradient(160deg, #1a0d10 0%, #220f14 50%, #1a0d10 100%);
-        border-radius: 24px;
-        border: 1px solid rgba(200,86,106,0.20);
-        box-shadow: 0 40px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.03) inset;
-        overflow: hidden;
-        margin-bottom: 28px;
-        position: relative;
-    }
-    .login-card-accent { height: 3px; background: linear-gradient(90deg, transparent, #C8566A 30%, #f0a0b0 50%, #C8566A 70%, transparent); }
-    .login-card-orb1 { position:absolute; width:300px; height:300px; border-radius:50%; background:#8B2035; opacity:.15; filter:blur(80px); top:-120px; right:-80px; pointer-events:none; animation: orb-drift 9s ease-in-out infinite; }
-    .login-card-orb2 { position:absolute; width:200px; height:200px; border-radius:50%; background:#C8566A; opacity:.10; filter:blur(60px); bottom:-60px; left:-60px; pointer-events:none; animation: orb-drift 12s ease-in-out infinite reverse; }
-    @keyframes orb-drift { 0%,100%{transform:translate(0,0);} 50%{transform:translate(14px,-14px);} }
-
-    .login-card-inner { position:relative; z-index:1; padding: 36px 36px 32px; text-align:center; }
-    .login-lock { font-size:36px; margin-bottom:16px; display:block; animation: lock-glow 3s ease-in-out infinite; }
-    @keyframes lock-glow { 0%,100%{filter:drop-shadow(0 0 6px rgba(200,86,106,0.4));} 50%{filter:drop-shadow(0 0 16px rgba(200,86,106,0.8));} }
-
-    .login-logo {
-        font-family: 'Cormorant Garamond', serif;
-        font-size: 38px;
-        font-weight: 600;
-        color: #fff;
-        letter-spacing: -1px;
-        line-height: 1;
-        margin-bottom: 6px;
-    }
-    .login-logo em { font-style: italic; color: #C8566A; font-size: 46px; }
-    .login-badge {
-        display: inline-flex; align-items: center; gap: 6px;
-        background: rgba(200,86,106,0.12); border: 1px solid rgba(200,86,106,0.30);
-        border-radius: 100px; padding: 4px 14px;
-        font-size: 10px; font-weight: 800; letter-spacing: 2px;
-        text-transform: uppercase; color: rgba(200,86,106,0.85);
-        margin-top: 10px;
-    }
-
-    /* ── Formulário ── */
-    .login-form { width:100%; max-width:460px; }
-    .login-label {
-        font-size: 9px; font-weight: 800; letter-spacing: 3px;
-        text-transform: uppercase; color: rgba(255,255,255,0.35);
-        margin-bottom: 6px; display: block;
+    .block-container {
+        padding-top: 0 !important; padding-bottom: 0 !important;
+        max-width: 100% !important;
+        padding-left: 0 !important; padding-right: 0 !important;
     }
 
     /* Input senha */
     div[data-testid="stTextInput"] input {
         background: rgba(255,255,255,0.05) !important;
         border: 1.5px solid rgba(255,255,255,0.12) !important;
-        border-radius: 14px !important;
-        color: #fff !important;
-        font-size: 16px !important;
-        padding: 14px 18px !important;
-        letter-spacing: 5px !important;
-        height: 52px !important;
+        border-radius: 14px !important; color: #fff !important;
+        font-size: 16px !important; padding: 14px 18px !important;
+        letter-spacing: 5px !important; height: 52px !important;
     }
     div[data-testid="stTextInput"] input:focus {
         border-color: rgba(200,86,106,0.55) !important;
         box-shadow: 0 0 0 4px rgba(200,86,106,0.10) !important;
         background: rgba(255,255,255,0.07) !important;
     }
-    div[data-testid="stTextInput"] input::placeholder { color: rgba(255,255,255,0.18) !important; letter-spacing:4px !important; }
+    div[data-testid="stTextInput"] input::placeholder {
+        color: rgba(255,255,255,0.18) !important; letter-spacing:4px !important;
+    }
     div[data-testid="stTextInput"] label { display:none !important; }
-    div[data-testid="stTextInput"] { margin-bottom: 0 !important; }
 
     /* Botão Entrar */
     .btn-entrar > button {
-        background: linear-gradient(135deg, #E0253E 0%, #9B1528 100%) !important;
-        color: #fff !important; border: none !important;
-        border-radius: 14px !important; height: 54px !important;
-        font-size: 15px !important; font-weight: 900 !important;
-        letter-spacing: .5px !important;
+        background: linear-gradient(135deg,#E0253E 0%,#9B1528 100%) !important;
+        color:#fff !important; border:none !important; border-radius:14px !important;
+        height:54px !important; font-size:15px !important; font-weight:900 !important;
+        letter-spacing:.5px !important;
         box-shadow: 0 5px 0 rgba(80,5,15,0.55), 0 10px 30px rgba(200,30,50,0.30) !important;
-        transition: all .15s ease !important;
     }
-    .btn-entrar > button:hover { filter: brightness(1.1) !important; transform: translateY(-2px) !important; }
-    .btn-entrar > button:active { transform: translateY(2px) !important; box-shadow: 0 2px 0 rgba(80,5,15,0.55) !important; }
+    .btn-entrar > button:hover { filter:brightness(1.1) !important; transform:translateY(-2px) !important; }
+    .btn-entrar > button:active { transform:translateY(2px) !important; }
 
     /* Botão Voltar */
     .btn-voltar-login > button {
-        background: rgba(255,255,255,0.05) !important;
-        color: rgba(255,255,255,0.40) !important;
-        border: 1.5px solid rgba(255,255,255,0.10) !important;
-        border-radius: 14px !important; height: 54px !important;
-        font-size: 14px !important; font-weight: 800 !important;
+        background: rgba(255,255,255,0.04) !important;
+        color: rgba(255,255,255,0.35) !important;
+        border: 1.5px solid rgba(255,255,255,0.09) !important;
+        border-radius: 14px !important; height: 48px !important;
+        font-size: 13px !important; font-weight: 800 !important;
     }
-    .btn-voltar-login > button:hover { background: rgba(255,255,255,0.10) !important; color: #fff !important; }
-
-    /* Erro */
-    .login-erro {
-        background: rgba(200,86,106,0.12); border: 1px solid rgba(200,86,106,0.35);
-        border-radius: 12px; padding: 10px 16px;
-        font-size: 12px; font-weight: 800; color: rgba(220,100,120,0.95);
-        margin-bottom: 12px; text-align: center;
+    .btn-voltar-login > button:hover {
+        background:rgba(255,255,255,0.09) !important; color:#fff !important;
     }
     </style>
-
-    <div class="login-outer">
-      <div class="login-card">
-        <div class="login-card-accent"></div>
-        <div class="login-card-orb1"></div>
-        <div class="login-card-orb2"></div>
-        <div class="login-card-inner">
-          <span class="login-lock">🔒</span>
-          <div class="login-logo"><em>Vi</em> LINGERIE</div>
-          <div class="login-badge">🔐 Acesso Restrito</div>
-        </div>
-      </div>
-    </div>
     """, unsafe_allow_html=True)
 
-    # ── Centraliza formulário ────────────────────────────────────────────────
+    # ── Layout: 3 colunas, tudo no centro ───────────────────────────────────
     _, col_c, _ = st.columns([1, 1, 1])
     with col_c:
+        # Card visual completo com formulário integrado dentro
+        erro_html = ""
         if erro:
-            st.markdown('<div class="login-erro">❌ &nbsp;Senha incorreta. Tente novamente.</div>',
-                        unsafe_allow_html=True)
+            erro_html = """
+            <div style="background:rgba(200,86,106,0.12);border:1px solid rgba(200,86,106,0.35);
+                 border-radius:12px;padding:10px 16px;font-size:12px;font-weight:800;
+                 color:rgba(220,100,120,0.95);text-align:center;margin-bottom:16px;">
+              ❌ &nbsp;Senha incorreta. Tente novamente.
+            </div>"""
 
-        st.markdown('<span class="login-label">🔑 &nbsp;Senha</span>', unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style="
+            background: linear-gradient(160deg,#1a0d10 0%,#220f14 50%,#1a0d10 100%);
+            border-radius:24px; border:1px solid rgba(200,86,106,0.20);
+            box-shadow: 0 40px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.03) inset;
+            overflow:hidden; position:relative; margin-bottom:0;
+        ">
+          <!-- Accent line -->
+          <div style="height:3px;background:linear-gradient(90deg,transparent,#C8566A 30%,#f0a0b0 50%,#C8566A 70%,transparent);"></div>
+          <!-- Orbs -->
+          <div style="position:absolute;width:280px;height:280px;border-radius:50%;background:#8B2035;
+               opacity:.15;filter:blur(80px);top:-100px;right:-80px;pointer-events:none;"></div>
+          <div style="position:absolute;width:180px;height:180px;border-radius:50%;background:#C8566A;
+               opacity:.10;filter:blur(60px);bottom:-50px;left:-50px;pointer-events:none;"></div>
+          <!-- Conteúdo -->
+          <div style="position:relative;z-index:1;padding:36px 36px 32px;text-align:center;">
+            <div style="font-size:40px;margin-bottom:14px;
+                 filter:drop-shadow(0 0 10px rgba(200,86,106,0.6));">🔒</div>
+            <div style="font-family:'Cormorant Garamond',serif;font-size:40px;font-weight:600;
+                 color:#fff;letter-spacing:-1px;line-height:1;margin-bottom:10px;">
+              <em style="font-style:italic;color:#C8566A;font-size:48px;">Vi</em> LINGERIE
+            </div>
+            <div style="display:inline-flex;align-items:center;gap:6px;
+                 background:rgba(200,86,106,0.12);border:1px solid rgba(200,86,106,0.30);
+                 border-radius:100px;padding:4px 16px;font-size:10px;font-weight:800;
+                 letter-spacing:2px;text-transform:uppercase;color:rgba(200,86,106,0.85);
+                 margin-bottom:28px;">
+              🔐 Acesso Restrito
+            </div>
+            <!-- Separador -->
+            <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(200,86,106,0.25),transparent);margin-bottom:24px;"></div>
+            {erro_html}
+            <!-- Label senha -->
+            <div style="font-size:9px;font-weight:800;letter-spacing:3px;text-transform:uppercase;
+                 color:rgba(255,255,255,0.30);text-align:left;margin-bottom:8px;">
+              🔑 &nbsp;Senha
+            </div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Input nativo do Streamlit (precisa estar fora do markdown)
+        st.markdown("<div style='margin-top:-16px;padding:0 0 0 0;'>", unsafe_allow_html=True)
         senha_input = st.text_input(
             "_senha_admin", placeholder="• • • • • • • •",
             type="password", label_visibility="collapsed",
             key="admin_login_senha"
         )
-        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
 
         st.markdown('<div class="btn-entrar">', unsafe_allow_html=True)
         if st.button("🔓  Entrar", use_container_width=True, key="adm_login_acessar"):
@@ -2803,7 +2774,6 @@ def tela_admin_login():
         st.markdown('</div>', unsafe_allow_html=True)
 
 
-# ─────────────────────────────────────
 def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg):
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
