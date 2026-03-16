@@ -3142,8 +3142,8 @@ def tela_admin():
             .wrap-paus tbody tr:last-child{{border-bottom:none;}}
             .wrap-paus tbody tr:hover td{{background:#FFF8F2;}}
             </style>
-            <div class="wrap-paus">
-              <table>
+            <div class="wrap-paus"><div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+              <table style="min-width:560px;">
                 <thead><tr>
                   <th class="th-l">Pedido</th>
                   <th class="th-l">Operador</th>
@@ -3154,7 +3154,7 @@ def tela_admin():
                   <th class="th-l" style="color:rgba(255,255,255,0.30);">Motivo</th>
                 </tr></thead>
                 <tbody>{linhas_paus}</tbody>
-              </table>
+              </table></div>
             </div>""", unsafe_allow_html=True)
 
             # Badge de contagem
@@ -4446,18 +4446,20 @@ def tela_admin():
             <style>
             *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
             .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-            table{{width:100%;border-collapse:collapse;}} thead tr{{background:#1A1714;}}
-            th{{padding:11px 8px;font-size:8px;font-weight:800;letter-spacing:1.3px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-align:center;}}
+            .scroll{{overflow-x:auto;-webkit-overflow-scrolling:touch;}}
+            table{{width:100%;min-width:520px;border-collapse:collapse;}}
+            thead tr{{background:#1A1714;}}
+            th{{padding:11px 8px;font-size:8px;font-weight:800;letter-spacing:1.3px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-align:center;white-space:nowrap;}}
             th:first-child{{text-align:left;padding-left:14px;}} th:nth-child(2){{text-align:left;}} th:last-child{{text-align:left;}}
             tbody tr{{border-bottom:1px solid #F2EEE9;}} tbody tr:last-child{{border-bottom:none;}}
             tbody tr:hover{{background:#FFF8F0;}}
             </style></head><body>
-            <div class="wrap"><table><thead><tr>
+            <div class="wrap"><div class="scroll"><table><thead><tr>
               <th>Pedido</th><th>Operador</th><th>Etapa</th>
               <th style="color:#D4A45A;">Pausado em</th>
               <th style="color:#E07B3A;">Tempo</th>
               <th style="color:rgba(255,255,255,0.35);">Motivo</th>
-            </tr></thead><tbody>{pausa_rows}</tbody></table></div>
+            </tr></thead><tbody>{pausa_rows}</tbody></table></div></div>
             </body></html>""", height=pausa_height, scrolling=False)
 
             # ── Resumo por operador ────────────────────────────────────────
@@ -4694,20 +4696,22 @@ def tela_admin():
         *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
         .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
         .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-        table{{width:100%;border-collapse:collapse;}} thead tr{{background:#1A1714;}}
-        th{{padding:12px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-align:center;}}
+        .scroll{{overflow-x:auto;-webkit-overflow-scrolling:touch;}}
+        table{{width:100%;min-width:620px;border-collapse:collapse;}}
+        thead tr{{background:#1A1714;}}
+        th{{padding:12px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-align:center;white-space:nowrap;}}
         th:first-child{{text-align:left;padding-left:16px;}} th:nth-child(2){{text-align:left;}}
         tbody tr{{border-bottom:1px solid #F2EEE9;}} tbody tr:last-child{{border-bottom:none;}}
         tbody tr:hover{{background:#FDFAF9;}}
         </style></head><body>
         <div class="lbl">{lbl_hist}</div>
-        <div class="wrap"><table><thead><tr>
+        <div class="wrap"><div class="scroll"><table><thead><tr>
           <th>Pedido</th><th>Operador</th><th>Etapa</th><th>Tempo</th>
           <th style="color:#7B9FE0;">Qtd Peças</th>
           <th style="color:#E07B3A;">Pausa</th>
           <th style="color:#A0C8E0;">Início</th>
           <th style="color:#A0C8E0;">Fim</th>
-        </tr></thead><tbody>{hist_rows}</tbody></table></div>
+        </tr></thead><tbody>{hist_rows}</tbody></table></div></div>
         </body></html>""", height=hist_height, scrolling=False)
 
     st.markdown("<br>", unsafe_allow_html=True)
