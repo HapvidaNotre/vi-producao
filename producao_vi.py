@@ -614,6 +614,23 @@ label {{
     color: #9C9490 !important; letter-spacing: 1.5px !important;
     text-transform: uppercase !important;
 }}
+/* ── Expander do configurador de PDF: desfaz uppercase nos checkboxes ── */
+[data-testid="stExpander"] [data-testid="stCheckbox"] label,
+[data-testid="stExpander"] [data-testid="stCheckbox"] label p,
+[data-testid="stExpander"] [data-testid="stCheckbox"] span {{
+    color: #1A1714 !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+}}
+[data-testid="stExpander"] [data-testid="stMarkdownContainer"] p,
+[data-testid="stExpander"] [data-testid="stMarkdownContainer"] strong {{
+    color: #1A1714 !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    font-size: 13px !important;
+}}
 
 /* ── BUTTONS ── */
 .stButton > button {{
@@ -4895,23 +4912,6 @@ def tela_admin():
         with st.expander("⚙️  Configurar Relatório PDF", expanded=False):
             st.markdown("""
             <style>
-            /* ── Fix: força texto visível nos labels e títulos do configurador ── */
-            .streamlit-expanderContent label,
-            .streamlit-expanderContent label span,
-            .streamlit-expanderContent p,
-            .streamlit-expanderContent strong,
-            .streamlit-expanderContent [data-testid="stMarkdownContainer"] p,
-            .streamlit-expanderContent [data-testid="stMarkdownContainer"] strong {
-                color: #1A1714 !important;
-                font-family: 'Nunito', sans-serif !important;
-            }
-            .streamlit-expanderContent [data-testid="stCheckbox"] label {
-                font-size: 13px !important;
-                font-weight: 700 !important;
-                color: #1A1714 !important;
-                text-transform: none !important;
-                letter-spacing: 0 !important;
-            }
             .btn-mark-all > button {
                 background:#F0F7F3 !important; color:#2d5a3d !important;
                 border:1.5px solid #4A7C59 !important; border-radius:8px !important;
