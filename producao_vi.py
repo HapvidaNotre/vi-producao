@@ -2803,15 +2803,15 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg,
     doc = SimpleDocTemplate(buf, pagesize=A4,
         leftMargin=2*cm, rightMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
 
-    ROSA   = colors.HexColor("#C8566A")
+    ROSA   = colors.HexColor("#1A1714")   # cabeçalho principal → preto
     ESCURO = colors.HexColor("#1A1714")
-    CLARO  = colors.HexColor("#F7F5F2")
-    CINZA  = colors.HexColor("#8C8480")
-    VERDE  = colors.HexColor("#4A7C59")
-    LARANJA= colors.HexColor("#E07B3A")
-    AZUL   = colors.HexColor("#3B5EC6")
-    AMBAR  = colors.HexColor("#C47B2A")
-    BEGE   = colors.HexColor("#EDE9E4")
+    CLARO  = colors.HexColor("#F2F2F2")   # fundo alternado → cinza claro neutro
+    CINZA  = colors.HexColor("#555555")
+    VERDE  = colors.HexColor("#1A1714")   # antes verde → preto
+    LARANJA= colors.HexColor("#1A1714")
+    AZUL   = colors.HexColor("#1A1714")   # antes azul → preto
+    AMBAR  = colors.HexColor("#1A1714")   # antes âmbar → preto
+    BEGE   = colors.HexColor("#CCCCCC")   # grade → cinza médio
     BRANCO = colors.white
 
     styles = getSampleStyleSheet()
@@ -2855,8 +2855,8 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg,
 
     # ── Cabeçalho ────────────────────────────────────────────────────────────
     header_data = [[
-        Paragraph("<b><font color='#C8566A' size='18'>Vi</font> LINGERIE</b>", styles["Normal"]),
-        Paragraph(f"<font color='#8C8480' size='8'>Gerado em {now_str}</font>",
+        Paragraph("<b>Vi LINGERIE</b>", styles["Normal"]),
+        Paragraph(f"<font color='#555555' size='8'>Gerado em {now_str}</font>",
                   ParagraphStyle("r", alignment=TA_RIGHT))
     ]]
     header_tbl = Table(header_data, colWidths=["60%","40%"])
@@ -2875,10 +2875,10 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg,
         total_pecas_pdf = sum(pcs_etapa.values())
         story.append(Paragraph("RESUMO GERAL", S_SECTION))
         kpi_data = [[
-            Paragraph(f"<b><font size='22' color='#C8566A'>{len(ped_comp)}</font></b><br/><font size='8' color='#8C8480'>PEDIDOS CONCLUÍDOS</font>", styles["Normal"]),
-            Paragraph(f"<b><font size='22' color='#C8566A'>{len(ops_ativ)}</font></b><br/><font size='8' color='#8C8480'>OPERADORES ATIVOS</font>", styles["Normal"]),
-            Paragraph(f"<b><font size='22' color='#C8566A'>{avg}m</font></b><br/><font size='8' color='#8C8480'>TEMPO MÉDIO</font>", styles["Normal"]),
-            Paragraph(f"<b><font size='22' color='#C8566A'>{total_pecas_pdf}</font></b><br/><font size='8' color='#8C8480'>TOTAL PEÇAS*</font>", styles["Normal"]),
+            Paragraph(f"<b><font size='22'>{len(ped_comp)}</font></b><br/><font size='8' color='#555555'>PEDIDOS CONCLUÍDOS</font>", styles["Normal"]),
+            Paragraph(f"<b><font size='22'>{len(ops_ativ)}</font></b><br/><font size='8' color='#555555'>OPERADORES ATIVOS</font>", styles["Normal"]),
+            Paragraph(f"<b><font size='22'>{avg}m</font></b><br/><font size='8' color='#555555'>TEMPO MÉDIO</font>", styles["Normal"]),
+            Paragraph(f"<b><font size='22'>{total_pecas_pdf}</font></b><br/><font size='8' color='#555555'>TOTAL PEÇAS*</font>", styles["Normal"]),
         ]]
         kpi_tbl = Table(kpi_data, colWidths=["25%","25%","25%","25%"])
         kpi_tbl.setStyle(TableStyle([
@@ -2888,7 +2888,7 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg,
             ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
         ]))
         story.append(kpi_tbl)
-        story.append(Paragraph("<font size='7' color='#8C8480'>* Soma de todas as etapas — cada pedido é contado uma vez por etapa concluída.</font>", styles["Normal"]))
+        story.append(Paragraph("<font size='7' color='#555555'>* Soma de todas as etapas — cada pedido é contado uma vez por etapa concluída.</font>", styles["Normal"]))
         story.append(Spacer(1, 20))
 
     # ── 2. Produção por Etapa ─────────────────────────────────────────────────
@@ -2896,7 +2896,7 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg,
         story.append(Paragraph("PRODUÇÃO POR ETAPA", S_SECTION))
         eta_header = [
             Paragraph("<b>ETAPA</b>",       ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO)),
-            Paragraph("<b>PEDIDOS</b>",     ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>PED.</b>",     ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
             Paragraph("<b>PEÇAS</b>",       ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
             Paragraph("<b>T. TOTAL</b>",    ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
             Paragraph("<b>T. MÉDIO</b>",    ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
@@ -2910,13 +2910,12 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg,
             t_tot_e = sum(t_list)
             t_med_e = media(t_list)
             ppp     = f"{round(n_pcs_e/n_ped_e,1)}" if n_ped_e > 0 and n_pcs_e > 0 else "—"
-            cor_e   = ETAPA_CORES_PDF[idx]
             eta_rows.append([
                 Paragraph(f"<b>{ETAPA_IDX_NOME[idx]}</b>",
-                          ParagraphStyle("o", fontName="Helvetica-Bold", fontSize=9, textColor=cor_e)),
+                          ParagraphStyle("o", fontName="Helvetica-Bold", fontSize=9, textColor=ESCURO)),
                 Paragraph(str(n_ped_e), ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
                 Paragraph(f"<b>{n_pcs_e}</b>",
-                          ParagraphStyle("c", fontName="Helvetica-Bold", fontSize=10, textColor=cor_e, alignment=TA_CENTER)),
+                          ParagraphStyle("c", fontName="Helvetica-Bold", fontSize=10, textColor=ESCURO, alignment=TA_CENTER)),
                 Paragraph(fmt(t_tot_e), ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
                 Paragraph(fmt(t_med_e), ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
                 Paragraph(ppp,          ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
@@ -2926,7 +2925,8 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg,
             ("BACKGROUND",    (0,0),(-1,0), ESCURO),
             ("ROWBACKGROUNDS",(0,1),(-1,-1),[CLARO, BRANCO]),
             ("GRID",          (0,0),(-1,-1),0.4, BEGE),
-            ("TOPPADDING",    (0,0),(-1,-1),9),("BOTTOMPADDING",(0,0),(-1,-1),9),
+            ("TOPPADDING",    (0,0),(-1,-1),8),("BOTTOMPADDING",(0,0),(-1,-1),8),
+            ("TOPPADDING",    (0,0),(-1,0), 5),("BOTTOMPADDING",(0,0),(-1,0), 5),  # cabeçalho fino
             ("LEFTPADDING",   (0,0),(-1,-1),10),("RIGHTPADDING", (0,0),(-1,-1),10),
             ("VALIGN",        (0,0),(-1,-1),"MIDDLE"),
         ]))
@@ -2938,10 +2938,10 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg,
         story.append(Paragraph("DESEMPENHO POR OPERADOR", S_SECTION))
         op_header = [
             Paragraph("<b>OPERADOR</b>",    ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO)),
-            Paragraph("<b>PEDIDOS</b>",     ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
-            Paragraph("<b>SEP</b>",         ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=AZUL, alignment=TA_CENTER)),
-            Paragraph("<b>EMB</b>",         ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=VERDE, alignment=TA_CENTER)),
-            Paragraph("<b>CONF</b>",        ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=AMBAR, alignment=TA_CENTER)),
+            Paragraph("<b>PED.</b>",     ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>SEP</b>",         ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>EMB</b>",         ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>CONF</b>",        ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
             Paragraph("<b>T. TOTAL</b>",    ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
             Paragraph("<b>T. MÉDIO</b>",    ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
             Paragraph("<b>PAUSAS</b>",      ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
@@ -2962,12 +2962,9 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg,
             op_rows_pdf.append([
                 Paragraph(f"<b>{op}</b>",  ParagraphStyle("o", fontName="Helvetica-Bold", fontSize=9, textColor=ESCURO)),
                 Paragraph(str(n_ped),      ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
-                Paragraph(str(pcs_sep) if pcs_sep else "—",
-                          ParagraphStyle("c", fontSize=9, textColor=AZUL, alignment=TA_CENTER, fontName="Helvetica-Bold")),
-                Paragraph(str(pcs_emb) if pcs_emb else "—",
-                          ParagraphStyle("c", fontSize=9, textColor=VERDE, alignment=TA_CENTER, fontName="Helvetica-Bold")),
-                Paragraph(str(pcs_con) if pcs_con else "—",
-                          ParagraphStyle("c", fontSize=9, textColor=AMBAR, alignment=TA_CENTER, fontName="Helvetica-Bold")),
+                Paragraph(str(pcs_sep) if pcs_sep else "—", ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER, fontName="Helvetica-Bold")),
+                Paragraph(str(pcs_emb) if pcs_emb else "—", ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER, fontName="Helvetica-Bold")),
+                Paragraph(str(pcs_con) if pcs_con else "—", ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER, fontName="Helvetica-Bold")),
                 Paragraph(fmt(t_total),    ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
                 Paragraph(fmt(t_medio),    ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
                 Paragraph(str(n_paus),     ParagraphStyle("c", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
@@ -2975,10 +2972,11 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg,
             ])
         op_tbl = Table(op_rows_pdf, colWidths=["20%","9%","9%","9%","9%","13%","11%","8%","12%"])
         op_tbl.setStyle(TableStyle([
-            ("BACKGROUND",    (0,0),(-1,0), ROSA),
+            ("BACKGROUND",    (0,0),(-1,0), ESCURO),
             ("ROWBACKGROUNDS",(0,1),(-1,-1),[CLARO, BRANCO]),
             ("GRID",          (0,0),(-1,-1),0.4, BEGE),
             ("TOPPADDING",    (0,0),(-1,-1),8),("BOTTOMPADDING",(0,0),(-1,-1),8),
+            ("TOPPADDING",    (0,0),(-1,0), 5),("BOTTOMPADDING",(0,0),(-1,0), 5),  # cabeçalho fino
             ("LEFTPADDING",   (0,0),(-1,-1),8),("RIGHTPADDING", (0,0),(-1,-1),8),
             ("VALIGN",        (0,0),(-1,-1),"MIDDLE"),
         ]))
@@ -3020,8 +3018,8 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg,
                     Paragraph(ETAPA_NOMES.get(r[3], r[3]),    ParagraphStyle("c", fontSize=8, alignment=TA_CENTER)),
                     Paragraph(f"<font name='Courier' size='8'>{fmt(r[5])}</font>", ParagraphStyle("c", fontSize=8, alignment=TA_CENTER)),
                     Paragraph(f"<font name='Courier-Bold' size='8'>{qtd_str}</font>", ParagraphStyle("c", fontSize=8, alignment=TA_CENTER)),
-                    Paragraph(f"<font size='7' color='#8C8480'>{inicio_str}</font>", ParagraphStyle("c", fontSize=7, alignment=TA_CENTER)),
-                    Paragraph(f"<font size='7' color='#8C8480'>{fim_str}</font>",   ParagraphStyle("c", fontSize=7, alignment=TA_CENTER)),
+                    Paragraph(f"<font size='7' color='#555555'>{inicio_str}</font>", ParagraphStyle("c", fontSize=7, alignment=TA_CENTER)),
+                    Paragraph(f"<font size='7' color='#555555'>{fim_str}</font>",   ParagraphStyle("c", fontSize=7, alignment=TA_CENTER)),
                 ])
             hist_tbl = Table(hist_rows_pdf, colWidths=["14%","18%","16%","12%","10%","15%","15%"])
             hist_tbl.setStyle(TableStyle([
@@ -3029,6 +3027,7 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg,
                 ("ROWBACKGROUNDS",(0,1), (-1,-1), [CLARO, BRANCO]),
                 ("GRID",          (0,0), (-1,-1), 0.3, BEGE),
                 ("TOPPADDING",    (0,0), (-1,-1), 7), ("BOTTOMPADDING", (0,0), (-1,-1), 7),
+                ("TOPPADDING",    (0,0), (-1,0),  4), ("BOTTOMPADDING", (0,0), (-1,0),  4),  # cabeçalho fino
                 ("LEFTPADDING",   (0,0), (-1,-1), 8), ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
             ]))
             story.append(hist_tbl)
@@ -3054,16 +3053,17 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg,
                 Paragraph(f"<font name='Courier-Bold' size='8'>{p[1]}</font>", styles["Normal"]),
                 Paragraph(f"<font size='8'>{p[2]}</font>", styles["Normal"]),
                 Paragraph(etapa_nm, ParagraphStyle("c", fontSize=8, alignment=TA_CENTER)),
-                Paragraph(f"<font size='7' color='#8C8480'>{p[4] or '—'}</font>", ParagraphStyle("c", fontSize=7, alignment=TA_CENTER)),
+                Paragraph(f"<font size='7' color='#555555'>{p[4] or '—'}</font>", ParagraphStyle("c", fontSize=7, alignment=TA_CENTER)),
                 Paragraph(fmt(p[5]) if p[5] else "—", ParagraphStyle("c", fontSize=8, textColor=ESCURO, alignment=TA_CENTER)),
-                Paragraph(f"<font size='8' color='#5C5450'>{p[6] or '—'}</font>", styles["Normal"]),
+                Paragraph(f"<font size='8'>{p[6] or '—'}</font>", styles["Normal"]),
             ])
         pausa_tbl = Table(pausa_rows_pdf, colWidths=["14%","18%","14%","18%","12%","24%"])
         pausa_tbl.setStyle(TableStyle([
-            ("BACKGROUND",    (0,0), (-1,0), LARANJA),
+            ("BACKGROUND",    (0,0), (-1,0), ESCURO),
             ("ROWBACKGROUNDS",(0,1), (-1,-1), [CLARO, BRANCO]),
             ("GRID",          (0,0), (-1,-1), 0.3, BEGE),
             ("TOPPADDING",    (0,0), (-1,-1), 7), ("BOTTOMPADDING", (0,0), (-1,-1), 7),
+            ("TOPPADDING",    (0,0), (-1,0),  4), ("BOTTOMPADDING", (0,0), (-1,0),  4),  # cabeçalho fino
             ("LEFTPADDING",   (0,0), (-1,-1), 8), ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
         ]))
         story.append(pausa_tbl)
