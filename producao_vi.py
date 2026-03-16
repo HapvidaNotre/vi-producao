@@ -2797,8 +2797,8 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg):
     def sty(name, **kw):
         return ParagraphStyle(name, **kw)
 
-    S_TITLE   = sty("t",  fontName="Helvetica-Bold", fontSize=22, textColor=ESCURO, spaceAfter=2)
-    S_SUB     = sty("s",  fontName="Helvetica",      fontSize=10, textColor=CINZA,  spaceAfter=0)
+    S_TITLE   = sty("t",  fontName="Helvetica-Bold", fontSize=22, textColor=ESCURO, spaceAfter=8, leading=28)
+    S_SUB     = sty("s",  fontName="Helvetica",      fontSize=10, textColor=CINZA,  spaceAfter=4, leading=14)
     S_SECTION = sty("sc", fontName="Helvetica-Bold", fontSize=9,  textColor=CINZA,
                     spaceAfter=6, spaceBefore=16, letterSpacing=1.5)
     S_FOOTER  = sty("f",  fontName="Helvetica",      fontSize=8,  textColor=CINZA, alignment=TA_CENTER)
