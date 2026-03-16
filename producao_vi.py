@@ -2931,7 +2931,7 @@ def tela_admin():
         height: 56px !important;
         padding: 16px 18px !important;
     }
-    div[data-testid="stTextInput"] label { display: block !important; }
+    /* labels controlados individualmente via label_visibility */
     </style>
     """, unsafe_allow_html=True)
     render_logo()
