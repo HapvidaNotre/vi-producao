@@ -2920,6 +2920,11 @@ def tela_admin():
         font-size: 15px !important;
         letter-spacing: .5px !important;
         box-shadow: 0 3px 0 rgba(0,0,0,0.10) !important;
+        transition: all .18s ease !important;
+    }
+    .stButton > button:hover {
+        border-color: #C8566A !important;
+        color: #C8566A !important;
     }
     div[data-testid="stTextInput"] input {
         background: #FFFFFF !important;
@@ -2930,6 +2935,10 @@ def tela_admin():
         letter-spacing: normal !important;
         height: 56px !important;
         padding: 16px 18px !important;
+    }
+    div[data-testid="stTextInput"] input:focus {
+        border-color: #C8566A !important;
+        box-shadow: 0 0 0 4px rgba(200,86,106,0.12) !important;
     }
     /* labels controlados individualmente via label_visibility */
     </style>
