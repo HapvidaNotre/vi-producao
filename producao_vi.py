@@ -1629,7 +1629,12 @@ def _render_status_pedido(num, status, etapa_idx):
 
 
 def tela_home():
-    _auto_refresh_watcher()
+    # O fragment _auto_refresh_watcher só é chamado nos sub-passos do fluxo de pedido.
+    # Na tela inicial (3 botões) ele NÃO é chamado para evitar o erro
+    # "Cached ForwardMsg MISS" ao navegar entre telas.
+    _lobby_step_now = st.session_state.get("lobby_step", "pedido")
+    if _lobby_step_now not in ("pedido",):
+        _auto_refresh_watcher()
     render_logo()
 
     # ── Inicializa chaves de session_state específicas do novo lobby ──────────
