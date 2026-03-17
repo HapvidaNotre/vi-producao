@@ -211,6 +211,57 @@ def pausar_indefinidamente(pedido, etapa_idx, operador, tempo_acumulado):
 def pausar_para_amanha(pedido, etapa_idx, operador, tempo_acumulado):
     pausar_indefinidamente(pedido, etapa_idx, operador, tempo_acumulado)
 
+def trancar_pedido(pedido, etapa_idx, operador, tempo_acumulado, pecas_feitas, pecas_pendentes):
+    """
+    Tranca o pedido por falta de peças:
+    - iniciado_em = -1  → identifica como 'trancado' (distinto de 0 = pausado)
+    - pecas_feitas      → peças que o operador conseguiu separar
+    - pecas_pendentes   → peças que faltaram para completar o pedido
+    - tempo_pausado     → tempo trabalhado até o momento do trancamento
+    """
+    _upsert("sessoes_ativas", {
+        "pedido":          pedido,
+        "etapa_idx":       etapa_idx,
+        "operador":        operador,
+        "iniciado_em":     -1,               # -1 = trancado por falta de peças
+        "tempo_pausado":   tempo_acumulado,
+        "pecas_feitas":    int(pecas_feitas),
+        "pecas_pendentes": int(pecas_pendentes),
+    }, "pedido,etapa_idx")
+    buscar_todas_sessoes_ativas.clear()
+
+def buscar_sessao_trancada(pedido, etapa_idx):
+    """Retorna dict da sessão trancada ou None."""
+    rows = _get("sessoes_ativas",
+        f"pedido=eq.{pedido}&etapa_idx=eq.{etapa_idx}"
+        f"&select=operador,tempo_pausado,pecas_feitas,pecas_pendentes,iniciado_em")
+    if isinstance(rows, list) and rows:
+        r = rows[0]
+        if int(r.get("iniciado_em", 0)) == -1:
+            return {
+                "operador":       r.get("operador", ""),
+                "tempo_pausado":  int(r.get("tempo_pausado") or 0),
+                "pecas_feitas":   int(r.get("pecas_feitas") or 0),
+                "pecas_pendentes":int(r.get("pecas_pendentes") or 0),
+            }
+    return None
+
+def buscar_pedidos_trancados():
+    """Retorna sessões com iniciado_em == -1."""
+    rows = _get("sessoes_ativas",
+                "select=pedido,operador,etapa_idx,tempo_pausado,pecas_feitas,pecas_pendentes"
+                "&iniciado_em=eq.-1")
+    if not isinstance(rows, list):
+        return []
+    return [{
+        "pedido":          str(r.get("pedido", "")),
+        "operador":        r.get("operador", ""),
+        "etapa_idx":       int(r.get("etapa_idx", 0)),
+        "tempo_pausado":   int(r.get("tempo_pausado") or 0),
+        "pecas_feitas":    int(r.get("pecas_feitas") or 0),
+        "pecas_pendentes": int(r.get("pecas_pendentes") or 0),
+    } for r in rows]
+
 def registrar_pausa_log(pedido, etapa_idx, operador, tempo_pausado_s, motivo=""):
     """Salva um registro permanente da pausa na tabela pausas_log."""
     payload = {
@@ -536,6 +587,9 @@ for k, v in {
     "etapa_escolhida":None, "duplicata_info":None,
     "pedido_validado":False,
     "op_filtro_andamento": "Todos",
+    "tranca_modo": False,    # True = bloco de trancamento visível
+    "tranca_erro": False,    # True = senha incorreta no trancamento
+    "pedido_trancado_info": None,  # dict com info do trancamento anterior
 }.items():
     if k not in st.session_state:
         st.session_state[k] = v
@@ -2171,20 +2225,50 @@ def tela_producao():
 
         _, c1, _ = st.columns([0.3, 4, 0.3])
         with c1:
+            # ── Verifica se o pedido está trancado (etapa 0 apenas) ───────
+            _info_trancado = buscar_sessao_trancada(pedido_val, etapa_idx) if etapa_idx == 0 else None
+            if _info_trancado:
+                # Aviso de pedido trancado
+                _op_tran  = _info_trancado["operador"]
+                _pf_tran  = _info_trancado["pecas_feitas"]
+                _pp_tran  = _info_trancado["pecas_pendentes"]
+                _tp_tran  = _info_trancado["tempo_pausado"]
+                components.html(f"""<!DOCTYPE html><html><head>
+                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+                </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
+                <div style="background:#FEF2F2;border:2px solid #C8566A;border-radius:12px;padding:14px 18px;">
+                  <div style="font-size:13px;font-weight:900;color:#C8566A;margin-bottom:6px;">🔒 Pedido Trancado</div>
+                  <div style="font-size:12px;font-weight:700;color:#5C5450;line-height:1.6;">
+                    Este pedido foi trancado por <strong style="color:#1A1714;">{_op_tran}</strong>
+                    por pendência de peças.<br>
+                    <span style="color:#4A7C59;">✅ Peças feitas: <strong>{_pf_tran}</strong></span>
+                    &nbsp;·&nbsp;
+                    <span style="color:#C8566A;">⏳ Pendentes: <strong>{_pp_tran}</strong></span>
+                    &nbsp;·&nbsp;
+                    <span style="color:#9C9490;">Tempo salvo: {fmt(_tp_tran)}</span>
+                  </div>
+                  <div style="font-size:11px;color:#9C9490;margin-top:6px;font-weight:600;">
+                    Deseja retomar e finalizar com as peças pendentes?
+                  </div>
+                </div>
+                </body></html>""", height=130, scrolling=False)
+                st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+
             st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
-            if st.button("▶  INICIAR CRONÔMETRO", use_container_width=True):
-                # ✅ SESSÃO REGISTRADA AQUI — único momento correto.
-                # Verifica se há tempo pausado salvo (pedido retomado após pausa)
+            _label_ini = "▶  RETOMAR PEDIDO TRANCADO" if _info_trancado else "▶  INICIAR CRONÔMETRO"
+            if st.button(_label_ini, use_container_width=True):
                 tempo_pausado = buscar_tempo_pausado(pedido_val, etapa_idx)
                 st.session_state.rodando = True
                 st.session_state.inicio  = time.time()
-                st.session_state.acum    = tempo_pausado   # retoma do ponto pausado (0 se novo)
-                # Upsert com tempo_pausado preservado para manter acumulado correto
+                st.session_state.acum    = tempo_pausado
+                # Se vinha trancado: limpa os campos de trancamento, vira sessão ativa normal
                 _upsert("sessoes_ativas",
                         {"pedido": pedido_val, "etapa_idx": etapa_idx,
                          "operador": op, "iniciado_em": int(time.time()),
-                         "tempo_pausado": tempo_pausado},
+                         "tempo_pausado": tempo_pausado,
+                         "pecas_feitas": 0, "pecas_pendentes": 0},
                         "pedido,etapa_idx")
+                buscar_todas_sessoes_ativas.clear()
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
@@ -2469,9 +2553,115 @@ def tela_producao():
                         st.rerun()
                     st.markdown('</div>', unsafe_allow_html=True)
 
-        time.sleep(1); st.rerun()
+        # ── Botão Trancar Pedido (só etapa 0 = Separação) ──────────────
+        if etapa_idx == 0:
+            st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+            _, col_trancar, _ = st.columns([0.5, 5, 0.5])
+            with col_trancar:
+                if "tranca_modo" not in st.session_state:
+                    st.session_state.tranca_modo = False
+                if "tranca_erro" not in st.session_state:
+                    st.session_state.tranca_erro = False
 
-    # ── Modal: pausado para amanhã ──
+                if not st.session_state.tranca_modo:
+                    st.markdown("""
+                    <style>
+                    .btn-trancar > button {
+                        background:#fff !important; color:#C8566A !important;
+                        border:2px solid #C8566A !important; border-radius:12px !important;
+                        height:46px !important; font-size:13px !important; font-weight:800 !important;
+                    }
+                    .btn-trancar > button:hover {
+                        background:#C8566A !important; color:#fff !important;
+                    }
+                    </style>""", unsafe_allow_html=True)
+                    st.markdown('<div class="btn-trancar">', unsafe_allow_html=True)
+                    if st.button("🔒  Trancar Pedido (falta de peças)",
+                                 use_container_width=True, key="btn_trancar_abrir"):
+                        st.session_state.tranca_modo = True
+                        st.session_state.tranca_erro = False
+                        st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
+                else:
+                    # ── Bloco de confirmação de trancamento ────────────
+                    tempo_atual_t = get_elapsed()
+                    components.html(f"""<!DOCTYPE html><html><head>
+                    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+                    </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
+                    <div style="background:#FEF2F2;border:2px solid #C8566A;border-radius:12px;padding:12px 16px;">
+                      <div style="font-size:13px;font-weight:900;color:#C8566A;margin-bottom:4px;">🔒 Trancar por falta de peças</div>
+                      <div style="font-size:11px;font-weight:700;color:#5C5450;">
+                        Registra as peças separadas até agora e mantém o pedido em aberto
+                        para que outro operador finalize quando as peças chegarem.
+                      </div>
+                    </div></body></html>""", height=96, scrolling=False)
+
+                    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+
+                    qtd_feitas_t   = st.number_input("Peças separadas até agora",
+                                                      min_value=0, step=1,
+                                                      key="tranca_pecas_feitas")
+                    qtd_pendentes_t = st.number_input("Peças que ficaram pendentes",
+                                                       min_value=0, step=1,
+                                                       key="tranca_pecas_pendentes")
+                    senha_tranca   = st.text_input("_senha_trancar", type="password",
+                                                    placeholder="🔑 Senha do gestor...",
+                                                    label_visibility="collapsed",
+                                                    key="tranca_senha_input")
+                    if st.session_state.tranca_erro:
+                        st.markdown('<div style="color:#DC2626;font-size:11px;font-weight:700;'
+                                    'text-align:center;">❌ Senha incorreta</div>',
+                                    unsafe_allow_html=True)
+
+                    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+                    ct1, ct2 = st.columns(2)
+                    with ct1:
+                        st.markdown("""<style>
+                        .btn-trancar-conf > button {
+                            background:#C8566A !important; color:#fff !important;
+                            border:none !important; border-radius:10px !important;
+                            height:44px !important; font-size:13px !important; font-weight:800 !important;
+                        }</style>""", unsafe_allow_html=True)
+                        st.markdown('<div class="btn-trancar-conf">', unsafe_allow_html=True)
+                        if st.button("🔒 Confirmar Trancamento",
+                                     use_container_width=True, key="btn_tranca_confirmar"):
+                            if senha_tranca.strip() == ADMIN_SENHA:
+                                # Salva registro parcial do que foi feito
+                                if qtd_feitas_t > 0:
+                                    salvar(st.session_state.pedido, op, ETAPAS[etapa_idx],
+                                           etapa_idx, tempo_atual_t, int(qtd_feitas_t))
+                                # Tranca a sessão no banco
+                                trancar_pedido(
+                                    st.session_state.pedido, etapa_idx, op,
+                                    tempo_atual_t, int(qtd_feitas_t), int(qtd_pendentes_t)
+                                )
+                                buscar_todas_sessoes_ativas.clear()
+                                # Limpa estado local
+                                st.session_state.rodando         = False
+                                st.session_state.inicio          = None
+                                st.session_state.acum            = 0
+                                st.session_state.tranca_modo     = False
+                                st.session_state.tranca_erro     = False
+                                st.session_state.pedido          = None
+                                st.session_state.pedido_status   = None
+                                st.session_state.pedido_validado = False
+                                st.session_state.operador        = None
+                                st.session_state.etapa_escolhida = None
+                                st.session_state.modal           = "trancado"
+                                st.rerun()
+                            else:
+                                st.session_state.tranca_erro = True
+                                st.rerun()
+                        st.markdown('</div>', unsafe_allow_html=True)
+                    with ct2:
+                        st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+                        if st.button("✕ Cancelar", use_container_width=True, key="btn_tranca_cancelar"):
+                            st.session_state.tranca_modo = False
+                            st.session_state.tranca_erro = False
+                            st.rerun()
+                        st.markdown('</div>', unsafe_allow_html=True)
+
+        time.sleep(1); st.rerun()
     elif st.session_state.modal == "pausado":
         pedido_val = st.session_state.pedido or ""
         components.html(f"""<!DOCTYPE html><html><head>
@@ -2516,6 +2706,51 @@ def tela_producao():
             st.session_state.tela            = "home"
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
+
+    elif st.session_state.modal == "trancado":
+        pedido_val = st.session_state.pedido or ""
+        components.html(f"""<!DOCTYPE html><html><head>
+        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+        <style>*{{margin:0;padding:0;box-sizing:border-box;}}</style>
+        </head><body style="background:transparent;font-family:Nunito,sans-serif;">
+        <div style="background:#fff;border-radius:20px;overflow:hidden;
+                    box-shadow:0 4px 24px rgba(0,0,0,0.08);border:1.5px solid #EDE9E4;">
+          <div style="background:linear-gradient(135deg,#C8566A,#9E3F52);
+                      padding:28px;text-align:center;">
+            <div style="width:58px;height:58px;background:rgba(255,255,255,0.18);border-radius:50%;
+                        display:flex;align-items:center;justify-content:center;
+                        margin:0 auto 14px;border:2px solid rgba(255,255,255,0.35);">
+              <span style="font-size:28px;">🔒</span>
+            </div>
+            <div style="font-size:20px;font-weight:900;color:#fff;margin-bottom:4px;">
+              Pedido Trancado!</div>
+            <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.70);">
+              As peças separadas foram registradas. O pedido ficará em aberto
+              até que as peças pendentes cheguem.</div>
+          </div>
+          <div style="padding:20px 24px;text-align:center;">
+            <div style="font-size:11px;font-weight:800;letter-spacing:2px;color:#9C9490;
+                        text-transform:uppercase;margin-bottom:8px;">Pedido #{pedido_val}</div>
+            <div style="font-size:13px;font-weight:600;color:#5C5450;line-height:1.7;">
+              Quando as peças chegarem, qualquer operador poderá retomar
+              este pedido e finalizá-lo normalmente.
+            </div>
+          </div>
+        </div></body></html>""", height=290, scrolling=False)
+        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+        _, c_tmod, _ = st.columns([0.5, 5, 0.5])
+        with c_tmod:
+            st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
+            if st.button("▶  Ir ao Menu Principal", use_container_width=True, key="trancado_home"):
+                st.session_state.modal           = None
+                st.session_state.pedido          = None
+                st.session_state.pedido_validado = False
+                st.session_state.etapa_idx       = 0
+                st.session_state.acum            = 0
+                st.session_state.tela            = "home"
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+
     elif st.session_state.modal == "proxima":
         next_lbl   = ETAPAS_LBL[etapa_idx + 1]
         tempo_fmt  = fmt(st.session_state.acum)
@@ -3281,39 +3516,36 @@ def tela_admin():
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════
-    #  BLOCO 1.2 — PEDIDOS EM PAUSA (tempo indeterminado)
+    #  BLOCO 1.2 — PEDIDOS EM PAUSA E TRANCADOS
     # ══════════════════════════════════════════════════════════════════
-    pedidos_pausados = buscar_pedidos_pausados()
-    n_paus = len(pedidos_pausados)
+    pedidos_pausados  = buscar_pedidos_pausados()
+    pedidos_trancados = buscar_pedidos_trancados()
+    n_paus   = len(pedidos_pausados)
+    n_tran   = len(pedidos_trancados)
+    n_total_pt = n_paus + n_tran
 
-    with st.expander(
-        f"⏸ Pedidos em Pausa — {n_paus} pedido(s) pausado(s)" if n_paus > 0
-        else "⏸ Pedidos em Pausa — nenhum pausado no momento",
-        expanded=n_paus > 0
-    ):
-        if not pedidos_pausados:
-            st.markdown("""<div style="background:#FFF8F0;border:1.5px solid #E07B3A33;
-                        border-radius:12px;padding:20px;text-align:center;">
-                <div style="font-size:26px;margin-bottom:6px;">▶️</div>
-                <div style="font-size:13px;font-weight:700;color:#B85C20;">
-                    Nenhum pedido pausado no momento.</div>
-            </div>""", unsafe_allow_html=True)
-        else:
-            ETAPA_TAG_P = {
-                0: '<span style="background:#EBF0FB;color:#3B5EC6;padding:2px 9px;border-radius:100px;font-size:10px;font-weight:800;">📦 Separação</span>',
-                1: '<span style="background:#E8F2EC;color:#4A7C59;padding:2px 9px;border-radius:100px;font-size:10px;font-weight:800;">🗃️ Embalagem</span>',
-                2: '<span style="background:#FBF2E6;color:#C47B2A;padding:2px 9px;border-radius:100px;font-size:10px;font-weight:800;">✅ Conferência</span>',
-            }
+    _titulo_pt = "⏸ Pausados e Trancados"
+    if n_total_pt > 0:
+        partes_pt = []
+        if n_paus > 0: partes_pt.append(f"{n_paus} pausado(s)")
+        if n_tran > 0: partes_pt.append(f"{n_tran} trancado(s)")
+        _titulo_pt = f"⏸ Pausados e Trancados — {' · '.join(partes_pt)}"
+
+    with st.expander(_titulo_pt, expanded=n_total_pt > 0):
+        ETAPA_TAG_P = {
+            0: '<span style="background:#EBF0FB;color:#3B5EC6;padding:2px 9px;border-radius:100px;font-size:10px;font-weight:800;">📦 Separação</span>',
+            1: '<span style="background:#E8F2EC;color:#4A7C59;padding:2px 9px;border-radius:100px;font-size:10px;font-weight:800;">🗃️ Embalagem</span>',
+            2: '<span style="background:#FBF2E6;color:#C47B2A;padding:2px 9px;border-radius:100px;font-size:10px;font-weight:800;">✅ Conferência</span>',
+        }
+
+        # ── Pedidos PAUSADOS ───────────────────────────────────────────
+        if pedidos_pausados:
             linhas_paus = ""
             for p in pedidos_pausados:
                 eta_tag   = ETAPA_TAG_P.get(p["etapa_idx"], str(p["etapa_idx"]))
                 tempo_str = fmt(p["tempo_pausado"]) if p["tempo_pausado"] else "—"
-                # Separa data e hora do campo pausado_em (formato "DD/MM/YYYY HH:MM")
                 pem = str(p["pausado_em"] or "—")
-                if " " in pem:
-                    data_paus, hora_paus = pem.split(" ", 1)
-                else:
-                    data_paus, hora_paus = pem, "—"
+                data_paus, hora_paus = pem.split(" ", 1) if " " in pem else (pem, "—")
                 motivo_str = p["motivo"] if p["motivo"] else '<span style="color:#C0BAB4;font-style:italic;">—</span>'
                 linhas_paus += f"""<tr>
                   <td class="td-ped">{p['pedido']}</td>
@@ -3325,53 +3557,89 @@ def tela_admin():
                   <td class="td-mot">{motivo_str}</td>
                 </tr>"""
 
-            altura_p = 54 + n_paus * 48 + 16
-            st.markdown(f"""<style>
-            .wrap-paus{{background:#fff;border-radius:14px;border:1.5px solid #F5DECB;
-                       overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-            .wrap-paus table{{width:100%;border-collapse:collapse;}}
-            .wrap-paus thead tr{{background:#1A1714;}}
-            .wrap-paus th{{padding:11px 10px;font-size:9px;font-weight:800;letter-spacing:1.6px;
-               text-transform:uppercase;color:rgba(255,255,255,0.40);white-space:nowrap;text-align:center;}}
-            .wrap-paus th.th-l{{text-align:left;padding-left:14px;}}
-            .wrap-paus .td-ped{{padding:12px 14px;font-family:monospace;font-size:13px;
-                    font-weight:800;color:#1A1714;white-space:nowrap;}}
-            .wrap-paus .td-op{{padding:12px 10px;font-size:13px;font-weight:700;color:#1A1714;}}
-            .wrap-paus .td-c{{padding:12px 10px;text-align:center;}}
-            .wrap-paus .td-mot{{padding:12px 10px;font-size:12px;color:#5C5450;font-weight:600;}}
-            .wrap-paus tbody tr{{border-bottom:1px solid #FDF0E8;}}
-            .wrap-paus tbody tr:last-child{{border-bottom:none;}}
-            .wrap-paus tbody tr:hover td{{background:#FFF8F2;}}
-            </style>
-            <div class="wrap-paus"><div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-              <table style="min-width:560px;">
-                <thead><tr>
-                  <th class="th-l">Pedido</th>
-                  <th class="th-l">Operador</th>
-                  <th>Etapa</th>
-                  <th>Tempo acum.</th>
-                  <th style="color:#D4A45A;">Data da pausa</th>
-                  <th style="color:#F4965A;">Hora da pausa</th>
-                  <th class="th-l" style="color:rgba(255,255,255,0.30);">Motivo</th>
-                </tr></thead>
-                <tbody>{linhas_paus}</tbody>
-              </table></div>
-            </div>""", unsafe_allow_html=True)
+            altura_paus = 54 + n_paus * 48 + 16
+            components.html(f"""<!DOCTYPE html><html><head>
+            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+            <style>
+            *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
+            .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#E07B3A;margin-bottom:8px;}}
+            .wrap{{background:#fff;border-radius:14px;border:1.5px solid #F5DECB;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
+            table{{width:100%;border-collapse:collapse;min-width:520px;}}
+            thead tr{{background:#1A1714;}}
+            th{{padding:9px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.40);text-align:center;white-space:nowrap;}}
+            th.th-l{{text-align:left;padding-left:14px;}}
+            .td-ped{{padding:11px 14px;font-family:monospace;font-size:13px;font-weight:800;color:#1A1714;}}
+            .td-op{{padding:11px 10px;font-size:13px;font-weight:700;color:#1A1714;}}
+            .td-c{{padding:11px 10px;text-align:center;}}
+            .td-mot{{padding:11px 10px;font-size:12px;color:#5C5450;font-weight:600;}}
+            tbody tr{{border-bottom:1px solid #FDF0E8;}} tbody tr:last-child{{border-bottom:none;}}
+            tbody tr:hover td{{background:#FFF8F2;}}
+            </style></head><body>
+            <div class="lbl">⏸ Pedidos Pausados ({n_paus})</div>
+            <div class="wrap"><div style="overflow-x:auto;">
+              <table><thead><tr>
+                <th class="th-l">Pedido</th><th class="th-l">Operador</th><th>Etapa</th>
+                <th>Tempo acum.</th><th style="color:#D4A45A;">Data</th>
+                <th style="color:#F4965A;">Hora</th><th class="th-l" style="color:rgba(255,255,255,0.30);">Motivo</th>
+              </tr></thead><tbody>{linhas_paus}</tbody></table>
+            </div></div></body></html>""", height=altura_paus, scrolling=False)
+            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-            # Badge de contagem
+        elif n_tran == 0:
+            components.html("""<!DOCTYPE html><html><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
+            <div style="background:#FFF8F0;border:1.5px solid #E07B3A33;border-radius:12px;padding:20px;text-align:center;">
+              <div style="font-size:26px;margin-bottom:6px;">▶️</div>
+              <div style="font-size:13px;font-weight:700;color:#B85C20;">Nenhum pedido pausado ou trancado no momento.</div>
+            </div></body></html>""", height=90, scrolling=False)
+
+        # ── Pedidos TRANCADOS ──────────────────────────────────────────
+        if pedidos_trancados:
+            linhas_tran = ""
+            for t in pedidos_trancados:
+                eta_tag_t  = ETAPA_TAG_P.get(t["etapa_idx"], str(t["etapa_idx"]))
+                tempo_t    = fmt(t["tempo_pausado"]) if t["tempo_pausado"] else "—"
+                pf         = t["pecas_feitas"]
+                pp         = t["pecas_pendentes"]
+                linhas_tran += f"""<tr>
+                  <td class="td-ped">{t['pedido']}</td>
+                  <td class="td-op">{t['operador']}</td>
+                  <td class="td-c">{eta_tag_t}</td>
+                  <td class="td-c" style="font-family:monospace;font-size:12px;color:#5C5450;font-weight:700;">{tempo_t}</td>
+                  <td class="td-c"><span style="background:#E8F2EC;color:#4A7C59;font-weight:800;font-size:12px;padding:2px 10px;border-radius:100px;">{pf} pçs</span></td>
+                  <td class="td-c"><span style="background:#FEF2F2;color:#C8566A;font-weight:800;font-size:12px;padding:2px 10px;border-radius:100px;">+{pp} pend.</span></td>
+                </tr>"""
+
+            altura_tran = 54 + n_tran * 48 + 16
+            components.html(f"""<!DOCTYPE html><html><head>
+            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+            <style>
+            *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
+            .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#C8566A;margin-bottom:8px;}}
+            .wrap{{background:#fff;border-radius:14px;border:1.5px solid #FECACA;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
+            table{{width:100%;border-collapse:collapse;}}
+            thead tr{{background:#1A1714;}}
+            th{{padding:9px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.40);text-align:center;white-space:nowrap;}}
+            th.th-l{{text-align:left;padding-left:14px;}}
+            .td-ped{{padding:11px 14px;font-family:monospace;font-size:13px;font-weight:800;color:#1A1714;}}
+            .td-op{{padding:11px 10px;font-size:13px;font-weight:700;color:#1A1714;}}
+            .td-c{{padding:11px 10px;text-align:center;}}
+            tbody tr{{border-bottom:1px solid #FEF2F2;}} tbody tr:last-child{{border-bottom:none;}}
+            tbody tr:hover td{{background:#FFF5F5;}}
+            </style></head><body>
+            <div class="lbl">🔒 Pedidos Trancados por Falta de Peças ({n_tran})</div>
+            <div class="wrap"><table><thead><tr>
+              <th class="th-l">Pedido</th><th class="th-l">Operador</th><th>Etapa</th>
+              <th>Tempo acum.</th>
+              <th style="color:#7AB895;">Peças Feitas</th>
+              <th style="color:#FCA5A5;">Peças Pendentes</th>
+            </tr></thead><tbody>{linhas_tran}</tbody></table></div>
+            </body></html>""", height=altura_tran, scrolling=False)
+
             st.markdown(f"""
-            <div style="margin-top:10px;display:flex;align-items:center;gap:10px;
-                        background:#FFF8F0;border:1.5px solid #E07B3A44;border-radius:10px;
-                        padding:10px 16px;">
-              <span style="font-size:22px;">⏸</span>
-              <div>
-                <span style="font-size:13px;font-weight:900;color:#B85C20;">
-                  {n_paus} pedido(s) aguardando retomada pelo operador
-                </span>
-                <span style="font-size:11px;font-weight:600;color:#9C9490;margin-left:8px;">
-                  · O operador retoma clicando em ▶ Retomar no painel de operações
-                </span>
-              </div>
+            <div style="margin-top:8px;background:#FEF2F2;border:1.5px solid #FECACA;border-radius:10px;
+                        padding:10px 16px;font-size:12px;font-weight:700;color:#991B1B;">
+              🔒 {n_tran} pedido(s) aguardando chegada de peças.
+              Qualquer operador pode retomar na <strong>Etapa de Separação</strong> quando as peças chegarem.
             </div>""", unsafe_allow_html=True)
 
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
