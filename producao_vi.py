@@ -174,8 +174,8 @@ def pedido_em_andamento(pedido, etapa_idx):
     if rows:
         r = rows[0]
         ini_ts = int(r.get("iniciado_em", 0))
-        # iniciado_em == 0 significa pausado — não conta como em andamento
-        if ini_ts == 0:
+        # iniciado_em == 0 = pausado, == -1 = trancado — nenhum conta como em andamento
+        if ini_ts <= 0:
             return False, None
         if int(time.time()) - ini_ts < 14400:
             return True, r.get("operador")
@@ -494,15 +494,16 @@ init_db()
 # ── Limpeza automática de sessões expiradas (>12h) ──
 def _limpar_sessoes_expiradas():
     """Remove sessões com mais de 12h buscando e deletando individualmente.
-    Sessões pausadas (iniciado_em == 0) NÃO são removidas — ficam indefinidamente."""
+    Sessões pausadas (iniciado_em == 0) e trancadas (iniciado_em == -1)
+    NÃO são removidas — ficam indefinidamente até retomada manual."""
     limite = int(time.time()) - 43200
     rows = _get("sessoes_ativas", "select=pedido,etapa_idx,iniciado_em")
     if isinstance(rows, list):
         for r in rows:
             try:
                 ini = int(r.get("iniciado_em", 0))
-                if ini == 0:
-                    continue  # Pausado — não expira automaticamente
+                if ini <= 0:
+                    continue  # 0 = pausado, -1 = trancado — não expiram automaticamente
                 if ini < limite:
                     ped = r.get("pedido", "")
                     eta = r.get("etapa_idx", 0)
@@ -3015,7 +3016,8 @@ def tela_admin_login():
 def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg,
               sec_resumo=True, sec_por_etapa=True, sec_desempenho=True,
               sec_historico=False, etapas_hist=None, pausas_pdf=None,
-              sec_pausas=False, filtro_label=""):
+              sec_pausas=False, trancados_pdf=None, sec_trancados=False,
+              filtro_label=""):
     """
     Gera o PDF com seções configuráveis.
     sec_resumo      — KPIs do topo
@@ -3025,6 +3027,8 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg,
     etapas_hist     — None = todas | lista de etapa_idx a incluir
     pausas_pdf      — lista de registros de pausas
     sec_pausas      — inclui tabela de pausas no PDF
+    trancados_pdf   — lista de pedidos trancados
+    sec_trancados   — inclui tabela de pedidos trancados no PDF
     filtro_label    — texto descritivo do filtro ativo
     """
     from reportlab.lib.pagesizes import A4
@@ -3304,6 +3308,43 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg,
         story.append(pausa_tbl)
         story.append(Spacer(1, 20))
 
+    # ── Pedidos Trancados ────────────────────────────────────────────────────
+    if sec_trancados and trancados_pdf:
+        ETAPA_IDX_NOME3 = {0:"Separação", 1:"Embalagem", 2:"Conferência"}
+        story.append(Paragraph("PEDIDOS TRANCADOS — FALTA DE PEÇAS", S_SECTION))
+        tran_header = [
+            Paragraph("<b>PEDIDO</b>",       ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO)),
+            Paragraph("<b>OPERADOR</b>",     ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO)),
+            Paragraph("<b>ETAPA</b>",        ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>T. ACUM.</b>",     ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>PÇS FEITAS</b>",   ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph("<b>PÇS PEND.</b>",    ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+        ]
+        tran_rows = [tran_header]
+        for t in trancados_pdf:
+            etapa_nm = ETAPA_IDX_NOME3.get(t["etapa_idx"], str(t["etapa_idx"]))
+            tran_rows.append([
+                Paragraph(f"<font name='Courier-Bold' size='8'>{t['pedido']}</font>", styles["Normal"]),
+                Paragraph(f"<font size='8'>{t['operador']}</font>", styles["Normal"]),
+                Paragraph(etapa_nm,                   ParagraphStyle("c", fontSize=8, alignment=TA_CENTER)),
+                Paragraph(fmt(t["tempo_pausado"]),    ParagraphStyle("c", fontSize=8, textColor=ESCURO, alignment=TA_CENTER)),
+                Paragraph(f"<b>{t['pecas_feitas']}</b>",
+                          ParagraphStyle("c", fontName="Helvetica-Bold", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
+                Paragraph(f"<b>{t['pecas_pendentes']}</b>",
+                          ParagraphStyle("c", fontName="Helvetica-Bold", fontSize=9, textColor=ESCURO, alignment=TA_CENTER)),
+            ])
+        tran_tbl = Table(tran_rows, colWidths=["16%","20%","16%","14%","17%","17%"])
+        tran_tbl.setStyle(TableStyle([
+            ("BACKGROUND",    (0,0), (-1,0), ESCURO),
+            ("ROWBACKGROUNDS",(0,1), (-1,-1), [CLARO, BRANCO]),
+            ("GRID",          (0,0), (-1,-1), 0.3, BEGE),
+            ("TOPPADDING",    (0,0), (-1,-1), 7), ("BOTTOMPADDING", (0,0), (-1,-1), 7),
+            ("TOPPADDING",    (0,0), (-1,0),  4), ("BOTTOMPADDING", (0,0), (-1,0),  4),
+            ("LEFTPADDING",   (0,0), (-1,-1), 8), ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+        ]))
+        story.append(tran_tbl)
+        story.append(Spacer(1, 20))
+
     # ── Rodapé ───────────────────────────────────────────────────────────────
     story.append(Spacer(1, 24))
     story.append(HRFlowable(width="100%", thickness=0.5, color=BEGE, spaceAfter=8))
@@ -3431,8 +3472,8 @@ def tela_admin():
     #  BLOCO 1 — PEDIDOS EM ANDAMENTO
     # ══════════════════════════════════════════════════════════════════
     sessoes_agora = buscar_todas_sessoes_ativas()
-    # Exclui sessões pausadas (iniciado_em == 0) — elas aparecem no bloco de Pausas
-    sessoes_ativas = [s for s in sessoes_agora if int(s.get("iniciado_em", 0)) != 0]
+    # Exclui pausados (iniciado_em == 0) e trancados (iniciado_em == -1)
+    sessoes_ativas = [s for s in sessoes_agora if int(s.get("iniciado_em", 0)) > 0]
     n_and = len(sessoes_ativas)
 
     with st.expander(
@@ -5533,6 +5574,7 @@ def tela_admin():
             "pdf_etapa_conf":    True,
             "pdf_sec_hist_dia":  False,
             "pdf_sec_pausas":    False,
+            "pdf_sec_trancados": False,
         }.items():
             if _ck not in st.session_state:
                 st.session_state[_ck] = _cv
@@ -5561,7 +5603,7 @@ def tela_admin():
                 if st.button("✔  Marcar tudo", use_container_width=True, key="pdf_mark_all"):
                     for _k in ["pdf_sec_resumo","pdf_sec_por_etapa","pdf_sec_desemp",
                                "pdf_etapa_sep","pdf_etapa_emb","pdf_etapa_conf",
-                               "pdf_sec_hist_dia","pdf_sec_pausas"]:
+                               "pdf_sec_hist_dia","pdf_sec_pausas","pdf_sec_trancados"]:
                         st.session_state[_k] = True
                     st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
@@ -5570,7 +5612,7 @@ def tela_admin():
                 if st.button("✕  Limpar tudo", use_container_width=True, key="pdf_clear_all"):
                     for _k in ["pdf_sec_resumo","pdf_sec_por_etapa","pdf_sec_desemp",
                                "pdf_etapa_sep","pdf_etapa_emb","pdf_etapa_conf",
-                               "pdf_sec_hist_dia","pdf_sec_pausas"]:
+                               "pdf_sec_hist_dia","pdf_sec_pausas","pdf_sec_trancados"]:
                         st.session_state[_k] = False
                     st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
@@ -5602,7 +5644,8 @@ def tela_admin():
 
             with cp:
                 st.markdown("**⚡ Extras**")
-                pdf_pausas = st.checkbox("Pausas", key="pdf_sec_pausas")
+                pdf_pausas    = st.checkbox("Pausas",             key="pdf_sec_pausas")
+                pdf_trancados = st.checkbox("Pedidos Trancados",  key="pdf_sec_trancados")
 
             # Monta parâmetros de etapas
             etapas_por_hist    = {0: etapa_sep, 1: etapa_emb, 2: etapa_conf}
@@ -5624,6 +5667,11 @@ def tela_admin():
         if pausas_para_pdf and filtro_op != "Todos os operadores":
             pausas_para_pdf = [p for p in pausas_para_pdf if p[2] == filtro_op]
 
+        # ── Pedidos Trancados para o PDF ─────────────────────────────────────
+        trancados_para_pdf = buscar_pedidos_trancados() if pdf_trancados else None
+        if trancados_para_pdf and filtro_op != "Todos os operadores":
+            trancados_para_pdf = [t for t in trancados_para_pdf if t["operador"] == filtro_op]
+
         # ── Gerar dados ──────────────────────────────────────────────────────
         buf_csv = io.StringIO()
         csv.writer(buf_csv).writerows(
@@ -5631,14 +5679,16 @@ def tela_admin():
 
         pdf_bytes = gerar_pdf(
             regs, op_map, ped_comp, ops_ativ, avg,
-            sec_resumo     = pdf_resumo,
-            sec_por_etapa  = pdf_por_etapa,
-            sec_desempenho = pdf_desempenho,
-            sec_historico  = pdf_historico,
-            etapas_hist    = pdf_etapas_sel,
-            pausas_pdf     = pausas_para_pdf,
-            sec_pausas     = pdf_pausas,
-            filtro_label   = filtro_label_pdf,
+            sec_resumo      = pdf_resumo,
+            sec_por_etapa   = pdf_por_etapa,
+            sec_desempenho  = pdf_desempenho,
+            sec_historico   = pdf_historico,
+            etapas_hist     = pdf_etapas_sel,
+            pausas_pdf      = pausas_para_pdf,
+            sec_pausas      = pdf_pausas,
+            trancados_pdf   = trancados_para_pdf,
+            sec_trancados   = pdf_trancados,
+            filtro_label    = filtro_label_pdf,
         )
 
         df_xls = pd.DataFrame(list(regs), columns=["ID","Pedido","Operador","Etapa","EtapaIdx","Tempo(s)","Data Fim","Início","Qtd Peças"])
@@ -5683,8 +5733,8 @@ def tela_operacoes():
         st.session_state["busca_pedido_painel"] = ""
 
     sessoes_raw = buscar_todas_sessoes_ativas()
-    # Separa em andamento e pausadas — ambas aparecem no painel
-    sessoes_ativas  = [s for s in sessoes_raw if int(s.get("iniciado_em", 1)) != 0]
+    # Separa em andamento e pausadas — trancados (iniciado_em == -1) excluídos de ambas
+    sessoes_ativas  = [s for s in sessoes_raw if int(s.get("iniciado_em", 1)) > 0]
     sessoes_pausadas = [s for s in sessoes_raw if int(s.get("iniciado_em", 1)) == 0]
     # Mostra ativas primeiro, depois pausadas
     sessoes = sessoes_ativas + sessoes_pausadas
