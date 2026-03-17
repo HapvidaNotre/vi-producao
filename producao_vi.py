@@ -555,6 +555,16 @@ if st.query_params.get("nav") == "operacoes":
     st.session_state.tela = "operacoes"
     st.rerun()
 
+if st.query_params.get("nav") == "admin_login":
+    st.query_params.clear()
+    st.session_state.tela = "admin_login"
+    st.rerun()
+
+if st.query_params.get("nav") == "iniciar":
+    st.query_params.clear()
+    st.session_state.lobby_step = "pedido_input"
+    st.rerun()
+
 # ─────────────────────────────────────
 #  HELPERS
 # ─────────────────────────────────────
@@ -1778,39 +1788,161 @@ def tela_home():
         return
 
     # ═══════════════════════════════════════════════════════════════════════════
-    #  PASSO 1 — DIGITAR / SELECIONAR PEDIDO
+    #  TELA INICIAL — 3 botões principais
     # ═══════════════════════════════════════════════════════════════════════════
     if st.session_state.lobby_step == "pedido":
-        # ── Botão de operações em andamento ──────────────────────────────────
+        # Conta sessões para o badge do botão de andamento
         sessoes_ativas_agora = buscar_todas_sessoes_ativas()
-        n_ativas   = len([s for s in sessoes_ativas_agora if int(s.get("iniciado_em", 0)) > 0])
-        n_pausadas = len([s for s in sessoes_ativas_agora if int(s.get("iniciado_em", 0)) == 0])
+        n_ativas    = len([s for s in sessoes_ativas_agora if int(s.get("iniciado_em", 0)) > 0])
+        n_pausadas  = len([s for s in sessoes_ativas_agora if int(s.get("iniciado_em", 0)) == 0])
         n_trancadas = len([s for s in sessoes_ativas_agora if int(s.get("iniciado_em", 0)) == -1])
-        n_total = n_ativas + n_pausadas + n_trancadas
-        if n_total > 0:
-            partes = []
-            if n_ativas:    partes.append(f"{n_ativas} em andamento")
-            if n_pausadas:  partes.append(f"{n_pausadas} pausado{'s' if n_pausadas>1 else ''}")
-            if n_trancadas: partes.append(f"{n_trancadas} trancado{'s' if n_trancadas>1 else ''}")
-            badge_txt = " · ".join(partes)
-            _cv1.html(f"""<!DOCTYPE html><html><head>
-            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
-            </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;padding-top:12px;">
-            <div style="position:relative;">
-              <div style="position:absolute;top:-10px;right:10px;z-index:10;
-                background:#C8566A;color:#fff;font-size:10px;font-weight:900;
-                padding:3px 10px;border-radius:20px;border:2px solid #F7F5F2;
-                letter-spacing:.5px;white-space:nowrap;">{badge_txt}</div>
-              <button onclick="var u=new URL(window.parent.location.href);u.searchParams.set('nav','operacoes');window.parent.location.href=u.toString();"
-                style="width:100%;background:linear-gradient(135deg,#1c1917,#2d2925);color:#fff;
-                  border:none;border-radius:14px;height:58px;
-                  font-family:Nunito,sans-serif;font-size:14px;font-weight:800;
-                  cursor:pointer;box-shadow:0 5px 0 rgba(0,0,0,0.40);letter-spacing:.3px;">
-                ⏱&nbsp;&nbsp;Ver Operações em Andamento
-              </button>
+        n_total     = n_ativas + n_pausadas + n_trancadas
+
+        partes_badge = []
+        if n_ativas:    partes_badge.append(f"{n_ativas} em andamento")
+        if n_pausadas:  partes_badge.append(f"{n_pausadas} pausado{'s' if n_pausadas>1 else ''}")
+        if n_trancadas: partes_badge.append(f"{n_trancadas} trancado{'s' if n_trancadas>1 else ''}")
+        badge_and_txt  = " · ".join(partes_badge) if partes_badge else ""
+        badge_and_html = (
+            f'<div style="position:absolute;top:-11px;right:14px;z-index:10;'
+            f'background:#C8566A;color:#fff;font-size:10px;font-weight:900;'
+            f'padding:3px 11px;border-radius:20px;border:2px solid #F7F5F2;'
+            f'letter-spacing:.5px;white-space:nowrap;">{badge_and_txt}</div>'
+        ) if badge_and_txt else ""
+
+        nav_op_js  = "var u=new URL(window.parent.location.href);u.searchParams.set('nav','operacoes');window.parent.location.href=u.toString();"
+        nav_adm_js = "var u=new URL(window.parent.location.href);u.searchParams.set('nav','admin_login');window.parent.location.href=u.toString();"
+
+        _cv1.html(f"""<!DOCTYPE html><html><head>
+        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+        <style>
+        * {{ margin:0; padding:0; box-sizing:border-box; }}
+        body {{ background:transparent; font-family:'Nunito',sans-serif; }}
+
+        .btn-main {{
+            width:100%; border:none; border-radius:16px; cursor:pointer;
+            font-family:'Nunito',sans-serif; font-weight:900; letter-spacing:.4px;
+            display:flex; align-items:center; gap:16px;
+            padding:0 24px; transition:transform .18s, box-shadow .18s, filter .18s;
+            text-align:left; position:relative; overflow:hidden;
+        }}
+        .btn-main::after {{
+            content:''; position:absolute; inset:0;
+            background:rgba(255,255,255,0); transition:background .18s;
+            pointer-events:none;
+        }}
+        .btn-main:hover::after {{ background:rgba(255,255,255,0.08); }}
+        .btn-main:hover {{ transform:translateY(-4px); }}
+        .btn-main:active {{ transform:translateY(1px) !important; filter:brightness(.92); }}
+
+        .btn-iniciar {{
+            height:80px;
+            background:linear-gradient(135deg,#C8566A 0%,#9E3F52 100%);
+            box-shadow:0 6px 0 rgba(100,20,35,.45), 0 12px 28px rgba(200,86,106,.30);
+            color:#fff;
+        }}
+        .btn-iniciar:hover {{
+            box-shadow:0 10px 0 rgba(100,20,35,.40), 0 18px 36px rgba(200,86,106,.38);
+        }}
+
+        .btn-andamento {{
+            height:68px;
+            background:linear-gradient(135deg,#1c1917 0%,#2d2925 100%);
+            box-shadow:0 5px 0 rgba(0,0,0,.45), 0 10px 24px rgba(0,0,0,.20);
+            color:#fff;
+        }}
+        .btn-andamento:hover {{
+            box-shadow:0 8px 0 rgba(0,0,0,.40), 0 14px 30px rgba(0,0,0,.28);
+        }}
+
+        .btn-admin {{
+            height:56px;
+            background:#fff;
+            border:2px solid #DDD8D2 !important;
+            box-shadow:0 4px 0 rgba(0,0,0,.10), 0 6px 16px rgba(0,0,0,.07);
+            color:#5C5450;
+        }}
+        .btn-admin:hover {{
+            border-color:#C8566A !important;
+            color:#C8566A;
+            box-shadow:0 6px 0 rgba(0,0,0,.08), 0 10px 24px rgba(200,86,106,.14);
+        }}
+
+        .btn-icon {{
+            width:44px; height:44px; border-radius:12px; flex-shrink:0;
+            display:flex; align-items:center; justify-content:center;
+            font-size:22px;
+        }}
+        .btn-icon-sm {{
+            width:36px; height:36px; border-radius:10px; flex-shrink:0;
+            display:flex; align-items:center; justify-content:center;
+            font-size:18px;
+        }}
+        .btn-label {{ flex:1; }}
+        .btn-title {{ font-size:17px; font-weight:900; line-height:1.2; }}
+        .btn-sub {{ font-size:11px; font-weight:700; opacity:.65; margin-top:2px; }}
+        .btn-arrow {{ font-size:20px; opacity:.45; flex-shrink:0; }}
+
+        .wrap {{ display:flex; flex-direction:column; gap:12px; padding:4px 0 8px; }}
+        .rel {{ position:relative; }}
+        </style>
+        </head><body>
+        <div class="wrap">
+
+          <!-- BOTÃO 1: Iniciar Operações -->
+          <button class="btn-main btn-iniciar"
+            onclick="var u=new URL(window.parent.location.href);u.searchParams.set('nav','iniciar');window.parent.location.href=u.toString();">
+            <div class="btn-icon" style="background:rgba(255,255,255,0.18);">▶</div>
+            <div class="btn-label">
+              <div class="btn-title">Iniciar Operações</div>
+              <div class="btn-sub">Selecionar pedido · etapa · operador</div>
             </div>
-            </body></html>""", height=82, scrolling=False)
-            st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+            <div class="btn-arrow">›</div>
+          </button>
+
+          <!-- BOTÃO 2: Ver Operações em Andamento (com badge dinâmico) -->
+          <div class="rel">
+            {badge_and_html}
+            <button class="btn-main btn-andamento" onclick="{nav_op_js}"
+              style="{'opacity:.5;cursor:default;' if n_total == 0 else ''}">
+              <div class="btn-icon-sm" style="background:rgba(255,255,255,0.10);border-radius:10px;">⏱</div>
+              <div class="btn-label">
+                <div class="btn-title" style="font-size:15px;">Ver Operações em Andamento</div>
+                <div class="btn-sub">{'Nenhuma sessão ativa no momento' if n_total == 0 else f'{n_total} sessão(ões) ativa(s)'}</div>
+              </div>
+              <div class="btn-arrow">›</div>
+            </button>
+          </div>
+
+          <!-- BOTÃO 3: Admin -->
+          <button class="btn-main btn-admin" onclick="{nav_adm_js}">
+            <div class="btn-icon-sm" style="background:#F7F5F2;border-radius:10px;color:#9C9490;">⚙</div>
+            <div class="btn-label">
+              <div class="btn-title" style="font-size:14px;">Painel Administrativo</div>
+            </div>
+            <div class="btn-arrow" style="color:#C8566A;">›</div>
+          </button>
+
+        </div>
+        </body></html>""", height=260, scrolling=False)
+
+        # Handlers Streamlit para navegações via query param
+        if st.query_params.get("nav") == "iniciar":
+            st.query_params.clear()
+            st.session_state.lobby_step = "iniciar_fluxo"
+            st.rerun()
+
+        # lobby_step = "iniciar_fluxo" significa: vai para o fluxo de pedido
+        if st.session_state.lobby_step == "iniciar_fluxo":
+            st.session_state.lobby_step = "pedido_input"
+            st.rerun()
+
+        return  # Tela inicial mostra só os 3 botões
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    #  PASSO 1b — DIGITAR / SELECIONAR PEDIDO (após clicar em Iniciar Operações)
+    # ═══════════════════════════════════════════════════════════════════════════
+    if st.session_state.lobby_step == "pedido_input":
 
         # ── Título ────────────────────────────────────────────────────────────
         st.markdown("""
@@ -1979,8 +2111,13 @@ def tela_home():
             st.markdown('</div>', unsafe_allow_html=True)
         with c2:
             st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
-            if st.button("⚙ Admin", use_container_width=True, key="lobby_admin"):
-                st.session_state.tela = "admin_login"; st.rerun()
+            if st.button("← Voltar", use_container_width=True, key="lobby_pedido_voltar_home"):
+                st.session_state.lobby_step            = "pedido"
+                st.session_state.lobby_pedido_validado = False
+                st.session_state.lobby_pedido_status   = None
+                st.session_state.lobby_duplicata_info  = None
+                st.session_state.lobby_erro_pedido     = False
+                st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
         if st.session_state.get("lobby_erro_pedido"):
@@ -2074,7 +2211,7 @@ def tela_home():
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
         st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
         if st.button("← Voltar ao Pedido", use_container_width=True, key="lobby_af_voltar"):
-            st.session_state.lobby_step            = "pedido"
+            st.session_state.lobby_step            = "pedido_input"
             st.session_state.lobby_pedido_validado = False
             st.session_state.lobby_af_detectado    = None
             st.session_state.lobby_af_confirmado   = None
@@ -2237,7 +2374,7 @@ def tela_home():
         st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
         st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
         if st.button("← Voltar ao Pedido", use_container_width=True, key="lobby_etapa_voltar"):
-            st.session_state.lobby_step            = "pedido"
+            st.session_state.lobby_step            = "pedido_input"
             st.session_state.lobby_pedido_validado = False
             st.session_state.lobby_af_detectado    = None
             st.session_state.lobby_af_confirmado   = None
