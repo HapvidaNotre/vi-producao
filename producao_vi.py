@@ -1783,35 +1783,41 @@ def tela_home():
         n_total = n_ativas + n_pausadas + n_trancadas
         if n_total > 0:
             partes = []
-            if n_ativas:   partes.append(f"{n_ativas} em andamento")
-            if n_pausadas: partes.append(f"{n_pausadas} pausado{'s' if n_pausadas>1 else ''}")
+            if n_ativas:    partes.append(f"{n_ativas} em andamento")
+            if n_pausadas:  partes.append(f"{n_pausadas} pausado{'s' if n_pausadas>1 else ''}")
             if n_trancadas: partes.append(f"{n_trancadas} trancado{'s' if n_trancadas>1 else ''}")
             badge_txt = " · ".join(partes)
-            badge_cor = "#C8566A"
-            st.markdown(f"""<style>
-            .btn-andamento > button {{
-                background: linear-gradient(135deg,#1c1917,#2d2925) !important;
-                color:#fff !important; border:none !important;
-                border-radius:14px !important; height:56px !important;
-                font-size:14px !important; font-weight:800 !important;
-                box-shadow:0 5px 0 rgba(0,0,0,0.40),0 8px 20px rgba(0,0,0,0.20) !important;
-            }}
-            .btn-andamento > button:hover {{
-                background: linear-gradient(135deg,#292524,#3d3530) !important;
-                transform:translateY(-2px) !important;
-            }}
-            </style>
-            <div style="position:relative;margin-bottom:8px;">
-              <div style="position:absolute;top:-10px;right:12px;z-index:10;
-                background:{badge_cor};color:#fff;font-size:11px;font-weight:900;
+            # Badge + botão num único components.html para evitar código HTML exibido como texto
+            _cv1.html(f"""<!DOCTYPE html><html><head>
+            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+            </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
+            <div style="position:relative;padding-top:12px;margin-bottom:4px;">
+              <div style="position:absolute;top:0px;right:10px;z-index:10;
+                background:#C8566A;color:#fff;font-size:10px;font-weight:900;
                 padding:3px 10px;border-radius:20px;border:2px solid #F7F5F2;
-                letter-spacing:.5px;">{badge_txt}</div>
-            </div>""", unsafe_allow_html=True)
-            st.markdown('<div class="btn-andamento">', unsafe_allow_html=True)
-            if st.button("⏱  Ver Operações em Andamento", use_container_width=True, key="lobby_ver_andamento"):
+                letter-spacing:.5px;white-space:nowrap;">{badge_txt}</div>
+              <button id="btnAnd"
+                style="width:100%;background:linear-gradient(135deg,#1c1917,#2d2925);color:#fff;
+                  border:none;border-radius:14px;height:58px;
+                  font-family:Nunito,sans-serif;font-size:14px;font-weight:800;
+                  cursor:pointer;box-shadow:0 5px 0 rgba(0,0,0,0.40);">
+                ⏱&nbsp;&nbsp;Ver Operações em Andamento
+              </button>
+            </div>
+            <script>
+            document.getElementById('btnAnd').onclick = function() {{
+                window.parent.document.querySelectorAll('button').forEach(function(b) {{
+                    if (b.innerText && b.innerText.includes('_andamento_hidden')) b.click();
+                }});
+            }};
+            </script>
+            </body></html>""", height=82, scrolling=False)
+            # Botão Streamlit oculto acionado via JS
+            st.markdown('<div style="visibility:hidden;height:0;overflow:hidden;">', unsafe_allow_html=True)
+            if st.button("_andamento_hidden", key="lobby_ver_andamento"):
                 st.session_state.tela = "operacoes"; st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
-            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
         # ── Título ────────────────────────────────────────────────────────────
         st.markdown("""
