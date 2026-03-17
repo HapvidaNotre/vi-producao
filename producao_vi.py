@@ -2159,9 +2159,9 @@ def tela_home():
               <div style="font-size:14px;font-weight:900;color:#92400E;margin-bottom:4px;">
                 Pedido identificado como AF no banco de dados</div>
               <div style="font-size:12px;font-weight:700;color:#B45309;line-height:1.6;">
-                <b>AF (Aguardando Faturamento):</b> este pedido está parcialmente alocado —
-                faltam peças para completar. Ele fica em aberto para que um operador
-                possa adicionar as peças pendentes e fechá-lo posteriormente.
+                <b>AF (Aguardando Falta):</b> este pedido possui peças faltantes —
+                fica em aberto para que um operador adicione as peças pendentes
+                e o feche posteriormente.
               </div>
               <div style="font-size:12px;font-weight:800;color:#92400E;margin-top:10px;">
                 Deseja manter este pedido como <b>AF</b>?
