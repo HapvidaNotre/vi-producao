@@ -2938,12 +2938,7 @@ def tela_producao():
 
                 st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
                 if st.session_state.pausa_erro:
-                    st.markdown("""
-                    <div style="background:#FEF2F2;border:1.5px solid #FECACA;border-radius:10px;
-                                padding:8px 14px;font-size:12px;font-weight:800;color:#991B1B;
-                                text-align:center;margin-bottom:6px;">
-                        ❌ Senha incorreta. Tente novamente.
-                    </div>""", unsafe_allow_html=True)
+                    st.error("❌ Senha incorreta. Tente novamente.", icon=None)
 
                 senha_input = st.text_input("_senha_pausa", type="password",
                                              placeholder="Senha admin...",
@@ -3066,9 +3061,7 @@ def tela_producao():
                                                     label_visibility="collapsed",
                                                     key="tranca_senha_input")
                     if st.session_state.tranca_erro:
-                        st.markdown('<div style="color:#DC2626;font-size:11px;font-weight:700;'
-                                    'text-align:center;">❌ Senha incorreta</div>',
-                                    unsafe_allow_html=True)
+                        st.error("❌ Senha incorreta.", icon=None)
 
                     st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
                     ct1, ct2 = st.columns(2)
@@ -6513,9 +6506,7 @@ def tela_operacoes():
                 key=f"motivo_input_{uid}"
             )
             if st.session_state[_k_erro]:
-                st.markdown('<div style="color:#DC2626;font-size:11px;font-weight:700;'
-                            'text-align:center;margin-top:2px;">❌ Senha incorreta</div>',
-                            unsafe_allow_html=True)
+                st.error("❌ Senha incorreta.", icon=None)
 
             st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
             st.markdown(f"""<style>
