@@ -5001,7 +5001,7 @@ def tela_admin():
             if "confirm_excluir" not in st.session_state:
                 st.session_state.confirm_excluir = {}
 
-            for numero, cliente, status, importado_em in avulsos:
+            for numero, status, importado_em in avulsos:
                 regs_vinculados = _get("registros", f"pedido=eq.{numero}&select=id")
                 tem_registros   = isinstance(regs_vinculados, list) and len(regs_vinculados) > 0
                 cor_status      = "#4A7C59" if status == "aberto" else "#C8566A"
@@ -5014,7 +5014,6 @@ def tela_admin():
                         f'⚠ {len(regs_vinculados)} registro(s) de produção serão removidos</span>'
                         if tem_registros else ""
                     )
-                    cli_show = f" · {cliente}" if cliente else ""
                     st.markdown(f"""
                     <div style="background:#fff;border:1.5px solid #EDE9E4;border-radius:10px;
                                 padding:11px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -5023,7 +5022,6 @@ def tela_admin():
                         <span style="background:{cor_status}22;color:{cor_status};font-size:10px;
                                      font-weight:800;padding:2px 10px;border-radius:20px;
                                      text-transform:uppercase;">{lbl_status}</span>
-                        {f'<span style="font-size:12px;font-weight:700;color:#5C5450;">{cliente}</span>' if cliente else ""}
                         <span style="font-size:11px;color:#9C9490;">
                             Cadastrado em: {importado_em or "—"}</span>
                         {aviso_reg}
