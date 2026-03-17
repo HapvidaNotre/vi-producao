@@ -1788,10 +1788,10 @@ def tela_home():
         return
 
     # ═══════════════════════════════════════════════════════════════════════════
-    #  TELA INICIAL — 3 botões principais
+    #  TELA INICIAL — 3 botões principais (st.button reais + CSS)
     # ═══════════════════════════════════════════════════════════════════════════
     if st.session_state.lobby_step == "pedido":
-        # Conta sessões para o badge do botão de andamento
+        # Conta sessões para o badge
         sessoes_ativas_agora = buscar_todas_sessoes_ativas()
         n_ativas    = len([s for s in sessoes_ativas_agora if int(s.get("iniciado_em", 0)) > 0])
         n_pausadas  = len([s for s in sessoes_ativas_agora if int(s.get("iniciado_em", 0)) == 0])
@@ -1802,143 +1802,136 @@ def tela_home():
         if n_ativas:    partes_badge.append(f"{n_ativas} em andamento")
         if n_pausadas:  partes_badge.append(f"{n_pausadas} pausado{'s' if n_pausadas>1 else ''}")
         if n_trancadas: partes_badge.append(f"{n_trancadas} trancado{'s' if n_trancadas>1 else ''}")
-        badge_and_txt  = " · ".join(partes_badge) if partes_badge else ""
-        badge_and_html = (
-            f'<div style="position:absolute;top:-11px;right:14px;z-index:10;'
-            f'background:#C8566A;color:#fff;font-size:10px;font-weight:900;'
-            f'padding:3px 11px;border-radius:20px;border:2px solid #F7F5F2;'
-            f'letter-spacing:.5px;white-space:nowrap;">{badge_and_txt}</div>'
-        ) if badge_and_txt else ""
+        badge_txt = " · ".join(partes_badge) if partes_badge else ""
 
-        nav_op_js  = "var u=new URL(window.parent.location.href);u.searchParams.set('nav','operacoes');window.parent.location.href=u.toString();"
-        nav_adm_js = "var u=new URL(window.parent.location.href);u.searchParams.set('nav','admin_login');window.parent.location.href=u.toString();"
-
-        _cv1.html(f"""<!DOCTYPE html><html><head>
-        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+        # ── CSS dos 3 botões ─────────────────────────────────────────────────
+        st.markdown("""
         <style>
-        * {{ margin:0; padding:0; box-sizing:border-box; }}
-        body {{ background:transparent; font-family:'Nunito',sans-serif; }}
+        /* ── Botão 1: Iniciar Operações ── */
+        .home-btn-iniciar > div[data-testid="stButton"] > button {
+            background: linear-gradient(135deg,#C8566A 0%,#9E3F52 100%) !important;
+            color: #fff !important; border: none !important;
+            border-radius: 18px !important; height: 86px !important;
+            font-size: 18px !important; font-weight: 900 !important;
+            letter-spacing: .4px !important;
+            box-shadow: 0 7px 0 rgba(100,20,35,.44), 0 14px 32px rgba(200,86,106,.28) !important;
+            justify-content: center !important;
+            padding: 0 28px !important;
+            transition: transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s !important;
+        }
+        .home-btn-iniciar > div[data-testid="stButton"] > button:hover {
+            transform: translateY(-5px) !important;
+            box-shadow: 0 12px 0 rgba(100,20,35,.40), 0 22px 44px rgba(200,86,106,.36) !important;
+            filter: brightness(1.06) !important;
+        }
+        .home-btn-iniciar > div[data-testid="stButton"] > button:active {
+            transform: translateY(2px) !important;
+            box-shadow: 0 3px 0 rgba(100,20,35,.44) !important;
+        }
 
-        .btn-main {{
-            width:100%; border:none; border-radius:16px; cursor:pointer;
-            font-family:'Nunito',sans-serif; font-weight:900; letter-spacing:.4px;
-            display:flex; align-items:center; gap:16px;
-            padding:0 24px; transition:transform .18s, box-shadow .18s, filter .18s;
-            text-align:left; position:relative; overflow:hidden;
-        }}
-        .btn-main::after {{
-            content:''; position:absolute; inset:0;
-            background:rgba(255,255,255,0); transition:background .18s;
-            pointer-events:none;
-        }}
-        .btn-main:hover::after {{ background:rgba(255,255,255,0.08); }}
-        .btn-main:hover {{ transform:translateY(-4px); }}
-        .btn-main:active {{ transform:translateY(1px) !important; filter:brightness(.92); }}
+        /* ── Botão 2: Ver Operações ── */
+        .home-btn-andamento > div[data-testid="stButton"] > button {
+            background: linear-gradient(135deg,#1c1917 0%,#2d2925 100%) !important;
+            color: #fff !important; border: none !important;
+            border-radius: 18px !important; height: 72px !important;
+            font-size: 15px !important; font-weight: 800 !important;
+            letter-spacing: .3px !important;
+            box-shadow: 0 6px 0 rgba(0,0,0,.46), 0 12px 28px rgba(0,0,0,.22) !important;
+            justify-content: center !important;
+            padding: 0 28px !important;
+            transition: transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s !important;
+        }
+        .home-btn-andamento > div[data-testid="stButton"] > button:hover {
+            transform: translateY(-4px) !important;
+            box-shadow: 0 10px 0 rgba(0,0,0,.42), 0 18px 36px rgba(0,0,0,.30) !important;
+            filter: brightness(1.12) !important;
+        }
+        .home-btn-andamento > div[data-testid="stButton"] > button:active {
+            transform: translateY(2px) !important;
+            box-shadow: 0 2px 0 rgba(0,0,0,.46) !important;
+        }
 
-        .btn-iniciar {{
-            height:80px;
-            background:linear-gradient(135deg,#C8566A 0%,#9E3F52 100%);
-            box-shadow:0 6px 0 rgba(100,20,35,.45), 0 12px 28px rgba(200,86,106,.30);
-            color:#fff;
-        }}
-        .btn-iniciar:hover {{
-            box-shadow:0 10px 0 rgba(100,20,35,.40), 0 18px 36px rgba(200,86,106,.38);
-        }}
+        /* ── Botão 3: Admin ── */
+        .home-btn-admin > div[data-testid="stButton"] > button {
+            background: #ffffff !important;
+            color: #5C5450 !important;
+            border: 2px solid #DDD8D2 !important;
+            border-radius: 18px !important; height: 62px !important;
+            font-size: 14px !important; font-weight: 800 !important;
+            letter-spacing: .3px !important;
+            box-shadow: 0 4px 0 rgba(0,0,0,.10), 0 8px 18px rgba(0,0,0,.06) !important;
+            justify-content: center !important;
+            padding: 0 28px !important;
+            transition: transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s, border-color .15s, color .15s !important;
+        }
+        .home-btn-admin > div[data-testid="stButton"] > button:hover {
+            transform: translateY(-3px) !important;
+            border-color: #C8566A !important;
+            color: #C8566A !important;
+            box-shadow: 0 6px 0 rgba(0,0,0,.08), 0 12px 28px rgba(200,86,106,.14) !important;
+        }
+        .home-btn-admin > div[data-testid="stButton"] > button:active {
+            transform: translateY(1px) !important;
+        }
 
-        .btn-andamento {{
-            height:68px;
-            background:linear-gradient(135deg,#1c1917 0%,#2d2925 100%);
-            box-shadow:0 5px 0 rgba(0,0,0,.45), 0 10px 24px rgba(0,0,0,.20);
-            color:#fff;
-        }}
-        .btn-andamento:hover {{
-            box-shadow:0 8px 0 rgba(0,0,0,.40), 0 14px 30px rgba(0,0,0,.28);
-        }}
-
-        .btn-admin {{
-            height:56px;
-            background:#fff;
-            border:2px solid #DDD8D2 !important;
-            box-shadow:0 4px 0 rgba(0,0,0,.10), 0 6px 16px rgba(0,0,0,.07);
-            color:#5C5450;
-        }}
-        .btn-admin:hover {{
-            border-color:#C8566A !important;
-            color:#C8566A;
-            box-shadow:0 6px 0 rgba(0,0,0,.08), 0 10px 24px rgba(200,86,106,.14);
-        }}
-
-        .btn-icon {{
-            width:44px; height:44px; border-radius:12px; flex-shrink:0;
-            display:flex; align-items:center; justify-content:center;
-            font-size:22px;
-        }}
-        .btn-icon-sm {{
-            width:36px; height:36px; border-radius:10px; flex-shrink:0;
-            display:flex; align-items:center; justify-content:center;
-            font-size:18px;
-        }}
-        .btn-label {{ flex:1; }}
-        .btn-title {{ font-size:17px; font-weight:900; line-height:1.2; }}
-        .btn-sub {{ font-size:11px; font-weight:700; opacity:.65; margin-top:2px; }}
-        .btn-arrow {{ font-size:20px; opacity:.45; flex-shrink:0; }}
-
-        .wrap {{ display:flex; flex-direction:column; gap:12px; padding:4px 0 8px; }}
-        .rel {{ position:relative; }}
+        /* Subtítulos dos botões (renderizados abaixo via markdown) */
+        .home-sub {
+            font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.60);
+            text-align: center; letter-spacing: .3px;
+            margin-top: -18px; margin-bottom: 6px;
+            pointer-events: none;
+        }
+        .home-sub-dark {
+            font-size: 11px; font-weight: 700; color: #9C9490;
+            text-align: center; letter-spacing: .3px;
+            margin-top: -18px; margin-bottom: 6px;
+            pointer-events: none;
+        }
         </style>
-        </head><body>
-        <div class="wrap">
+        """, unsafe_allow_html=True)
 
-          <!-- BOTÃO 1: Iniciar Operações -->
-          <button class="btn-main btn-iniciar"
-            onclick="var u=new URL(window.parent.location.href);u.searchParams.set('nav','iniciar');window.parent.location.href=u.toString();">
-            <div class="btn-icon" style="background:rgba(255,255,255,0.18);">▶</div>
-            <div class="btn-label">
-              <div class="btn-title">Iniciar Operações</div>
-              <div class="btn-sub">Selecionar pedido · etapa · operador</div>
-            </div>
-            <div class="btn-arrow">›</div>
-          </button>
-
-          <!-- BOTÃO 2: Ver Operações em Andamento (com badge dinâmico) -->
-          <div class="rel">
-            {badge_and_html}
-            <button class="btn-main btn-andamento" onclick="{nav_op_js}"
-              style="{'opacity:.5;cursor:default;' if n_total == 0 else ''}">
-              <div class="btn-icon-sm" style="background:rgba(255,255,255,0.10);border-radius:10px;">⏱</div>
-              <div class="btn-label">
-                <div class="btn-title" style="font-size:15px;">Ver Operações em Andamento</div>
-                <div class="btn-sub">{'Nenhuma sessão ativa no momento' if n_total == 0 else f'{n_total} sessão(ões) ativa(s)'}</div>
-              </div>
-              <div class="btn-arrow">›</div>
-            </button>
-          </div>
-
-          <!-- BOTÃO 3: Admin -->
-          <button class="btn-main btn-admin" onclick="{nav_adm_js}">
-            <div class="btn-icon-sm" style="background:#F7F5F2;border-radius:10px;color:#9C9490;">⚙</div>
-            <div class="btn-label">
-              <div class="btn-title" style="font-size:14px;">Painel Administrativo</div>
-            </div>
-            <div class="btn-arrow" style="color:#C8566A;">›</div>
-          </button>
-
-        </div>
-        </body></html>""", height=260, scrolling=False)
-
-        # Handlers Streamlit para navegações via query param
-        if st.query_params.get("nav") == "iniciar":
-            st.query_params.clear()
-            st.session_state.lobby_step = "iniciar_fluxo"
-            st.rerun()
-
-        # lobby_step = "iniciar_fluxo" significa: vai para o fluxo de pedido
-        if st.session_state.lobby_step == "iniciar_fluxo":
+        # ── Botão 1: Iniciar Operações ────────────────────────────────────────
+        st.markdown('<div class="home-btn-iniciar">', unsafe_allow_html=True)
+        if st.button("▶   Iniciar Operações", use_container_width=True, key="home_btn_iniciar"):
             st.session_state.lobby_step = "pedido_input"
             st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<div class="home-sub">Selecionar pedido · etapa · operador</div>',
+                    unsafe_allow_html=True)
 
-        return  # Tela inicial mostra só os 3 botões
+        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
 
+        # ── Badge + Botão 2: Ver Operações em Andamento ───────────────────────
+        if badge_txt:
+            st.markdown(
+                f'<div style="display:flex;justify-content:flex-end;margin-bottom:-14px;'
+                f'padding-right:16px;position:relative;z-index:5;">'
+                f'<div style="background:#C8566A;color:#fff;font-size:10px;font-weight:900;'
+                f'padding:3px 12px;border-radius:20px;border:2.5px solid #F7F5F2;'
+                f'letter-spacing:.5px;white-space:nowrap;box-shadow:0 2px 8px rgba(200,86,106,.30);">'
+                f'{badge_txt}</div></div>',
+                unsafe_allow_html=True)
+
+        st.markdown('<div class="home-btn-andamento">', unsafe_allow_html=True)
+        lbl_and = "⏱   Ver Operações em Andamento"
+        if st.button(lbl_and, use_container_width=True, key="home_btn_andamento",
+                     disabled=(n_total == 0)):
+            st.session_state.tela = "operacoes"; st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+        sub_and = (f"{n_total} sessão(ões) ativa(s)") if n_total > 0 else "Nenhuma sessão ativa no momento"
+        st.markdown(f'<div class="home-sub">{sub_and}</div>', unsafe_allow_html=True)
+
+        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+
+        # ── Botão 3: Painel Administrativo ────────────────────────────────────
+        st.markdown('<div class="home-btn-admin">', unsafe_allow_html=True)
+        if st.button("⚙   Painel Administrativo", use_container_width=True, key="home_btn_admin"):
+            st.session_state.tela = "admin_login"; st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<div class="home-sub-dark">Relatórios · histórico · configurações</div>',
+                    unsafe_allow_html=True)
+
+        return  # Tela inicial — apenas os 3 botões
     # ═══════════════════════════════════════════════════════════════════════════
     #  PASSO 1b — DIGITAR / SELECIONAR PEDIDO (após clicar em Iniciar Operações)
     # ═══════════════════════════════════════════════════════════════════════════
