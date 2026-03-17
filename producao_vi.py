@@ -1629,12 +1629,6 @@ def _render_status_pedido(num, status, etapa_idx):
 
 
 def tela_home():
-    # O fragment _auto_refresh_watcher só é chamado nos sub-passos do fluxo de pedido.
-    # Na tela inicial (3 botões) ele NÃO é chamado para evitar o erro
-    # "Cached ForwardMsg MISS" ao navegar entre telas.
-    _lobby_step_now = st.session_state.get("lobby_step", "pedido")
-    if _lobby_step_now not in ("pedido",):
-        _auto_refresh_watcher()
     render_logo()
 
     # ── Inicializa chaves de session_state específicas do novo lobby ──────────
@@ -3320,24 +3314,28 @@ def _hash_pedidos_base():
     except Exception:
         return ""
 
-@st.fragment(run_every=15)
 def _auto_refresh_watcher():
     """
-    Fragment silencioso: re-executa a cada 30s.
-    Se detectar mudança nos pedidos_base, dispara st.rerun() na página inteira,
-    garantindo que o Sistema B reflita imediatamente qualquer upload do Sistema A.
+    Verifica periodicamente se houve mudança nos pedidos_base.
+    Roda a cada 20s via time-check no session_state — sem @st.fragment,
+    evitando o erro "Cached ForwardMsg MISS" ao navegar entre telas.
     """
+    import time as _time
+    now = _time.time()
+    last_check = st.session_state.get("_last_refresh_check", 0)
+    if now - last_check < 20:
+        return  # Ainda não é hora de checar
+    st.session_state["_last_refresh_check"] = now
+
     current_hash = _hash_pedidos_base()
     prev_hash    = st.session_state.get("_pedidos_hash", None)
 
     if prev_hash is None:
-        # Primeira execução — apenas grava o hash inicial
         st.session_state["_pedidos_hash"] = current_hash
         return
 
     if current_hash != prev_hash:
         st.session_state["_pedidos_hash"] = current_hash
-        # Limpa caches para garantir que novos pedidos apareçam imediatamente
         buscar_pedidos_base.clear()
         buscar_pedidos_por_etapa.clear()
         st.toast("📋 Pedidos atualizados — recarregando lista...", icon="🔄")
