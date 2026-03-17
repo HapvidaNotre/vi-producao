@@ -3389,31 +3389,19 @@ def tela_admin_login():
     # ── Layout: 3 colunas, tudo no centro ───────────────────────────────────
     _, col_c, _ = st.columns([1, 1, 1])
     with col_c:
-        # Card visual completo com formulário integrado dentro
-        erro_html = ""
-        if erro:
-            erro_html = """
-            <div style="background:rgba(200,86,106,0.12);border:1px solid rgba(200,86,106,0.35);
-                 border-radius:12px;padding:10px 16px;font-size:12px;font-weight:800;
-                 color:rgba(220,100,120,0.95);text-align:center;margin-bottom:16px;">
-              ❌ &nbsp;Senha incorreta. Tente novamente.
-            </div>"""
-
-        st.markdown(f"""
+        # Card visual (sem erro interno — erro renderizado separadamente)
+        st.markdown("""
         <div style="
             background: linear-gradient(160deg,#1a0d10 0%,#220f14 50%,#1a0d10 100%);
             border-radius:24px; border:1px solid rgba(200,86,106,0.20);
             box-shadow: 0 40px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.03) inset;
             overflow:hidden; position:relative; margin-bottom:0;
         ">
-          <!-- Accent line -->
           <div style="height:3px;background:linear-gradient(90deg,transparent,#C8566A 30%,#f0a0b0 50%,#C8566A 70%,transparent);"></div>
-          <!-- Orbs -->
           <div style="position:absolute;width:280px;height:280px;border-radius:50%;background:#8B2035;
                opacity:.15;filter:blur(80px);top:-100px;right:-80px;pointer-events:none;"></div>
           <div style="position:absolute;width:180px;height:180px;border-radius:50%;background:#C8566A;
                opacity:.10;filter:blur(60px);bottom:-50px;left:-50px;pointer-events:none;"></div>
-          <!-- Conteúdo -->
           <div style="position:relative;z-index:1;padding:36px 36px 32px;text-align:center;">
             <div style="font-size:40px;margin-bottom:14px;
                  filter:drop-shadow(0 0 10px rgba(200,86,106,0.6));">🔒</div>
@@ -3428,12 +3416,23 @@ def tela_admin_login():
                  margin-bottom:28px;">
               🔐 Acesso Restrito
             </div>
-            <!-- Separador -->
-            <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(200,86,106,0.25),transparent);margin-bottom:24px;"></div>
-            {erro_html}
+            <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(200,86,106,0.25),transparent);"></div>
           </div>
         </div>
         """, unsafe_allow_html=True)
+
+        # Mensagem de senha incorreta — renderizada fora do card
+        if erro:
+            import streamlit.components.v1 as _cv1_adm
+            _cv1_adm.html("""<!DOCTYPE html><html><head>
+            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+            </head><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;margin-top:10px;">
+            <div style="background:rgba(200,86,106,0.14);border:1.5px solid rgba(200,86,106,0.45);
+                 border-radius:12px;padding:10px 16px;font-size:13px;font-weight:800;
+                 color:rgba(240,120,140,1);text-align:center;">
+              ❌ &nbsp;Senha incorreta. Tente novamente.
+            </div>
+            </body></html>""", height=54, scrolling=False)
 
         st.markdown("<div style='font-size:9px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.30);margin-bottom:6px;margin-top:10px;'>🔑 &nbsp;SENHA</div>", unsafe_allow_html=True)
         st.markdown("<div>", unsafe_allow_html=True)
