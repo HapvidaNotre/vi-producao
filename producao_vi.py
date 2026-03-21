@@ -1624,65 +1624,39 @@ def tela_home():
         </div>
         """, unsafe_allow_html=True)
 
-        ETAPA_CFG = [
-            {"icon":"📦","color":"#C8566A","bg":"#FFF0F2","shadow":"rgba(200,86,106,0.22)",
-             "desc":"Separar peças conforme localização no pedido","step":"01"},
-            {"icon":"🗃️","color":"#3B7DD8","bg":"#F0F5FF","shadow":"rgba(59,125,216,0.22)",
-             "desc":"Embalar conforme observação do pedido","step":"02"},
-            {"icon":"✅","color":"#4A7C59","bg":"#F0F7F3","shadow":"rgba(74,124,89,0.22)",
-             "desc":"Conferência via código de barras","step":"03"},
-        ]
         st.markdown("""
         <style>
-        .etapa-card > div[data-testid="stButton"] > button {
-            background: #FFFFFF !important;
-            border: 1.5px solid #EDE9E4 !important;
+        .btn-iniciar-unico > div[data-testid="stButton"] > button {
+            background: linear-gradient(135deg, #C8566A, #9E3F52) !important;
+            color: #fff !important; border: none !important;
             border-radius: 18px !important;
             height: 86px !important;
             width: 100% !important;
-            text-align: left !important;
-            padding: 0 20px !important;
             font-family: 'Nunito', sans-serif !important;
-            font-size: 16px !important;
-            font-weight: 800 !important;
-            color: #1A1714 !important;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05) !important;
+            font-size: 18px !important;
+            font-weight: 900 !important;
+            letter-spacing: .5px !important;
+            box-shadow: 0 6px 0 rgba(100,20,35,0.45), 0 10px 28px rgba(200,86,106,0.30) !important;
             transition: all 0.18s ease !important;
         }
-        .etapa-card > div[data-testid="stButton"] > button:active {
-            transform: translateY(1px) !important;
+        .btn-iniciar-unico > div[data-testid="stButton"] > button:hover {
+            background: linear-gradient(135deg, #d9617a, #b04560) !important;
+            transform: translateY(-3px) !important;
+            box-shadow: 0 10px 0 rgba(100,20,35,0.40), 0 16px 32px rgba(200,86,106,0.38) !important;
+        }
+        .btn-iniciar-unico > div[data-testid="stButton"] > button:active {
+            transform: translateY(2px) !important;
         }
         </style>""", unsafe_allow_html=True)
 
-        for i, lbl in enumerate(ETAPAS_LBL):
-            cfg = ETAPA_CFG[i]
-            st.markdown(f"""
-            <style>
-            .etapa-card-{i} > div[data-testid="stButton"] > button {{
-                border-left: 5px solid {cfg["color"]} !important;
-            }}
-            .etapa-card-{i} > div[data-testid="stButton"] > button:hover {{
-                background: {cfg["bg"]} !important;
-                border-color: {cfg["color"]} !important;
-                box-shadow: 0 8px 24px {cfg["shadow"]}, 0 2px 6px rgba(0,0,0,0.05) !important;
-                transform: translateY(-3px) !important;
-            }}
-            </style>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;padding-left:4px;">
-                <span style="background:{cfg["color"]};color:#fff;font-size:9px;font-weight:900;
-                    letter-spacing:1.5px;padding:2px 8px;border-radius:20px;text-transform:uppercase;">
-                    Etapa {cfg["step"]}
-                </span>
-                <span style="font-size:11px;color:#9C9490;font-weight:600;">{cfg["desc"]}</span>
-            </div>""", unsafe_allow_html=True)
-            st.markdown(f'<div class="etapa-card etapa-card-{i}">', unsafe_allow_html=True)
-            if st.button(f'{cfg["icon"]}  {lbl}', use_container_width=True, key=f"etapa_btn_{i}"):
-                st.session_state.etapa_escolhida = i
-                st.session_state.operador = None
-                st.session_state.pedido   = None
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-            if i < 2: st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+        st.markdown('<div class="btn-iniciar-unico">', unsafe_allow_html=True)
+        if st.button("👗  Iniciar Producao", use_container_width=True, key="btn_iniciar_unico"):
+            # etapa_escolhida = -1 significa "auto" -- determinada pelo pedido
+            st.session_state.etapa_escolhida = -1
+            st.session_state.operador = None
+            st.session_state.pedido   = None
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -1741,12 +1715,18 @@ def tela_home():
         return
 
     etapa_idx = st.session_state.etapa_escolhida
-    # Valida etapa_idx -- pode vir corrompido se o session_state ficou de uma sessão anterior
-    if etapa_idx is None or not isinstance(etapa_idx, int) or etapa_idx < 0 or etapa_idx >= len(ETAPAS_LBL):
+    # Valida etapa_idx -- permite -1 (modo auto, etapa determinada pelo pedido)
+    if etapa_idx is None or not isinstance(etapa_idx, int):
         st.session_state.etapa_escolhida = None
         st.rerun()
         return
-    etapa_lbl = ETAPAS_LBL[etapa_idx]
+    # -1 é o modo auto: etapa será determinada depois que o pedido for buscado
+    if etapa_idx != -1 and (etapa_idx < 0 or etapa_idx >= len(ETAPAS_LBL)):
+        st.session_state.etapa_escolhida = None
+        st.rerun()
+        return
+
+    etapa_lbl = ETAPAS_LBL[etapa_idx] if etapa_idx >= 0 else ""
 
     # ── PASSO 2: Digitar Pedido + BUSCAR ─────────────────────────────────────
     if not st.session_state.pedido_validado:
@@ -1759,16 +1739,31 @@ def tela_home():
                 st.session_state["_status_cache"] = buscar_status_completo_pedido(num)
                 st.session_state.pedido_status    = "mostrar_status_ok"
             status = st.session_state.get("_status_cache") or buscar_status_completo_pedido(num)
+
+            # Modo auto: determina a etapa ideal pelo progresso do pedido
+            if etapa_idx == -1:
+                _etapa_auto = 0  # padrão: Separação
+                for _e in status.get("etapas", []):
+                    if not _e.get("feita") and not _e.get("em_andamento"):
+                        _etapa_auto = _e["idx"]
+                        break
+                st.session_state.etapa_escolhida = _etapa_auto
+                st.rerun()
+                return
+
             _render_status_pedido(num, status, etapa_idx)
             return
 
-        render_stepper(etapa_idx)
-        st.markdown(
-            f'<div style="background:#F5E8EB;border-left:4px solid #C8566A;border-radius:0 10px 10px 0;'
-            f'padding:10px 16px;margin-bottom:20px;font-size:14px;font-weight:700;color:#1A1714;">'
-            f'Etapa selecionada: <strong>{etapa_lbl}</strong></div>',
-            unsafe_allow_html=True
-        )
+        # Modo auto: mostra apenas o separador de pedido sem indicar etapa
+        if etapa_idx >= 0:
+            render_stepper(etapa_idx)
+            st.markdown(
+                f'<div style="background:#F5E8EB;border-left:4px solid #C8566A;border-radius:0 10px 10px 0;'
+                f'padding:10px 16px;margin-bottom:20px;font-size:14px;font-weight:700;color:#1A1714;">'
+                f'Etapa selecionada: <strong>{etapa_lbl}</strong></div>',
+                unsafe_allow_html=True
+            )
+
         st.markdown("""
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
             <div style="flex:1;height:1px;background:#EDE9E4;"></div>
@@ -1778,7 +1773,8 @@ def tela_home():
         </div>
         """, unsafe_allow_html=True)
 
-        pedidos_etapa   = buscar_pedidos_por_etapa(etapa_idx)
+        # Modo auto: busca todos os pedidos sem filtrar por etapa
+        pedidos_etapa   = buscar_pedidos_por_etapa(0) if etapa_idx == -1 else buscar_pedidos_por_etapa(etapa_idx)
         pedidos_abertos = [p[0] for p in pedidos_etapa]
         pedidos_info    = {p[0]: p[1] for p in pedidos_etapa}
         has_base        = len(pedidos_etapa) > 0
@@ -1822,12 +1818,13 @@ def tela_home():
                 pedido_inp = st.text_input("_ped", placeholder="Ex: 49735", key="home_pedido_txt")
             if not pedidos_abertos:
                 import streamlit.components.v1 as _cv1
-                _cv1.html(
-                    f'<div style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:10px;'
-                    f'padding:10px 14px;font-family:sans-serif;font-size:12px;font-weight:700;color:#92400E;text-align:center;">'
-                    f'⚠ Nenhum pedido aguardando {etapa_lbl} no momento.</div>',
-                    height=50, scrolling=False
-                )
+                if etapa_idx >= 0:
+                    _cv1.html(
+                        f'<div style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:10px;'
+                        f'padding:10px 14px;font-family:sans-serif;font-size:12px;font-weight:700;color:#92400E;text-align:center;">'
+                        f'⚠ Nenhum pedido aguardando {etapa_lbl} no momento.</div>',
+                        height=50, scrolling=False
+                    )
 
         if st.session_state.pedido_status == "concluido":
             import streamlit.components.v1 as _cv1
@@ -1873,7 +1870,7 @@ def tela_home():
         if st.session_state.duplicata_info:
             info   = st.session_state.duplicata_info
             op_ant = info["operador_anterior"]
-            etl    = ETAPAS_LBL[etapa_idx]
+            etl    = ETAPAS_LBL[etapa_idx] if etapa_idx >= 0 else info.get("etapa_lbl", "")
             msg_tp = "está sendo processado agora" if info["em_andamento"] else "já passou pela fase de"
             import streamlit.components.v1 as _cv1
             _cv1.html(
