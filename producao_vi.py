@@ -1357,30 +1357,23 @@ def _render_status_pedido(num, status, etapa_idx):
 
     # ── CASO 1: Pedido não encontrado ────────────────────────────────────
     if base_st == "nao_encontrado":
-        _cv1.html("""
-        <div style="background:#FFFBEB;border:2px solid #F59E0B;border-radius:14px;
-                    padding:20px;text-align:center;font-family:sans-serif;">
-          <div style="font-size:28px;margin-bottom:8px;">❓</div>
-          <div style="font-size:14px;font-weight:800;color:#92400E;">Pedido não encontrado na base</div>
-          <div style="font-size:12px;color:#B45309;margin-top:4px;font-weight:600;">
-            Deseja cadastrá-lo como pedido avulso?</div>
-        </div>""", height=110, scrolling=False)
-        ca, cb = st.columns(2)
-        with ca:
-            st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
-            if st.button("✓ Cadastrar e Continuar", use_container_width=True):
-                cadastrar_pedido_avulso(num)
-                buscar_pedidos_por_etapa.clear()
-                st.session_state.pedido          = num
-                st.session_state.pedido_status   = None
-                st.session_state.pedido_validado = True
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-        with cb:
-            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
-            if st.button("✕ Cancelar", use_container_width=True):
-                st.session_state.pedido_status = None; st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+        _cv1.html(f"""
+        <div style="background:#FEF2F2;border:2px solid #C8566A;border-radius:14px;
+                    padding:18px 22px;font-family:sans-serif;text-align:center;">
+          <div style="font-size:28px;margin-bottom:8px;">🔒</div>
+          <div style="font-size:14px;font-weight:900;color:#C8566A;margin-bottom:6px;">
+            Pedido Não Encontrado</div>
+          <div style="font-size:12px;color:#7C2D12;font-weight:700;line-height:1.6;">
+            O pedido <b>{num}</b> não está cadastrado na base de pedidos.<br>
+            Apenas o <strong>gestor</strong> pode cadastrar novos pedidos.<br>
+            Por favor, informe o gestor para incluir este pedido no Sistema A.
+          </div>
+        </div>""", height=155, scrolling=False)
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+        if st.button("← Voltar", use_container_width=True, key="caso1_nao_enc_voltar"):
+            st.session_state.pedido_status = None; st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
         return
 
     # ── Timeline resumida das 3 etapas ───────────────────────────────────
