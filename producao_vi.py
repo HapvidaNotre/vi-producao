@@ -17,9 +17,6 @@ def now_br():
     return datetime.now(_TZ_BR)
 
 # ── Fix: "Cached ForwardMsg MISS" ao abrir aba admin ──────────────────────────
-# A tela_admin() renderiza muitos blocos HTML pesados. O cache interno do
-# Streamlit (ForwardMsg Cache) expira antes do cliente reconectar via WebSocket,
-# causando o erro. Desativar o cache (age=0) força o envio completo sempre.
 try:
     from streamlit import config as _st_cfg
     _st_cfg.set_option("global.maxCachedMessageAge", 0)
@@ -4827,27 +4824,45 @@ def tela_admin():
         n_ops = len(op_map)
         op_table_height = 24 + 52 + n_ops * 52 + 16
         lbl_op = f"Desempenho por Operador · {filtro_data}" if filtro_data != "Todos os dias" else "Desempenho por Operador"
-        st.markdown(f"""
-        <div class="lbl">{lbl_op}</div>
-        <div class="outer"><div class="scroll"><table>
-          <colgroup>
-            <col class="c-op"><col class="c-ped"><col class="c-pcs">
-            <col class="c-tt"><col class="c-tm"><col class="c-pau">
-            <col class="c-efi"><col class="c-prod">
-          </colgroup>
-          <thead><tr>
-            <th style="color:rgba(255,255,255,0.45);">Operador</th>
-            <th style="color:rgba(255,255,255,0.45);">Ped.</th>
-            <th style="color:#7B9FE0;">Peças</th>
-            <th style="color:#7AB895;">T. Total</th>
-            <th style="color:rgba(255,255,255,0.35);">T. Médio</th>
-            <th style="color:#E07B3A;">Pausas</th>
-            <th style="color:#E5A96A;">Eficiência</th>
-            <th style="color:#C4A4F0;">Produtiv.</th>
-          </tr></thead>
-          <tbody>{op_rows}</tbody>
-        </table></div></div>
-        """, unsafe_allow_html=True)
+        # Usa components.html para evitar que o parser Markdown do Streamlit
+        # interprete os caracteres HTML e exiba o codigo-fonte bruto na tela.
+        _op_table_html = (
+            "<!DOCTYPE html><html><head>"
+            "<link href='https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900"
+            "&family=DM+Mono:wght@400;500&display=swap' rel='stylesheet'>"
+            "<style>"
+            "*{margin:0;padding:0;box-sizing:border-box;}"
+            "body{background:transparent;font-family:Nunito,sans-serif;padding:0 2px;}"
+            ".lbl{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;"
+            "color:#9C9490;margin-bottom:10px;}"
+            ".outer{background:#fff;border-radius:14px;border:1.5px solid #EDE9E4;"
+            "overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}"
+            ".scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}"
+            "table{width:100%;border-collapse:collapse;table-layout:auto;}"
+            "thead tr{background:#1A1714;}"
+            "th{padding:11px 10px;font-size:9px;font-weight:800;letter-spacing:1.8px;"
+            "text-transform:uppercase;text-align:center;white-space:nowrap;}"
+            "th:first-child{text-align:left;padding-left:14px;}"
+            "tbody tr{border-bottom:1px solid #F2EEE9;}"
+            "tbody tr:last-child{border-bottom:none;}"
+            "tbody tr:hover{background:#FAFAF9;}"
+            "</style></head><body>"
+            f"<div class='lbl'>{lbl_op}</div>"
+            "<div class='outer'><div class='scroll'><table>"
+            "<thead><tr>"
+            "<th style='color:rgba(255,255,255,0.45);text-align:left;'>Operador</th>"
+            "<th style='color:rgba(255,255,255,0.45);'>Ped.</th>"
+            "<th style='color:#7B9FE0;'>Peças</th>"
+            "<th style='color:#7AB895;'>T. Total</th>"
+            "<th style='color:rgba(255,255,255,0.35);'>T. Médio</th>"
+            "<th style='color:#E07B3A;'>Pausas</th>"
+            "<th style='color:#E5A96A;'>Eficiência</th>"
+            "<th style='color:#C4A4F0;'>Produtiv.</th>"
+            f"</tr></thead><tbody>{op_rows}</tbody>"
+            "</table></div></div>"
+            "</body></html>"
+        )
+        components.html(_op_table_html, height=op_table_height, scrolling=False)
 
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
