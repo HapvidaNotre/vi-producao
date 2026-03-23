@@ -4824,8 +4824,6 @@ def tela_admin():
         n_ops = len(op_map)
         op_table_height = 24 + 52 + n_ops * 52 + 16
         lbl_op = f"Desempenho por Operador · {filtro_data}" if filtro_data != "Todos os dias" else "Desempenho por Operador"
-        # Usa components.html para evitar que o parser Markdown do Streamlit
-        # interprete os caracteres HTML e exiba o codigo-fonte bruto na tela.
         _op_table_html = (
             "<!DOCTYPE html><html><head>"
             "<link href='https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900"
@@ -5430,26 +5428,43 @@ def tela_admin():
               </div>
             </div>"""
 
-        st.markdown(f"""
-        <div class="lbl">{lbl_hist}</div>
-        <div class="card">
-          <div class="row">
-            <div class="kpi" style="padding-top:4px;">
-              <div class="kpi-n" style="color:#C8566A;">{len(regs_hist_filtrados)}</div>
-              <div class="kpi-l">Registros</div>
-            </div>
-            <div class="sep"></div>
-            {etapa_blocos}
-            <div class="sep"></div>
-            <div class="kpi" style="flex:1;min-width:120px;padding-top:4px;">
-              <div class="ops">{ops_chips}</div>
-              <div class="kpi-l" style="margin-top:6px;">Operadores</div>
-            </div>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+
+        _hist_card_h = 110
+        _hist_card_html = (
+            "<!DOCTYPE html><html><head>"
+            "<link href='https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900"
+            "&family=DM+Mono:wght@400;500&display=swap' rel='stylesheet'>"
+            "<style>"
+            "*{margin:0;padding:0;box-sizing:border-box;}"
+            "body{background:transparent;font-family:Nunito,sans-serif;padding:0 2px;}"
+            ".lbl{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;"
+            "color:#9C9490;margin-bottom:10px;}"
+            ".card{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;"
+            "padding:16px 20px;box-shadow:0 2px 12px rgba(0,0,0,0.05);}"
+            ".row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}"
+            ".kpi{display:flex;flex-direction:column;gap:2px;padding-top:4px;}"
+            ".kpi-n{font-family:'DM Mono',monospace;font-size:26px;font-weight:500;"
+            "color:#C8566A;letter-spacing:-1px;}"
+            ".kpi-l{font-size:9px;font-weight:800;letter-spacing:1.5px;"
+            "text-transform:uppercase;color:#9C9490;margin-top:6px;}"
+            ".sep{width:1px;min-height:40px;background:#EDE9E4;flex-shrink:0;}"
+            ".ops{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}"
+            "</style></head><body>"
+            f"<div class='lbl'>{lbl_hist}</div>"
+            "<div class='card'><div class='row'>"
+            f"<div class='kpi'><div class='kpi-n'>{len(regs_hist_filtrados)}</div>"
+            "<div class='kpi-l'>Registros</div></div>"
+            "<div class='sep'></div>"
+            f"{etapa_blocos}"
+            "<div class='sep'></div>"
+            f"<div class='kpi' style='flex:1;min-width:120px;'>"
+            f"<div class='ops'>{ops_chips}</div>"
+            "<div class='kpi-l'>Operadores</div></div>"
+            "</div></div>"
+            "</body></html>"
+        )
+        components.html(_hist_card_html, height=_hist_card_h, scrolling=False)
 
         # ── Botão expandir / recolher ───────────────────────────────────────
         st.markdown("""
@@ -5508,15 +5523,35 @@ def tela_admin():
             n_hist = min(len(regs_hist_filtrados), 200)
             hist_height = 56 + (n_hist * 46) + 20
 
-            st.markdown(f"""
-            <div class="wrap"><div class="scroll"><table><thead><tr>
-              <th>Pedido</th><th>Operador</th><th>Etapa</th><th>Tempo</th>
-              <th style="color:#7B9FE0;">Qtd Peças</th>
-              <th style="color:#E07B3A;">Pausa</th>
-              <th style="color:#A0C8E0;">Início</th>
-              <th style="color:#A0C8E0;">Fim</th>
-            </tr></thead><tbody>{hist_rows}</tbody></table></div></div>
-            """, unsafe_allow_html=True)
+            _hist_table_html = (
+                "<!DOCTYPE html><html><head>"
+                "<link href='https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900"
+                "&family=DM+Mono:wght@400;500&display=swap' rel='stylesheet'>"
+                "<style>"
+                "*{margin:0;padding:0;box-sizing:border-box;}"
+                "body{background:transparent;font-family:Nunito,sans-serif;padding:0 2px;}"
+                ".wrap{background:#fff;border-radius:14px;border:1.5px solid #EDE9E4;"
+                "overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}"
+                ".scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}"
+                "table{width:100%;border-collapse:collapse;}"
+                "thead tr{background:#1A1714;}"
+                "th{padding:11px 14px;font-size:9px;font-weight:800;letter-spacing:1.8px;"
+                "text-transform:uppercase;color:rgba(255,255,255,0.40);white-space:nowrap;}"
+                "tbody tr{border-bottom:1px solid #F2EEE9;}"
+                "tbody tr:last-child{border-bottom:none;}"
+                "tbody tr:hover{background:#FAFAF9;}"
+                "</style></head><body>"
+                "<div class='wrap'><div class='scroll'><table><thead><tr>"
+                "<th>Pedido</th><th>Operador</th><th>Etapa</th><th>Tempo</th>"
+                "<th style='color:#7B9FE0;'>Qtd Peças</th>"
+                "<th style='color:#E07B3A;'>Pausa</th>"
+                "<th style='color:#A0C8E0;'>Início</th>"
+                "<th style='color:#A0C8E0;'>Fim</th>"
+                f"</tr></thead><tbody>{hist_rows}</tbody>"
+                "</table></div></div>"
+                "</body></html>"
+            )
+            components.html(_hist_table_html, height=hist_height, scrolling=True)
 
 
 
