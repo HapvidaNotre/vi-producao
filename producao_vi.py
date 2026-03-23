@@ -16,6 +16,16 @@ def now_br():
     """Retorna datetime atual no fuso de Brasília."""
     return datetime.now(_TZ_BR)
 
+# ── Fix: "Cached ForwardMsg MISS" ao abrir aba admin ──────────────────────────
+# A tela_admin() renderiza muitos blocos HTML pesados. O cache interno do
+# Streamlit (ForwardMsg Cache) expira antes do cliente reconectar via WebSocket,
+# causando o erro. Desativar o cache (age=0) força o envio completo sempre.
+try:
+    from streamlit import config as _st_cfg
+    _st_cfg.set_option("global.maxCachedMessageAge", 0)
+except Exception:
+    pass
+
 st.set_page_config(
     page_title="Vi Lingerie - Producao",
     page_icon="👗",
@@ -446,7 +456,9 @@ def salvar(pedido, operador, etapa, etapa_idx, tempo, qtd_pecas=None):
         # Tenta uma segunda vez após 1s para cobrir falhas transitórias de rede
         import time as _t; _t.sleep(1)
         _post("registros", payload)
+    buscar.clear()  # invalida cache para o admin ver o novo registro
 
+@st.cache_data(ttl=20, show_spinner=False)
 def buscar():
     rows = _get("registros", "select=*&order=id.desc", paginar=True)
     if isinstance(rows, list):
@@ -458,6 +470,7 @@ def buscar():
 
 def limpar():
     _delete("registros", "id=gte.0")
+    buscar.clear()
 
 def limpar_sessoes_ativas():
     """Remove todas as sessões ativas buscando e deletando uma a uma."""
