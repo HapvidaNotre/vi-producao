@@ -1357,23 +1357,30 @@ def _render_status_pedido(num, status, etapa_idx):
 
     # ── CASO 1: Pedido não encontrado ────────────────────────────────────
     if base_st == "nao_encontrado":
-        _cv1.html(f"""
-        <div style="background:#FEF2F2;border:2px solid #C8566A;border-radius:14px;
-                    padding:18px 22px;font-family:sans-serif;text-align:center;">
-          <div style="font-size:28px;margin-bottom:8px;">🔒</div>
-          <div style="font-size:14px;font-weight:900;color:#C8566A;margin-bottom:6px;">
-            Pedido Não Encontrado</div>
-          <div style="font-size:12px;color:#7C2D12;font-weight:700;line-height:1.6;">
-            O pedido <b>{num}</b> não está cadastrado na base de pedidos.<br>
-            Apenas o <strong>gestor</strong> pode cadastrar novos pedidos.<br>
-            Por favor, informe o gestor para incluir este pedido no Sistema A.
-          </div>
-        </div>""", height=155, scrolling=False)
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-        st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
-        if st.button("← Voltar", use_container_width=True, key="caso1_nao_enc_voltar"):
-            st.session_state.pedido_status = None; st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+        _cv1.html("""
+        <div style="background:#FFFBEB;border:2px solid #F59E0B;border-radius:14px;
+                    padding:20px;text-align:center;font-family:sans-serif;">
+          <div style="font-size:28px;margin-bottom:8px;">❓</div>
+          <div style="font-size:14px;font-weight:800;color:#92400E;">Pedido não encontrado na base</div>
+          <div style="font-size:12px;color:#B45309;margin-top:4px;font-weight:600;">
+            Deseja cadastrá-lo como pedido avulso?</div>
+        </div>""", height=110, scrolling=False)
+        ca, cb = st.columns(2)
+        with ca:
+            st.markdown('<div class="btn-iniciar">', unsafe_allow_html=True)
+            if st.button("✓ Cadastrar e Continuar", use_container_width=True):
+                cadastrar_pedido_avulso(num)
+                buscar_pedidos_por_etapa.clear()
+                st.session_state.pedido          = num
+                st.session_state.pedido_status   = None
+                st.session_state.pedido_validado = True
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        with cb:
+            st.markdown('<div class="btn-voltar">', unsafe_allow_html=True)
+            if st.button("✕ Cancelar", use_container_width=True):
+                st.session_state.pedido_status = None; st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
         return
 
     # ── Timeline resumida das 3 etapas ───────────────────────────────────
@@ -3379,7 +3386,7 @@ def gerar_pdf(regs, op_map, ped_comp, ops_ativ, avg,
 
 
 def tela_admin():
-    # Reset CSS que pode ter vazado da tela de login
+    # Reset CSS + estilos das tabelas e cards do admin (antes eram locais em cada components.html)
     st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
@@ -3416,6 +3423,63 @@ def tela_admin():
         border-color: #C8566A !important;
         box-shadow: 0 0 0 4px rgba(200,86,106,0.12) !important;
     }
+    /* ── Tabelas e cards do admin ── */
+    .wrap-and, .wrap, .wrap-t {
+        background:#fff; border-radius:14px; border:1.5px solid #EDE9E4;
+        overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,0.05);
+    }
+    .wrap-and table, .wrap table, .wrap-t table {
+        width:100%; border-collapse:collapse; table-layout:fixed;
+    }
+    .wrap-and thead tr, .wrap thead tr, .wrap-t thead tr { background:#1A1714; }
+    .wrap-and th, .wrap th, .wrap-t th {
+        padding:11px 14px; font-size:9px; font-weight:800; letter-spacing:1.8px;
+        text-transform:uppercase; color:rgba(255,255,255,0.40);
+    }
+    .wrap-and th.c-ctr, .wrap th.c-ctr, .wrap-t th.c-ctr { text-align:center; }
+    .wrap-and .td-ped, .wrap .td-ped, .wrap-t .td-ped {
+        padding:12px 14px; font-family:"DM Mono",monospace; font-size:13px;
+        font-weight:800; color:#1A1714;
+    }
+    .wrap-and .td-op, .wrap .td-op, .wrap-t .td-op {
+        padding:12px 10px; font-size:13px; font-weight:700; color:#1A1714;
+        overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    }
+    .wrap-and .td-c, .wrap .td-c, .wrap-t .td-c { padding:12px 10px; text-align:center; }
+    .wrap-and tbody tr, .wrap tbody tr, .wrap-t tbody tr { border-bottom:1px solid #F2EEE9; }
+    .wrap-and tbody tr:last-child, .wrap tbody tr:last-child, .wrap-t tbody tr:last-child { border-bottom:none; }
+    /* Colunas da tabela de desempenho */
+    .c-ped,.c-op,.c-pcs,.c-tt,.c-tm,.c-pau,.c-efi,.c-prod,.th-l {
+        padding:10px 10px; font-size:12px; font-weight:700;
+    }
+    .c-op { font-weight:800; color:#1A1714; }
+    .c-pcs { color:#3B5EC6; font-weight:800; text-align:center; }
+    .c-tt,.c-tm,.c-pau,.c-efi,.c-prod,.c-ped { text-align:center; color:#5C5450; }
+    /* Cards e KPIs */
+    .card { background:#fff; border-radius:16px; border:1.5px solid #EDE9E4;
+            padding:16px 20px; box-shadow:0 2px 12px rgba(0,0,0,0.05); }
+    .lbl { font-size:9px; font-weight:800; letter-spacing:2px; text-transform:uppercase;
+           color:#9C9490; margin-bottom:10px; }
+    .row { display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+    .kpi { display:flex; flex-direction:column; gap:2px; }
+    .kpi-n { font-family:"DM Mono",monospace; font-size:26px; font-weight:500;
+             color:#1A1714; letter-spacing:-1px; }
+    .kpi-l { font-size:9px; font-weight:800; letter-spacing:1.5px;
+             text-transform:uppercase; color:#9C9490; }
+    .sep { width:1px; min-height:40px; background:#EDE9E4; flex-shrink:0; }
+    .ops { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+    /* Gráfico de barras */
+    .bars { display:flex; align-items:flex-end; gap:6px; height:130px; padding-top:20px; }
+    .card-bar { display:flex; flex-direction:column; align-items:center; flex:1; height:130px;
+                justify-content:flex-end; min-width:22px; }
+    .card-icon { display:flex; flex-direction:column; align-items:center; gap:4px; }
+    .leg { margin-top:10px; }
+    .badge { display:inline-block; padding:2px 8px; border-radius:100px;
+             font-size:10px; font-weight:800; }
+    .scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    /* Colunas de tabela de pausas */
+    .td-mot { padding:10px 10px; font-size:11px; color:#5C5450; max-width:180px;
+              overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     /* labels controlados individualmente via label_visibility */
     </style>
     """, unsafe_allow_html=True)
@@ -3544,26 +3608,7 @@ def tela_admin():
                 </tr>"""
 
             altura = 54 + n_and * 48 + 16
-            components.html(f"""<!DOCTYPE html><html><head>
-            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-            <style>
-            *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
-            .wrap-and{{background:#fff;border-radius:14px;border:1.5px solid #EDE9E4;
-                   overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-            table{{width:100%;border-collapse:collapse;table-layout:fixed;}}
-            thead tr{{background:#1A1714;}}
-            th{{padding:11px 14px;font-size:9px;font-weight:800;letter-spacing:1.8px;
-               text-transform:uppercase;color:rgba(255,255,255,0.40);}}
-            th.c-ctr{{text-align:center;}}
-            .td-ped{{padding:12px 14px;font-family:"DM Mono",monospace;font-size:13px;
-                    font-weight:800;color:#1A1714;}}
-            .td-op{{padding:12px 10px;font-size:13px;font-weight:700;color:#1A1714;
-                   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}}
-            .td-c{{padding:12px 10px;text-align:center;}}
-            tbody tr{{border-bottom:1px solid #F2EEE9;}}
-            tbody tr:last-child{{border-bottom:none;}}
-            tbody tr:hover td{{background:#FDFAF9;}}
-            </style></head><body>
+            st.markdown(f"""
             <div class="wrap-and">
               <table>
                 <colgroup>
@@ -3577,7 +3622,7 @@ def tela_admin():
                 <tbody>{linhas_html}</tbody>
               </table>
             </div>
-            </body></html>""", height=altura, scrolling=False)
+            """, unsafe_allow_html=True)
 
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
@@ -3624,23 +3669,7 @@ def tela_admin():
                 </tr>"""
 
             altura_paus = 54 + n_paus * 48 + 16
-            components.html(f"""<!DOCTYPE html><html><head>
-            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-            <style>
-            *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
-            .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#E07B3A;margin-bottom:8px;}}
-            .wrap{{background:#fff;border-radius:14px;border:1.5px solid #F5DECB;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-            table{{width:100%;border-collapse:collapse;min-width:520px;}}
-            thead tr{{background:#1A1714;}}
-            th{{padding:9px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.40);text-align:center;white-space:nowrap;}}
-            th.th-l{{text-align:left;padding-left:14px;}}
-            .td-ped{{padding:11px 14px;font-family:monospace;font-size:13px;font-weight:800;color:#1A1714;}}
-            .td-op{{padding:11px 10px;font-size:13px;font-weight:700;color:#1A1714;}}
-            .td-c{{padding:11px 10px;text-align:center;}}
-            .td-mot{{padding:11px 10px;font-size:12px;color:#5C5450;font-weight:600;}}
-            tbody tr{{border-bottom:1px solid #FDF0E8;}} tbody tr:last-child{{border-bottom:none;}}
-            tbody tr:hover td{{background:#FFF8F2;}}
-            </style></head><body>
+            st.markdown(f"""
             <div class="lbl">⏸ Pedidos Pausados ({n_paus})</div>
             <div class="wrap"><div style="overflow-x:auto;">
               <table><thead><tr>
@@ -3648,15 +3677,16 @@ def tela_admin():
                 <th>Tempo acum.</th><th style="color:#D4A45A;">Data</th>
                 <th style="color:#F4965A;">Hora</th><th class="th-l" style="color:rgba(255,255,255,0.30);">Motivo</th>
               </tr></thead><tbody>{linhas_paus}</tbody></table>
-            </div></div></body></html>""", height=altura_paus, scrolling=False)
+            </div></div>
+            """, unsafe_allow_html=True)
             st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
         elif n_tran == 0:
-            components.html("""<!DOCTYPE html><html><body style="background:transparent;font-family:Nunito,sans-serif;margin:0;">
-            <div style="background:#FFF8F0;border:1.5px solid #E07B3A33;border-radius:12px;padding:20px;text-align:center;">
+            st.markdown("""
+            <div style="background:#FFF8F0;border:1.5px solid #E07B3A33;border-radius:12px;padding:20px;text-align:center;margin-bottom:8px;">
               <div style="font-size:26px;margin-bottom:6px;">▶️</div>
               <div style="font-size:13px;font-weight:700;color:#B85C20;">Nenhum pedido pausado ou trancado no momento.</div>
-            </div></body></html>""", height=90, scrolling=False)
+            </div>""", unsafe_allow_html=True)
 
         # ── Pedidos TRANCADOS ──────────────────────────────────────────
         if pedidos_trancados:
@@ -3676,22 +3706,7 @@ def tela_admin():
                 </tr>"""
 
             altura_tran = 54 + n_tran * 48 + 16
-            components.html(f"""<!DOCTYPE html><html><head>
-            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-            <style>
-            *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
-            .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#C8566A;margin-bottom:8px;}}
-            .wrap{{background:#fff;border-radius:14px;border:1.5px solid #FECACA;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-            table{{width:100%;border-collapse:collapse;}}
-            thead tr{{background:#1A1714;}}
-            th{{padding:9px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.40);text-align:center;white-space:nowrap;}}
-            th.th-l{{text-align:left;padding-left:14px;}}
-            .td-ped{{padding:11px 14px;font-family:monospace;font-size:13px;font-weight:800;color:#1A1714;}}
-            .td-op{{padding:11px 10px;font-size:13px;font-weight:700;color:#1A1714;}}
-            .td-c{{padding:11px 10px;text-align:center;}}
-            tbody tr{{border-bottom:1px solid #FEF2F2;}} tbody tr:last-child{{border-bottom:none;}}
-            tbody tr:hover td{{background:#FFF5F5;}}
-            </style></head><body>
+            st.markdown(f"""
             <div class="lbl">🔒 Pedidos Trancados por Falta de Peças ({n_tran})</div>
             <div class="wrap"><table><thead><tr>
               <th class="th-l">Pedido</th><th class="th-l">Operador</th><th>Etapa</th>
@@ -3699,7 +3714,7 @@ def tela_admin():
               <th style="color:#7AB895;">Peças Feitas</th>
               <th style="color:#FCA5A5;">Peças Pendentes</th>
             </tr></thead><tbody>{linhas_tran}</tbody></table></div>
-            </body></html>""", height=altura_tran, scrolling=False)
+            """, unsafe_allow_html=True)
 
             st.markdown(f"""
             <div style="margin-top:8px;background:#FEF2F2;border:1.5px solid #FECACA;border-radius:10px;
@@ -3751,17 +3766,13 @@ def tela_admin():
             cli_r  = info_r.get("cliente", "")
 
             if base_r == "nao_encontrado":
-                components.html(f"""<!DOCTYPE html><html><head>
-                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
-                <style>*{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}</style>
-                </head><body>
+                st.markdown(f"""
                 <div style="background:#FFFBEB;border:2px solid #F59E0B;border-radius:12px;
                             padding:14px 20px;text-align:center;margin-top:8px;">
                   <div style="font-size:20px;margin-bottom:4px;">❓</div>
                   <div style="font-size:13px;font-weight:800;color:#92400E;">
                     Pedido <span style="font-family:monospace;">#{num_r}</span> não encontrado.</div>
-                </div>
-                </body></html>""", height=90, scrolling=False)
+                </div>""", unsafe_allow_html=True)
             else:
                 # Monta linha do stepper para cada etapa
                 ETAPA_ICON  = ["📦", "🗃️", "✅"]
@@ -3904,12 +3915,7 @@ def tela_admin():
 
                 # header(60) + resumo(52) + dados_ped(110) + etapas + andamento + padding
                 h_card = 60 + 52 + 110 + len(etapas_r) * 76 + (50 if sess_ativa else 0) + 40
-                components.html(f"""<!DOCTYPE html><html><head>
-                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-                <style>
-                *{{margin:0;padding:0;box-sizing:border-box;}}
-                body{{background:transparent;font-family:Nunito,sans-serif;}}
-                </style></head><body>
+                st.markdown(f"""
                 <div style="background:#fff;border:1.5px solid #EDE9E4;border-radius:16px;
                             padding:16px 18px;box-shadow:0 2px 12px rgba(0,0,0,0.05);">
                   <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
@@ -3925,7 +3931,7 @@ def tela_admin():
                   {andamento_html}
                   {etapas_html}
                 </div>
-                </body></html>""", height=h_card, scrolling=False)
+                """, unsafe_allow_html=True)
 
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
@@ -4808,24 +4814,7 @@ def tela_admin():
         n_ops = len(op_map)
         op_table_height = 24 + 52 + n_ops * 52 + 16
         lbl_op = f"Desempenho por Operador · {filtro_data}" if filtro_data != "Todos os dias" else "Desempenho por Operador"
-        components.html(f"""<!DOCTYPE html><html><head>
-        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-        <style>
-        *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
-        .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
-        .outer{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-        .scroll{{overflow-x:auto;-webkit-overflow-scrolling:touch;}}
-        table{{width:100%;min-width:560px;border-collapse:collapse;table-layout:fixed;}}
-        col.c-op{{width:28%;}} col.c-ped{{width:9%;}} col.c-pcs{{width:9%;}}
-        col.c-tt{{width:12%;}} col.c-tm{{width:12%;}} col.c-pau{{width:9%;}}
-        col.c-efi{{width:12%;}} col.c-prod{{width:13%;}}
-        thead tr{{background:#1A1714;}}
-        th{{padding:10px 6px;font-size:8px;font-weight:800;letter-spacing:1.2px;
-            text-transform:uppercase;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}}
-        th:first-child{{text-align:left;padding-left:14px;}}
-        tbody tr{{border-bottom:1px solid #F2EEE9;}} tbody tr:last-child{{border-bottom:none;}}
-        tbody tr:hover{{background:#FDFAF9;}}
-        </style></head><body>
+        st.markdown(f"""
         <div class="lbl">{lbl_op}</div>
         <div class="outer"><div class="scroll"><table>
           <colgroup>
@@ -4845,7 +4834,7 @@ def tela_admin():
           </tr></thead>
           <tbody>{op_rows}</tbody>
         </table></div></div>
-        </body></html>""", height=op_table_height, scrolling=False)
+        """, unsafe_allow_html=True)
 
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
@@ -4921,15 +4910,10 @@ def tela_admin():
                 </div>"""
 
             ranking_height = 24 + min(len(ranking_items), 5) * 58 + 32
-            components.html(f"""<!DOCTYPE html><html><head>
-            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-            <style>*{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
-            .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:12px;}}
-            .card{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;padding:18px 20px;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-            </style></head><body>
+            st.markdown(f"""
             <div class="lbl">{ranking_lbl}</div>
             <div class="card">{ranking_html}</div>
-            </body></html>""", height=ranking_height, scrolling=False)
+            """, unsafe_allow_html=True)
 
         else:
             # Por etapa -- um ranking de operadores por cada etapa
@@ -4977,21 +4961,13 @@ def tela_admin():
                     </div>"""
 
                 card_h = 28 + 52 + len(op_sorted_eta[:5]) * 50 + 20
-                components.html(f"""<!DOCTYPE html><html><head>
-                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-                <style>*{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
-                .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
-                .card{{background:#fff;border-radius:16px;border:1.5px solid {eta_cor}33;
-                       border-left:4px solid {eta_cor};padding:16px 20px;box-shadow:0 2px 12px rgba(0,0,0,0.04);}}
-                .badge{{display:inline-block;background:{eta_bg};color:{eta_cor};font-size:11px;font-weight:800;
-                        padding:3px 12px;border-radius:100px;margin-bottom:12px;}}
-                </style></head><body>
+                st.markdown(f"""
                 <div class="lbl">🏆 Ranking por Etapa</div>
                 <div class="card">
                   <div class="badge">{eta_nome}</div>
                   {eta_rows}
                 </div>
-                </body></html>""", height=card_h, scrolling=False)
+                """, unsafe_allow_html=True)
                 st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
 
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
@@ -5030,16 +5006,10 @@ def tela_admin():
                       <div style="width:100%;max-width:36px;height:{bar_h}px;background:{cor_bar};border-radius:4px 4px 0 0;"></div>
                       <div style="font-size:9px;font-weight:800;color:#9C9490;">{h:02d}h</div>
                     </div>"""
-                components.html(f"""<!DOCTYPE html><html><head>
-                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-                <style>*{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
-                .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:12px;}}
-                .card{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;padding:16px 20px 12px;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-                .bars{{display:flex;align-items:flex-end;gap:6px;height:130px;padding-top:20px;}}
-                </style></head><body>
+                st.markdown(f"""
                 <div class="lbl">📈 Produção por Hora -- Por Operador</div>
                 <div class="card"><div class="bars">{bars_html}</div></div>
-                </body></html>""", height=180, scrolling=False)
+                """, unsafe_allow_html=True)
 
         else:
             # Por etapa: barras agrupadas por hora, uma cor por etapa
@@ -5114,18 +5084,12 @@ def tela_admin():
                     for e in etapas_visiveis
                 ])
 
-                components.html(f"""<!DOCTYPE html><html><head>
-                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-                <style>*{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
-                .card{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;padding:16px 20px 12px;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-                .bars{{display:flex;align-items:flex-end;gap:6px;height:130px;padding-top:20px;}}
-                .leg{{margin-top:10px;}}
-                </style></head><body>
+                st.markdown(f"""
                 <div class="card">
                   <div class="bars">{bars_html_e if etapas_visiveis else '<div style="color:#9C9490;font-size:12px;font-weight:700;padding:20px;">Selecione ao menos uma etapa acima.</div>'}</div>
                   <div class="leg">{legenda}</div>
                 </div>
-                </body></html>""", height=210, scrolling=False)
+                """, unsafe_allow_html=True)
 
     else:
         st.markdown("""<div style="background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;
@@ -5153,16 +5117,15 @@ def tela_admin():
         expanded=n_pausas > 0
     ):
         if not pausas_filtradas:
-            components.html("""<!DOCTYPE html><html><body style="background:transparent;
-            font-family:Nunito,sans-serif;margin:0;padding:0;">
+            st.markdown("""
             <div style="background:#FFF8F0;border:1.5px solid #E07B3A33;border-radius:12px;
-                        padding:20px;text-align:center;">
+                        padding:20px;text-align:center;margin:4px 0;">
               <div style="font-size:22px;margin-bottom:6px;">⏸</div>
               <div style="font-size:13px;font-weight:700;color:#B85C20;">
                 Nenhuma pausa registrada para este filtro.</div>
               <div style="font-size:11px;color:#9C9490;margin-top:4px;font-weight:600;">
                 As pausas aparecem aqui quando confirmadas com senha do gestor.</div>
-            </div></body></html>""", height=110, scrolling=False)
+            </div>""", unsafe_allow_html=True)
         else:
             ETAPA_TAG = {
                 0: '<span style="background:#EBF0FB;color:#3B5EC6;padding:2px 8px;border-radius:100px;font-size:10px;font-weight:800;">Separação</span>',
@@ -5187,26 +5150,14 @@ def tela_admin():
 
             n_p = min(len(pausas_filtradas), 100)
             pausa_height = 52 + n_p * 44 + 20
-            components.html(f"""<!DOCTYPE html><html><head>
-            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-            <style>
-            *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
-            .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-            .scroll{{overflow-x:auto;-webkit-overflow-scrolling:touch;}}
-            table{{width:100%;min-width:520px;border-collapse:collapse;}}
-            thead tr{{background:#1A1714;}}
-            th{{padding:11px 8px;font-size:8px;font-weight:800;letter-spacing:1.3px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-align:center;white-space:nowrap;}}
-            th:first-child{{text-align:left;padding-left:14px;}} th:nth-child(2){{text-align:left;}} th:last-child{{text-align:left;}}
-            tbody tr{{border-bottom:1px solid #F2EEE9;}} tbody tr:last-child{{border-bottom:none;}}
-            tbody tr:hover{{background:#FFF8F0;}}
-            </style></head><body>
+            st.markdown(f"""
             <div class="wrap"><div class="scroll"><table><thead><tr>
               <th>Pedido</th><th>Operador</th><th>Etapa</th>
               <th style="color:#D4A45A;">Pausado em</th>
               <th style="color:#E07B3A;">Tempo</th>
               <th style="color:rgba(255,255,255,0.35);">Motivo</th>
             </tr></thead><tbody>{pausa_rows}</tbody></table></div></div>
-            </body></html>""", height=pausa_height, scrolling=False)
+            """, unsafe_allow_html=True)
 
             # ── Resumo por operador ────────────────────────────────────────
             st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
@@ -5233,16 +5184,10 @@ def tela_admin():
                 </div>"""
 
             resumo_h = len(pausa_por_op) * 40 + 24
-            components.html(f"""<!DOCTYPE html><html><head>
-            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-            <style>*{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
-            .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:8px;}}
-            .card{{background:#fff;border-radius:14px;border:1.5px solid #EDE9E4;overflow:hidden;
-                   box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-            </style></head><body>
+            st.markdown(f"""
             <div class="lbl">Resumo de Pausas por Operador</div>
             <div class="card">{resumo_rows}</div>
-            </body></html>""", height=resumo_h, scrolling=False)
+            """, unsafe_allow_html=True)
 
     st.markdown("<br style='line-height:0.4'>", unsafe_allow_html=True)
 
@@ -5457,20 +5402,7 @@ def tela_admin():
               </div>
             </div>"""
 
-        components.html(f"""<!DOCTYPE html><html><head>
-        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-        <style>
-        *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
-        .lbl{{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#9C9490;margin-bottom:10px;}}
-        .card{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;padding:16px 20px;
-               box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-        .row{{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;}}
-        .kpi{{display:flex;flex-direction:column;gap:2px;}}
-        .kpi-n{{font-family:"DM Mono",monospace;font-size:26px;font-weight:500;color:#1A1714;letter-spacing:-1px;}}
-        .kpi-l{{font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#9C9490;}}
-        .sep{{width:1px;min-height:60px;background:#EDE9E4;flex-shrink:0;align-self:stretch;}}
-        .ops{{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}}
-        </style></head><body>
+        st.markdown(f"""
         <div class="lbl">{lbl_hist}</div>
         <div class="card">
           <div class="row">
@@ -5487,7 +5419,7 @@ def tela_admin():
             </div>
           </div>
         </div>
-        </body></html>""", height=150, scrolling=False)
+        """, unsafe_allow_html=True)
 
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
@@ -5548,19 +5480,7 @@ def tela_admin():
             n_hist = min(len(regs_hist_filtrados), 200)
             hist_height = 56 + (n_hist * 46) + 20
 
-            components.html(f"""<!DOCTYPE html><html><head>
-            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-            <style>
-            *{{margin:0;padding:0;box-sizing:border-box;}} body{{background:transparent;font-family:Nunito,sans-serif;}}
-            .wrap{{background:#fff;border-radius:16px;border:1.5px solid #EDE9E4;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.05);}}
-            .scroll{{overflow-x:auto;-webkit-overflow-scrolling:touch;}}
-            table{{width:100%;min-width:620px;border-collapse:collapse;}}
-            thead tr{{background:#1A1714;}}
-            th{{padding:12px 10px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-align:center;white-space:nowrap;}}
-            th:first-child{{text-align:left;padding-left:16px;}} th:nth-child(2){{text-align:left;}}
-            tbody tr{{border-bottom:1px solid #F2EEE9;}} tbody tr:last-child{{border-bottom:none;}}
-            tbody tr:hover{{background:#FDFAF9;}}
-            </style></head><body>
+            st.markdown(f"""
             <div class="wrap"><div class="scroll"><table><thead><tr>
               <th>Pedido</th><th>Operador</th><th>Etapa</th><th>Tempo</th>
               <th style="color:#7B9FE0;">Qtd Peças</th>
@@ -5568,7 +5488,7 @@ def tela_admin():
               <th style="color:#A0C8E0;">Início</th>
               <th style="color:#A0C8E0;">Fim</th>
             </tr></thead><tbody>{hist_rows}</tbody></table></div></div>
-            </body></html>""", height=hist_height, scrolling=False)
+            """, unsafe_allow_html=True)
 
 
 
