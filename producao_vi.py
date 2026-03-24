@@ -61,12 +61,34 @@ def _get(table, params="", paginar=False):
     Busca registros do Supabase.
     paginar=True: faz múltiplas requisições para retornar TODOS os registros
     (o Supabase limita 1000 por request por padrão).
+
+    Retry automático (3 tentativas, 0.6s entre elas) para cobrir falhas
+    transitórias de rede, timeouts e rate-limiting do Supabase.
+    Sem retry, qualquer falha retornava [] e era interpretada como
+    "pedido não encontrado" em vez de "erro de comunicação".
     """
+    _MAX_RETRIES = 3
+    _RETRY_SLEEP = 0.6
+
     headers = {**_sb_headers(), "Prefer": "count=none"}
+
     if not paginar:
-        r = requests.get(f"{SB_URL}/rest/v1/{table}?{params}",
-                         headers=headers, timeout=10)
-        return r.json() if r.ok else []
+        for _tentativa in range(_MAX_RETRIES):
+            try:
+                r = requests.get(f"{SB_URL}/rest/v1/{table}?{params}",
+                                 headers=headers, timeout=12)
+                if r.ok:
+                    return r.json()
+                # 429 = rate limit -- vale a pena esperar e tentar de novo
+                if r.status_code == 429 and _tentativa < _MAX_RETRIES - 1:
+                    time.sleep(_RETRY_SLEEP * (_tentativa + 1))
+                    continue
+                return []
+            except requests.exceptions.RequestException:
+                if _tentativa < _MAX_RETRIES - 1:
+                    time.sleep(_RETRY_SLEEP)
+        return []
+
     # Paginação automática -- retorna todos os registros sem corte
     PAGE = 1000
     todos = []
@@ -74,8 +96,21 @@ def _get(table, params="", paginar=False):
     while True:
         sep = "&" if params else ""
         url = f"{SB_URL}/rest/v1/{table}?{params}{sep}limit={PAGE}&offset={offset}"
-        r = requests.get(url, headers=headers, timeout=15)
-        if not r.ok:
+        _ok = False
+        for _tentativa in range(_MAX_RETRIES):
+            try:
+                r = requests.get(url, headers=headers, timeout=18)
+                if r.ok:
+                    _ok = True
+                    break
+                if r.status_code == 429 and _tentativa < _MAX_RETRIES - 1:
+                    time.sleep(_RETRY_SLEEP * (_tentativa + 1))
+                    continue
+                break
+            except requests.exceptions.RequestException:
+                if _tentativa < _MAX_RETRIES - 1:
+                    time.sleep(_RETRY_SLEEP)
+        if not _ok:
             break
         lote = r.json()
         if not isinstance(lote, list):
@@ -369,9 +404,17 @@ def buscar_status_completo_pedido(numero):
         ...
       ]
     }
+    Tenta até 3 vezes antes de declarar "nao_encontrado", para evitar falsos
+    negativos causados por timeouts ou rate-limiting do Supabase.
     """
-    # Status base
-    base_rows = _get("pedidos_base", f"numero=eq.{numero}&select=status,cliente")
+    # Status base -- até 3 tentativas para evitar falso "não encontrado"
+    base_rows = []
+    for _t in range(3):
+        base_rows = _get("pedidos_base", f"numero=eq.{numero}&select=status,cliente")
+        if base_rows:
+            break
+        if _t < 2:
+            time.sleep(0.5)
     if not base_rows:
         return {"base_status": "nao_encontrado", "cliente": "", "etapas": []}
     base_status = base_rows[0].get("status", "aberto")
@@ -454,8 +497,6 @@ def salvar(pedido, operador, etapa, etapa_idx, tempo, qtd_pecas=None):
         import time as _t; _t.sleep(1)
         _post("registros", payload)
     buscar.clear()  # invalida cache para o admin ver o novo registro
-
-@st.cache_data(ttl=20, show_spinner=False)
 def buscar():
     rows = _get("registros", "select=*&order=id.desc", paginar=True)
     if isinstance(rows, list):
@@ -3754,7 +3795,8 @@ def tela_admin():
                 num_r = rastr_input.strip()
                 if num_r:
                     st.session_state.rastr_num  = num_r
-                    st.session_state.rastr_info = buscar_status_completo_pedido(num_r)
+                    with st.spinner("Buscando pedido..."):
+                        st.session_state.rastr_info = buscar_status_completo_pedido(num_r)
                     # Busca também est_alocado e vr_alocado para exibir no rastreio
                     _rastr_ped = _get("pedidos_base",
                         f"numero=eq.{num_r}&select=est_alocado,vr_alocado")
